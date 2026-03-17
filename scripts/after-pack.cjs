@@ -40,6 +40,38 @@ function resolveArch(archEnum) {
   return ARCH_MAP[archEnum] || 'x64';
 }
 
+function getDirSizeBytes(dir) {
+  if (!existsSync(dir)) return 0;
+  let total = 0;
+  const stack = [dir];
+  while (stack.length > 0) {
+    const current = stack.pop();
+    let entries = [];
+    try {
+      entries = readdirSync(current, { withFileTypes: true });
+    } catch {
+      continue;
+    }
+    for (const entry of entries) {
+      const full = join(current, entry.name);
+      if (entry.isDirectory()) {
+        stack.push(full);
+      } else if (entry.isFile()) {
+        try {
+          total += statSync(full).size;
+        } catch {
+          // ignore file stat failures
+        }
+      }
+    }
+  }
+  return total;
+}
+
+function formatMiB(bytes) {
+  return `${(bytes / 1024 / 1024).toFixed(1)} MiB`;
+}
+
 // ── General cleanup ──────────────────────────────────────────────────────────
 
 function cleanupUnnecessaryFiles(dir) {
@@ -136,6 +168,26 @@ function cleanupNativePlatformPackages(nodeModulesDir, platform, arch) {
   }
 
   return removed;
+}
+
+function pruneCloudOnlyLocalLlmRuntimes(nodeModulesDir) {
+  const targets = [
+    join(nodeModulesDir, '@node-llama-cpp'),
+    join(nodeModulesDir, 'node-llama-cpp'),
+  ];
+  let removedCount = 0;
+  let reclaimedBytes = 0;
+  for (const target of targets) {
+    if (!existsSync(target)) continue;
+    reclaimedBytes += getDirSizeBytes(target);
+    try {
+      rmSync(target, { recursive: true, force: true });
+      removedCount++;
+    } catch {
+      // ignore removal failures
+    }
+  }
+  return { removedCount, reclaimedBytes };
 }
 
 // ── Broken module patcher ─────────────────────────────────────────────────────
@@ -340,6 +392,7 @@ exports.default = async function afterPack(context) {
   const dest = join(openclawRoot, 'node_modules');
   const nodeModulesRoot = join(__dirname, '..', 'node_modules');
   const pluginsDestRoot = join(resourcesDir, 'openclaw-plugins');
+  const cloudOnlyMode = process.env.CCLAWD_CLOUD_ONLY === '1';
 
   if (!existsSync(src)) {
     console.warn('[after-pack] ⚠️  build/openclaw/node_modules not found. Run bundle-openclaw first.');
@@ -401,5 +454,16 @@ exports.default = async function afterPack(context) {
   const nativeRemoved = cleanupNativePlatformPackages(dest, platform, arch);
   if (nativeRemoved > 0) {
     console.log(`[after-pack] ✅ Removed ${nativeRemoved} non-target native platform packages.`);
+  }
+
+  if (cloudOnlyMode) {
+    const result = pruneCloudOnlyLocalLlmRuntimes(dest);
+    if (result.removedCount > 0) {
+      console.log(
+        `[after-pack] ✅ cloud-only: removed ${result.removedCount} local LLM runtime package(s), reclaimed ${formatMiB(result.reclaimedBytes)}.`
+      );
+    } else {
+      console.log('[after-pack] ℹ️ cloud-only: no local LLM runtime packages found to prune.');
+    }
   }
 };
