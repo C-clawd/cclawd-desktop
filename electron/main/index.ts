@@ -16,7 +16,7 @@ import { warmupNetworkOptimization } from '../utils/uv-env';
 import { initTelemetry } from '../utils/telemetry';
 
 import { ClawHubService } from '../gateway/clawhub';
-import { ensurecclawdContext, repaircclawdOnlyBootstrapFiles } from '../utils/openclaw-workspace';
+import { ensureCCLAWDContext, repairCCLAWDOnlyBootstrapFiles } from '../utils/openclaw-workspace';
 import { autoInstallCliIfNeeded, generateCompletionCache, installCompletionToProfile } from '../utils/openclaw-cli';
 import { isQuitting, setQuitting } from './app-state';
 import { applyProxySettings } from './proxy';
@@ -276,9 +276,9 @@ async function initialize(): Promise<void> {
   // so it respects the user's "Auto-check for updates" setting.
 
   // Repair any bootstrap files that only contain Cclawd markers (no OpenClaw
-  // template content). This fixes a race condition where ensurecclawdContext()
+  // template content). This fixes a race condition where ensureCCLAWDContext()
   // previously created the file before the gateway could seed the full template.
-  void repaircclawdOnlyBootstrapFiles().catch((error) => {
+  void repairCCLAWDOnlyBootstrapFiles().catch((error) => {
     logger.warn('Failed to repair bootstrap files:', error);
   });
 
@@ -306,7 +306,7 @@ async function initialize(): Promise<void> {
   gatewayManager.on('status', (status: { state: string }) => {
     hostEventBus.emit('gateway:status', status);
     if (status.state === 'running') {
-      void ensurecclawdContext().catch((error) => {
+      void ensureCCLAWDContext().catch((error) => {
         logger.warn('Failed to re-merge Cclawd context after gateway reconnect:', error);
       });
     }
@@ -394,8 +394,8 @@ async function initialize(): Promise<void> {
 
   // Merge Cclawd context snippets into the workspace bootstrap files.
   // The gateway seeds workspace files asynchronously after its HTTP server
-  // is ready, so ensurecclawdContext will retry until the target files appear.
-  void ensurecclawdContext().catch((error) => {
+  // is ready, so ensureCCLAWDContext will retry until the target files appear.
+  void ensureCCLAWDContext().catch((error) => {
     logger.warn('Failed to merge Cclawd context into workspace:', error);
   });
 

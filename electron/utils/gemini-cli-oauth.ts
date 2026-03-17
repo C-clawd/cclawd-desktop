@@ -3,7 +3,7 @@ import { createHash, randomBytes } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, unlinkSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { delimiter, dirname, join } from 'node:path';
-import { getcclawdConfigDir } from './paths';
+import { getOpenClawConfigDir } from './paths';
 import { proxyAwareFetch } from './proxy-fetch';
 
 const CLIENT_ID_KEYS = ['OPENCLAW_GEMINI_OAUTH_CLIENT_ID', 'GEMINI_CLI_OAUTH_CLIENT_ID'];
@@ -24,7 +24,7 @@ const SCOPES = [
 const TIER_FREE = 'free-tier';
 const TIER_LEGACY = 'legacy-tier';
 const TIER_STANDARD = 'standard-tier';
-const LOCAL_GEMINI_DIR = join(getcclawdConfigDir(), 'gemini-cli');
+const LOCAL_GEMINI_DIR = join(getOpenClawConfigDir(), 'gemini-cli');
 
 export type GeminiCliOAuthCredentials = {
   access: string;
