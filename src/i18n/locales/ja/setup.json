@@ -23,6 +23,10 @@
         "complete": {
             "title": "完了！",
             "description": "Cclawdを使用する準備が整いました"
+        },
+        "realPerson": {
+            "title": "実人認証",
+            "description": "認証用の環境変数を設定します"
         }
     },
     "welcome": {
@@ -143,5 +147,20 @@
             "name": "ターミナル",
             "description": "シェルコマンドの実行"
         }
+    },
+    "realPerson": {
+        "title": "実人認証",
+        "subtitle": "この手順では OpenClaw の .env を読み込み、認証用の変数を編集できます。",
+        "loading": ".env 変数を読み込み中...",
+        "key": "環境変数",
+        "value": "値",
+        "valuePlaceholder": "値を入力",
+        "add": "変数を追加",
+        "remove": "削除",
+        "save": ".env に保存",
+        "saved": ".env に保存しました",
+        "loadFailed": ".env の読み込みに失敗しました",
+        "saveFailed": ".env の保存に失敗しました",
+        "invalidKey": "無効な環境変数名: {{key}}"
     }
 }

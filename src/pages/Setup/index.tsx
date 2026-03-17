@@ -41,12 +41,18 @@ interface SetupStep {
   description: string;
 }
 
+interface EnvFormEntry {
+  key: string;
+  value: string;
+}
+
 const STEP = {
   WELCOME: 0,
   RUNTIME: 1,
   PROVIDER: 2,
-  INSTALLING: 3,
-  COMPLETE: 4,
+  REAL_PERSON: 3,
+  INSTALLING: 4,
+  COMPLETE: 5,
 } as const;
 
 const getSteps = (t: TFunction): SetupStep[] => [
@@ -64,6 +70,11 @@ const getSteps = (t: TFunction): SetupStep[] => [
     id: 'provider',
     title: t('steps.provider.title'),
     description: t('steps.provider.description'),
+  },
+  {
+    id: 'realPerson',
+    title: t('steps.realPerson.title'),
+    description: t('steps.realPerson.description'),
   },
   {
     id: 'installing',
@@ -140,6 +151,7 @@ export function Setup() {
   const [installedSkills, setInstalledSkills] = useState<string[]>([]);
   // Runtime check status
   const [runtimeChecksPassed, setRuntimeChecksPassed] = useState(false);
+  const [realPersonConfigured, setRealPersonConfigured] = useState(false);
 
   const steps = getSteps(t);
   const safeStepIndex = Number.isInteger(currentStep)
@@ -160,6 +172,8 @@ export function Setup() {
         return runtimeChecksPassed;
       case STEP.PROVIDER:
         return providerConfigured;
+      case STEP.REAL_PERSON:
+        return realPersonConfigured;
       case STEP.INSTALLING:
         return false; // Cannot manually proceed, auto-proceeds when done
       case STEP.COMPLETE:
@@ -167,7 +181,7 @@ export function Setup() {
       default:
         return true;
     }
-  }, [safeStepIndex, providerConfigured, runtimeChecksPassed]);
+  }, [safeStepIndex, providerConfigured, realPersonConfigured, runtimeChecksPassed]);
 
   const handleNext = async () => {
     if (isLastStep) {
@@ -264,6 +278,9 @@ export function Setup() {
                   onApiKeyChange={setApiKey}
                   onConfiguredChange={setProviderConfigured}
                 />
+              )}
+              {safeStepIndex === STEP.REAL_PERSON && (
+                <RealPersonAuthContent onConfiguredChange={setRealPersonConfigured} />
               )}
               {safeStepIndex === STEP.INSTALLING && (
                 <InstallingContent
@@ -366,6 +383,194 @@ function WelcomeContent() {
           {t('welcome.features.crossPlatform')}
         </li>
       </ul>
+    </div>
+  );
+}
+
+interface RealPersonAuthContentProps {
+  onConfiguredChange: (configured: boolean) => void;
+}
+
+function RealPersonAuthContent({ onConfiguredChange }: RealPersonAuthContentProps) {
+  const { t } = useTranslation('setup');
+  const [envPath, setEnvPath] = useState('');
+  const [entries, setEntries] = useState<EnvFormEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [dirty, setDirty] = useState(false);
+  const [showValues, setShowValues] = useState<Record<string, boolean>>({});
+
+  const isSecretKey = useCallback((key: string) => (
+    /(token|secret|key|password|passwd|private|credential)/i.test(key)
+  ), []);
+
+  const loadEnv = useCallback(async () => {
+    setLoading(true);
+    try {
+      const response = await hostApiFetch<{
+        success?: boolean;
+        path?: string;
+        entries?: EnvFormEntry[];
+        error?: string;
+      }>('/api/app/openclaw-env');
+      if (response?.success === false) {
+        throw new Error(response.error || 'Failed to load .env');
+      }
+      setEnvPath(response.path || '');
+      const nextEntries = Array.isArray(response.entries) ? response.entries : [];
+      setEntries(nextEntries.length > 0 ? nextEntries : [{ key: '', value: '' }]);
+      setDirty(false);
+      onConfiguredChange(true);
+    } catch (error) {
+      onConfiguredChange(false);
+      toast.error(t('realPerson.loadFailed'));
+      console.error('Failed to load OpenClaw .env:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [onConfiguredChange, t]);
+
+  useEffect(() => {
+    void loadEnv();
+  }, [loadEnv]);
+
+  const updateEntry = (index: number, patch: Partial<EnvFormEntry>) => {
+    setEntries((prev) => prev.map((item, i) => (i === index ? { ...item, ...patch } : item)));
+    setDirty(true);
+    onConfiguredChange(false);
+  };
+
+  const addEntry = () => {
+    setEntries((prev) => [...prev, { key: '', value: '' }]);
+    setDirty(true);
+    onConfiguredChange(false);
+  };
+
+  const removeEntry = (index: number) => {
+    setEntries((prev) => {
+      const next = prev.filter((_, i) => i !== index);
+      return next.length > 0 ? next : [{ key: '', value: '' }];
+    });
+    setDirty(true);
+    onConfiguredChange(false);
+  };
+
+  const toggleValueVisibility = (key: string, index: number) => {
+    const id = `${key}:${index}`;
+    setShowValues((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  const handleSave = async () => {
+    const nextEntries = entries
+      .map((item) => ({ key: item.key.trim(), value: item.value }))
+      .filter((item) => item.key.length > 0);
+
+    const invalidEntry = nextEntries.find((item) => !/^[A-Za-z_][A-Za-z0-9_]*$/.test(item.key));
+    if (invalidEntry) {
+      toast.error(t('realPerson.invalidKey', { key: invalidEntry.key }));
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const response = await hostApiFetch<{
+        success?: boolean;
+        path?: string;
+        entries?: EnvFormEntry[];
+        error?: string;
+      }>('/api/app/openclaw-env', {
+        method: 'PUT',
+        body: JSON.stringify({ entries: nextEntries }),
+      });
+      if (response?.success === false) {
+        throw new Error(response.error || 'Failed to save .env');
+      }
+      setEnvPath(response.path || envPath);
+      setEntries(Array.isArray(response.entries) && response.entries.length > 0 ? response.entries : [{ key: '', value: '' }]);
+      setDirty(false);
+      onConfiguredChange(true);
+      toast.success(t('realPerson.saved'));
+    } catch (error) {
+      onConfiguredChange(false);
+      toast.error(t('realPerson.saveFailed'));
+      console.error('Failed to save OpenClaw .env:', error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="space-y-1">
+        <h2 className="text-xl font-semibold">{t('realPerson.title')}</h2>
+        <p className="text-sm text-muted-foreground">{t('realPerson.subtitle')}</p>
+        {envPath && <p className="text-xs text-muted-foreground">{envPath}</p>}
+      </div>
+
+      {loading ? (
+        <div className="flex items-center justify-center gap-2 rounded-md border border-dashed py-8 text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          <span>{t('realPerson.loading')}</span>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {entries.map((entry, index) => {
+            const visibilityId = `${entry.key}:${index}`;
+            const showValue = showValues[visibilityId] ?? false;
+            const sensitive = isSecretKey(entry.key);
+            return (
+              <div key={`${entry.key}-${index}`} className="grid grid-cols-[1fr,1fr,auto] gap-2">
+                <div className="space-y-1">
+                  {index === 0 && <Label>{t('realPerson.key')}</Label>}
+                  <Input
+                    value={entry.key}
+                    onChange={(e) => updateEntry(index, { key: e.target.value })}
+                    placeholder="REAL_PERSON_KEY"
+                    autoComplete="off"
+                  />
+                </div>
+                <div className="space-y-1">
+                  {index === 0 && <Label>{t('realPerson.value')}</Label>}
+                  <div className="relative">
+                    <Input
+                      value={entry.value}
+                      type={sensitive && !showValue ? 'password' : 'text'}
+                      onChange={(e) => updateEntry(index, { value: e.target.value })}
+                      placeholder={t('realPerson.valuePlaceholder')}
+                      autoComplete="off"
+                      className={cn(sensitive && 'pr-10')}
+                    />
+                    {sensitive && (
+                      <button
+                        type="button"
+                        onClick={() => toggleValueVisibility(entry.key, index)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      >
+                        {showValue ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-end">
+                  <Button variant="ghost" onClick={() => removeEntry(index)}>
+                    {t('realPerson.remove')}
+                  </Button>
+                </div>
+              </div>
+            );
+          })}
+
+          <div className="flex items-center justify-between pt-2">
+            <Button variant="outline" onClick={addEntry}>
+              {t('realPerson.add')}
+            </Button>
+            <Button onClick={handleSave} disabled={loading || saving || !dirty}>
+              {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              {t('realPerson.save')}
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

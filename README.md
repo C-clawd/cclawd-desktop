@@ -428,3 +428,8 @@ Cclawd is released under the [MIT License](LICENSE). You're free to use, modify,
 <p align="center">
   <sub>Built with ❤️ by the ValueCell Team</sub>
 </p>
+
+## Setup Wizard Update (2026-03-17)
+
+The first-launch wizard now includes a **Real-Person Verification** step.
+It loads variables from `~/.openclaw/.env`, builds an editable form from existing keys, and writes updates back to that same file.

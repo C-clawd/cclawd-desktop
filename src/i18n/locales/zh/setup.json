@@ -23,6 +23,10 @@
         "complete": {
             "title": "准备就绪！",
             "description": "Cclawd 已准备好使用"
+        },
+        "realPerson": {
+            "title": "实人认证",
+            "description": "填写并保存认证环境变量"
         }
     },
     "welcome": {
@@ -143,5 +147,20 @@
             "name": "终端",
             "description": "Shell 命令执行"
         }
+    },
+    "realPerson": {
+        "title": "实人认证",
+        "subtitle": "此步骤会读取 OpenClaw 的 .env 文件，并允许你编辑认证变量。",
+        "loading": "正在加载 .env 变量...",
+        "key": "环境变量",
+        "value": "值",
+        "valuePlaceholder": "请输入值",
+        "add": "新增变量",
+        "remove": "移除",
+        "save": "保存到 .env",
+        "saved": "已保存到 .env",
+        "loadFailed": "加载 .env 失败",
+        "saveFailed": "保存 .env 失败",
+        "invalidKey": "无效的环境变量名: {{key}}"
     }
 }

@@ -12,6 +12,10 @@
             "title": "AI Provider",
             "description": "Configure your AI service"
         },
+        "realPerson": {
+            "title": "Real-Person Verification",
+            "description": "Fill in verification env settings"
+        },
         "channel": {
             "title": "Connect a Channel",
             "description": "Connect a messaging platform (optional)"
@@ -79,6 +83,21 @@
         "valid": "Provider configured successfully",
         "invalid": "Invalid API key",
         "storedLocally": "Your API key is stored locally on your machine."
+    },
+    "realPerson": {
+        "title": "Real-Person Verification",
+        "subtitle": "This step reads your OpenClaw .env file and lets you edit verification variables.",
+        "loading": "Loading .env variables...",
+        "key": "Environment Variable",
+        "value": "Value",
+        "valuePlaceholder": "Enter value",
+        "add": "Add Variable",
+        "remove": "Remove",
+        "save": "Save to .env",
+        "saved": "Saved to .env",
+        "loadFailed": "Failed to load .env",
+        "saveFailed": "Failed to save .env",
+        "invalidKey": "Invalid env key: {{key}}"
     },
     "channel": {
         "title": "Connect a Messaging Channel",

@@ -3,6 +3,7 @@ import type { HostApiContext } from '../context';
 import { parseJsonBody } from '../route-utils';
 import { setCorsHeaders, sendJson, sendNoContent } from '../route-utils';
 import { runOpenClawDoctor, runOpenClawDoctorFix } from '../../utils/openclaw-doctor';
+import { readOpenClawEnv, writeOpenClawEnv, type OpenClawEnvEntry } from '../../utils/openclaw-env';
 
 export async function handleAppRoutes(
   req: IncomingMessage,
@@ -29,6 +30,26 @@ export async function handleAppRoutes(
     const body = await parseJsonBody<{ mode?: 'diagnose' | 'fix' }>(req);
     const mode = body.mode === 'fix' ? 'fix' : 'diagnose';
     sendJson(res, 200, mode === 'fix' ? await runOpenClawDoctorFix() : await runOpenClawDoctor());
+    return true;
+  }
+
+  if (url.pathname === '/api/app/openclaw-env' && req.method === 'GET') {
+    try {
+      sendJson(res, 200, { success: true, ...(await readOpenClawEnv()) });
+    } catch (error) {
+      sendJson(res, 500, { success: false, error: String(error) });
+    }
+    return true;
+  }
+
+  if (url.pathname === '/api/app/openclaw-env' && req.method === 'PUT') {
+    try {
+      const body = await parseJsonBody<{ entries?: OpenClawEnvEntry[] }>(req);
+      const entries = Array.isArray(body.entries) ? body.entries : [];
+      sendJson(res, 200, { success: true, ...(await writeOpenClawEnv(entries)) });
+    } catch (error) {
+      sendJson(res, 500, { success: false, error: String(error) });
+    }
     return true;
   }
 
