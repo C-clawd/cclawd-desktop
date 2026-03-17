@@ -200,7 +200,7 @@ export function Setup() {
 
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-background text-foreground">
+    <div className="flex h-screen flex-col overflow-hidden bg-background/50 text-foreground">
       <TitleBar />
       <div className="flex-1 overflow-auto">
         {/* Progress Indicator */}
