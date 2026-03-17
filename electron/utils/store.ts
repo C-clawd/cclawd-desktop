@@ -15,7 +15,7 @@ let settingsStoreInstance: any = null;
  * Generate a random token for gateway authentication
  */
 function generateToken(): string {
-  return `clawx-${randomBytes(16).toString('hex')}`;
+  return `Cclawd-${randomBytes(16).toString('hex')}`;
 }
 
 /**

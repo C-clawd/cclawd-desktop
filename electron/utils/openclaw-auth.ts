@@ -735,7 +735,7 @@ export async function getActiveOpenClawProviders(): Promise<Set<string>> {
 }
 
 /**
- * Write the ClawX gateway token into ~/.openclaw/openclaw.json.
+ * Write the Cclawd gateway token into ~/.openclaw/openclaw.json.
  */
 export async function syncGatewayTokenToConfig(token: string): Promise<void> {
   return withConfigLock(async () => {
@@ -757,7 +757,7 @@ export async function syncGatewayTokenToConfig(token: string): Promise<void> {
     auth.token = token;
     gateway.auth = auth;
 
-    // Packaged ClawX loads the renderer from file://, so the gateway must allow
+    // Packaged Cclawd loads the renderer from file://, so the gateway must allow
     // that origin for the chat WebSocket handshake.
     const controlUi = (
       gateway.controlUi && typeof gateway.controlUi === 'object'
@@ -879,7 +879,7 @@ export async function updateAgentModelProvider(
  * Removes known-invalid keys that cause OpenClaw's strict Zod validation
  * to reject the entire config on startup.  Uses a conservative **blocklist**
  * approach: only strips keys that are KNOWN to be misplaced by older
- * OpenClaw/ClawX versions or external tools.
+ * OpenClaw/Cclawd versions or external tools.
  *
  * Why blocklist instead of allowlist?
  *   • Allowlist (e.g. `VALID_SKILLS_KEYS`) would strip any NEW valid keys
@@ -972,7 +972,7 @@ export async function sanitizeOpenClawConfig(): Promise<void> {
     // ── tools.web.search.kimi ─────────────────────────────────────
     // OpenClaw web_search(kimi) prioritizes tools.web.search.kimi.apiKey over
     // environment/auth-profiles. A stale inline key can cause persistent 401s.
-    // When ClawX-managed moonshot provider exists, prefer centralized key
+    // When Cclawd-managed moonshot provider exists, prefer centralized key
     // resolution and strip the inline key.
     const providers = ((config.models as Record<string, unknown> | undefined)?.providers as Record<string, unknown> | undefined) || {};
     if (providers[OPENCLAW_PROVIDER_KEY_MOONSHOT]) {
@@ -993,7 +993,7 @@ export async function sanitizeOpenClawConfig(): Promise<void> {
 
     // ── tools.profile & sessions.visibility ───────────────────────
     // OpenClaw 3.8+ requires tools.profile = 'full' and tools.sessions.visibility = 'all'
-    // for ClawX to properly integrate with its updated tool system.
+    // for Cclawd to properly integrate with its updated tool system.
     const toolsConfig = (config.tools as Record<string, unknown> | undefined) || {};
     let toolsModified = false;
 
@@ -1018,7 +1018,7 @@ export async function sanitizeOpenClawConfig(): Promise<void> {
     // ── plugins.entries.feishu cleanup ──────────────────────────────
     // The official feishu plugin registers its channel AS 'feishu' via
     // openclaw.plugin.json.  An explicit entries.feishu.enabled=false
-    // (set by older ClawX to disable the legacy built-in) blocks the
+    // (set by older Cclawd to disable the legacy built-in) blocks the
     // official plugin's channel from starting.  Only clean up when the
     // new openclaw-lark plugin is already configured (to avoid removing
     // a legitimate old-style feishu plugin from users who haven't upgraded).
@@ -1085,7 +1085,7 @@ export async function sanitizeOpenClawConfig(): Promise<void> {
     // ── channels default-account migration ─────────────────────────
     // Most OpenClaw channel plugins read the default account's credentials
     // from the top level of `channels.<type>` (e.g. channels.feishu.appId),
-    // but ClawX historically stored them only under `channels.<type>.accounts.default`.
+    // but Cclawd historically stored them only under `channels.<type>.accounts.default`.
     // Mirror the default account credentials at the top level so plugins can
     // discover them.
     const channelsObj = config.channels as Record<string, Record<string, unknown>> | undefined;

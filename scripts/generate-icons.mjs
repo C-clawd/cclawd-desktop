@@ -10,13 +10,13 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const PROJECT_ROOT = path.resolve(__dirname, '..');
 const ICONS_DIR = path.join(PROJECT_ROOT, 'resources', 'icons');
-const SVG_SOURCE = path.join(ICONS_DIR, 'icon.svg');
+const PNG_SOURCE = path.join(ICONS_DIR, 'icon.png');
 
-echo`🎨 Generating ClawX icons using Node.js...`;
+echo`🎨 Generating Cclawd icons using Node.js...`;
 
-// Check if SVG source exists
-if (!fs.existsSync(SVG_SOURCE)) {
-  echo`❌ SVG source not found: ${SVG_SOURCE}`;
+// Check if PNG source exists
+if (!fs.existsSync(PNG_SOURCE)) {
+  echo`❌ PNG source not found: ${PNG_SOURCE}`;
   process.exit(1);
 }
 
@@ -25,8 +25,8 @@ await fs.ensureDir(ICONS_DIR);
 
 try {
   // 1. Generate Master PNG Buffer (1024x1024)
-  echo`  Processing SVG source...`;
-  const masterPngBuffer = await sharp(SVG_SOURCE)
+  echo`  Processing PNG source...`;
+  const masterPngBuffer = await sharp(PNG_SOURCE)
     .resize(1024, 1024)
     .png() // Ensure it's PNG
     .toBuffer();
