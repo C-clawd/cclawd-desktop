@@ -2,7 +2,7 @@
  * Shared OpenClaw Plugin Install Utilities
  *
  * Provides version-aware install/upgrade logic for bundled OpenClaw plugins
- * (DingTalk, WeCom, QQBot, Feishu).  Used both at app startup (to auto-upgrade
+ * (DingTalk, WeCom, QQBot, Feishu, MFA Auth).  Used both at app startup (to auto-upgrade
  * stale plugins) and when a user configures a channel.
  */
 import { app } from 'electron';
@@ -110,6 +110,10 @@ export function ensureQQBotPluginInstalled(): { installed: boolean; warning?: st
   return ensurePluginInstalled('qqbot', buildCandidateSources('qqbot'), 'QQ Bot');
 }
 
+export function ensureMfaAuthPluginInstalled(): { installed: boolean; warning?: string } {
+  return ensurePluginInstalled('mfa-auth', buildCandidateSources('mfa-auth'), 'MFA Auth');
+}
+
 // ── Bulk startup installer ───────────────────────────────────────────────────
 
 /**
@@ -120,6 +124,7 @@ const ALL_BUNDLED_PLUGINS = [
   { fn: ensureWeComPluginInstalled, label: 'WeCom' },
   { fn: ensureQQBotPluginInstalled, label: 'QQ Bot' },
   { fn: ensureFeishuPluginInstalled, label: 'Feishu' },
+  { fn: ensureMfaAuthPluginInstalled, label: 'MFA Auth' },
 ] as const;
 
 /**

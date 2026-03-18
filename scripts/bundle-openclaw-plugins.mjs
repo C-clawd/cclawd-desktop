@@ -7,6 +7,7 @@
  * Current plugins:
  *   - @soimy/dingtalk -> build/openclaw-plugins/dingtalk
  *   - @wecom/wecom-openclaw-plugin -> build/openclaw-plugins/wecom
+ *   - local mfa-auth -> build/openclaw-plugins/mfa-auth
  *
  * The output plugin directory contains:
  *   - plugin source files (index.ts, openclaw.plugin.json, package.json, ...)
@@ -39,6 +40,13 @@ const PLUGINS = [
   { npmName: '@wecom/wecom-openclaw-plugin', pluginId: 'wecom' },
   { npmName: '@sliverp/qqbot', pluginId: 'qqbot' },
   { npmName: '@larksuite/openclaw-lark', pluginId: 'feishu-openclaw-plugin' },
+];
+
+const LOCAL_PLUGINS = [
+  {
+    pluginId: 'mfa-auth',
+    sourceDir: path.join(ROOT, 'build', 'openclaw', 'extensions', 'mfa-auth'),
+  },
 ];
 
 function getVirtualStoreNodeModules(realPkgPath) {
@@ -179,6 +187,24 @@ fs.mkdirSync(OUTPUT_ROOT, { recursive: true });
 
 for (const plugin of PLUGINS) {
   bundleOnePlugin(plugin);
+}
+
+for (const plugin of LOCAL_PLUGINS) {
+  const outputDir = path.join(OUTPUT_ROOT, plugin.pluginId);
+  if (!fs.existsSync(plugin.sourceDir)) {
+    echo`⚠️  Skipping local plugin ${plugin.pluginId}: source not found (${plugin.sourceDir})`;
+    continue;
+  }
+  if (fs.existsSync(outputDir)) {
+    fs.rmSync(outputDir, { recursive: true, force: true });
+  }
+  fs.mkdirSync(outputDir, { recursive: true });
+  fs.cpSync(plugin.sourceDir, outputDir, { recursive: true, dereference: true });
+  const manifestPath = path.join(outputDir, 'openclaw.plugin.json');
+  if (!fs.existsSync(manifestPath)) {
+    throw new Error(`Missing openclaw.plugin.json in local plugin output: ${plugin.pluginId}`);
+  }
+  echo`   ✅ ${plugin.pluginId}: copied from local source`;
 }
 
 echo`✅ Plugin mirrors ready: ${OUTPUT_ROOT}`;

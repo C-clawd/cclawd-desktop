@@ -456,6 +456,29 @@ exports.default = async function afterPack(context) {
     console.log(`[after-pack] ✅ Removed ${nativeRemoved} non-target native platform packages.`);
   }
 
+  // 1.2 Bundle local built-in plugin mirrors that are not npm-published.
+  //     mfa-auth lives in this repo under build/openclaw-plugins/mfa-auth.
+  const LOCAL_BUNDLED_PLUGINS = [
+    { pluginId: 'mfa-auth', sourceDir: join(__dirname, '..', 'build', 'openclaw-plugins', 'mfa-auth') },
+  ];
+  for (const { pluginId, sourceDir } of LOCAL_BUNDLED_PLUGINS) {
+    if (!existsSync(sourceDir)) {
+      console.warn(`[after-pack] ⚠️ Local plugin mirror not found: ${sourceDir}`);
+      continue;
+    }
+    const pluginDestDir = join(pluginsDestRoot, pluginId);
+    rmSync(pluginDestDir, { recursive: true, force: true });
+    mkdirSync(pluginDestDir, { recursive: true });
+    cpSync(sourceDir, pluginDestDir, { recursive: true, dereference: true });
+    cleanupUnnecessaryFiles(pluginDestDir);
+    const pluginNM = join(pluginDestDir, 'node_modules');
+    if (existsSync(pluginNM)) {
+      cleanupKoffi(pluginNM, platform, arch);
+      cleanupNativePlatformPackages(pluginNM, platform, arch);
+    }
+    console.log(`[after-pack] Bundled local plugin mirror -> ${pluginDestDir}`);
+  }
+
   if (cloudOnlyMode) {
     const result = pruneCloudOnlyLocalLlmRuntimes(dest);
     if (result.removedCount > 0) {

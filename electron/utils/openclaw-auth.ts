@@ -1025,6 +1025,24 @@ export async function sanitizeOpenClawConfig(): Promise<void> {
     if (typeof plugins === 'object' && !Array.isArray(plugins)) {
       const pluginsObj = plugins as Record<string, unknown>;
       const pEntries = pluginsObj.entries as Record<string, Record<string, unknown>> | undefined;
+      const MFA_PLUGIN_ID = 'mfa-auth';
+
+      const allowArrMfa = Array.isArray(pluginsObj.allow) ? pluginsObj.allow as string[] : [];
+      if (!allowArrMfa.includes(MFA_PLUGIN_ID)) {
+        allowArrMfa.push(MFA_PLUGIN_ID);
+        pluginsObj.allow = allowArrMfa;
+        console.log('[sanitize] Enabled mfa-auth in plugins.allow');
+        modified = true;
+      }
+
+      const entriesObj = (pluginsObj.entries || {}) as Record<string, Record<string, unknown>>;
+      const mfaEntry = (entriesObj[MFA_PLUGIN_ID] || {}) as Record<string, unknown>;
+      if (mfaEntry.enabled !== true) {
+        entriesObj[MFA_PLUGIN_ID] = { ...mfaEntry, enabled: true };
+        pluginsObj.entries = entriesObj;
+        console.log('[sanitize] Enabled plugins.entries.mfa-auth');
+        modified = true;
+      }
 
       // ── feishu-openclaw-plugin → openclaw-lark migration ────────
       // Plugin @larksuite/openclaw-lark ≥2026.3.12 changed its manifest
