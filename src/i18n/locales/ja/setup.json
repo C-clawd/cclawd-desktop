@@ -161,6 +161,14 @@
         "saved": ".env に保存しました",
         "loadFailed": ".env の読み込みに失敗しました",
         "saveFailed": ".env の保存に失敗しました",
-        "invalidKey": "無効な環境変数名: {{key}}"
+        "invalidKey": "無効な環境変数名: {{key}}",
+        "guide": {
+            "title": "MFA_AUTH_API_KEY の取得方法",
+            "step1": "1. 認証プラットフォームにアクセス：cclawd.dbhl.cn/applyAccount",
+            "step2": "2. 「アカウントを申請」をクリック",
+            "step3": "3. 氏名と身分証番号を入力して MFA_AUTH_API_KEY を申請",
+            "step4": "4. キー取得後、以下の環境変数に MFA_AUTH_API_KEY を追加して保存",
+            "applyButton": "キーを申請する"
+        }
     }
 }

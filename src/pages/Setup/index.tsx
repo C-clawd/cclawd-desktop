@@ -507,6 +507,29 @@ function RealPersonAuthContent({ onConfiguredChange }: RealPersonAuthContentProp
         {envPath && <p className="text-xs text-muted-foreground">{envPath}</p>}
       </div>
 
+      {/* MFA Guide Section */}
+      <div className="rounded-lg border bg-blue-500/5 p-4 space-y-3">
+        <div className="flex items-center gap-2 text-blue-400 border-b border-blue-500/10 pb-2">
+          <AlertCircle className="h-4 w-4" />
+          <h3 className="font-medium">{t('realPerson.guide.title')}</h3>
+        </div>
+        <div className="space-y-2 text-sm text-slate-300">
+          <p>{t('realPerson.guide.step1')}</p>
+          <p>{t('realPerson.guide.step2')}</p>
+          <p>{t('realPerson.guide.step3')}</p>
+          <p>{t('realPerson.guide.step4')}</p>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          className="w-full mt-1 border-blue-500/30 hover:bg-blue-500/10 text-blue-400"
+          onClick={() => invokeIpc('shell:openExternal', 'https://cclawd.dbhl.cn/applyAccount')}
+        >
+          <ExternalLink className="h-3.5 w-3.5 mr-2" />
+          {t('realPerson.guide.applyButton')}
+        </Button>
+      </div>
+
       {loading ? (
         <div className="flex items-center justify-center gap-2 rounded-md border border-dashed py-8 text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin" />

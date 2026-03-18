@@ -97,7 +97,15 @@
         "saved": "Saved to .env",
         "loadFailed": "Failed to load .env",
         "saveFailed": "Failed to save .env",
-        "invalidKey": "Invalid env key: {{key}}"
+        "invalidKey": "Invalid env key: {{key}}",
+        "guide": {
+            "title": "How to get MFA_AUTH_API_KEY",
+            "step1": "1. Visit the portal: cclawd.dbhl.cn/applyAccount",
+            "step2": "2. Click 'Apply for Account'",
+            "step3": "3. Fill in your name and ID number to apply for MFA_AUTH_API_KEY",
+            "step4": "4. Add the MFA_AUTH_API_KEY variable below and save",
+            "applyButton": "Apply for Key"
+        }
     },
     "channel": {
         "title": "Connect a Messaging Channel",
