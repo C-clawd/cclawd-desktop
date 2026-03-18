@@ -2,7 +2,7 @@
  * Shared OpenClaw Plugin Install Utilities
  *
  * Provides version-aware install/upgrade logic for bundled OpenClaw plugins
- * (DingTalk, WeCom, QQBot, Feishu, MFA Auth).  Used both at app startup (to auto-upgrade
+ * (DingTalk, WeCom, QQBot, Feishu). Used both at app startup (to auto-upgrade
  * stale plugins) and when a user configures a channel.
  */
 import { app } from 'electron';
@@ -111,7 +111,18 @@ export function ensureQQBotPluginInstalled(): { installed: boolean; warning?: st
 }
 
 export function ensureMfaAuthPluginInstalled(): { installed: boolean; warning?: string } {
-  return ensurePluginInstalled('mfa-auth', buildCandidateSources('mfa-auth'), 'MFA Auth');
+  // mfa-auth ships with the cclawd runtime itself.
+  // Installing another copy into ~/.openclaw/extensions causes duplicate plugin id warnings.
+  const legacyMirrorDir = join(homedir(), '.openclaw', 'extensions', 'mfa-auth');
+  if (existsSync(join(legacyMirrorDir, 'openclaw.plugin.json'))) {
+    try {
+      rmSync(legacyMirrorDir, { recursive: true, force: true });
+      logger.info(`[plugin] Removed duplicate local mfa-auth mirror: ${legacyMirrorDir}`);
+    } catch (error) {
+      logger.warn(`[plugin] Failed to remove duplicate local mfa-auth mirror: ${legacyMirrorDir}`, error);
+    }
+  }
+  return { installed: true };
 }
 
 // ── Bulk startup installer ───────────────────────────────────────────────────
@@ -124,7 +135,6 @@ const ALL_BUNDLED_PLUGINS = [
   { fn: ensureWeComPluginInstalled, label: 'WeCom' },
   { fn: ensureQQBotPluginInstalled, label: 'QQ Bot' },
   { fn: ensureFeishuPluginInstalled, label: 'Feishu' },
-  { fn: ensureMfaAuthPluginInstalled, label: 'MFA Auth' },
 ] as const;
 
 /**

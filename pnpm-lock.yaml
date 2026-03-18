@@ -77,10 +77,10 @@ importers:
         version: 1.2.8(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       '@sliverp/qqbot':
         specifier: ^1.5.4
-        version: 1.5.4(cclawd@1.0.3(@discordjs/opus@0.10.0(encoding@0.1.13))(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(@napi-rs/canvas@0.1.97)(@types/express@5.0.6)(encoding@0.1.13)(hono@4.12.8)(node-llama-cpp@3.16.2(typescript@5.9.3)))(clawdbot@2026.1.24-3(@discordjs/opus@0.10.0(encoding@0.1.13))(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(@types/express@5.0.6)(devtools-protocol@0.0.1596832)(encoding@0.1.13)(opusscript@0.1.1)(typescript@5.9.3))(moltbot@0.1.0)
+        version: 1.5.4(cclawd@1.0.5(@discordjs/opus@0.10.0(encoding@0.1.13))(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(@napi-rs/canvas@0.1.97)(@types/express@5.0.6)(encoding@0.1.13)(hono@4.12.8)(node-llama-cpp@3.16.2(typescript@5.9.3)))(clawdbot@2026.1.24-3(@discordjs/opus@0.10.0(encoding@0.1.13))(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(@types/express@5.0.6)(devtools-protocol@0.0.1596832)(encoding@0.1.13)(opusscript@0.1.1)(typescript@5.9.3))(moltbot@0.1.0)
       '@soimy/dingtalk':
         specifier: ^3.1.4
-        version: 3.1.4(cclawd@1.0.3(@discordjs/opus@0.10.0(encoding@0.1.13))(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(@napi-rs/canvas@0.1.97)(@types/express@5.0.6)(encoding@0.1.13)(hono@4.12.8)(node-llama-cpp@3.16.2(typescript@5.9.3)))
+        version: 3.1.4(cclawd@1.0.5(@discordjs/opus@0.10.0(encoding@0.1.13))(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(@napi-rs/canvas@0.1.97)(@types/express@5.0.6)(encoding@0.1.13)(hono@4.12.8)(node-llama-cpp@3.16.2(typescript@5.9.3)))
       '@testing-library/jest-dom':
         specifier: ^6.9.1
         version: 6.9.1
@@ -151,8 +151,8 @@ importers:
         specifier: ^0.563.0
         version: 0.563.0(react@19.2.4)
       openclaw:
-        specifier: npm:cclawd@1.0.3
-        version: cclawd@1.0.3(@discordjs/opus@0.10.0(encoding@0.1.13))(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(@napi-rs/canvas@0.1.97)(@types/express@5.0.6)(encoding@0.1.13)(hono@4.12.8)(node-llama-cpp@3.16.2(typescript@5.9.3))
+        specifier: npm:cclawd@1.0.5
+        version: cclawd@1.0.5(@discordjs/opus@0.10.0(encoding@0.1.13))(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(@napi-rs/canvas@0.1.97)(@types/express@5.0.6)(encoding@0.1.13)(hono@4.12.8)(node-llama-cpp@3.16.2(typescript@5.9.3))
       png2icons:
         specifier: ^2.0.1
         version: 2.0.1
@@ -3370,8 +3370,8 @@ packages:
   caniuse-lite@1.0.30001770:
     resolution: {integrity: sha512-x/2CLQ1jHENRbHg5PSId2sXq1CIO1CISvwWAj027ltMVG2UNgW+w9oH2+HzgEIRFembL8bUlXtfbBHR1fCg2xw==}
 
-  cclawd@1.0.3:
-    resolution: {integrity: sha512-dNxobjKZ3Irg7ghD6tmMe2PYpXqmPhd5lg25ZRV1J0OdWZ3ATREOE7i0gyhGMtGL493TuD26r4NmjDPJp05Dmw==}
+  cclawd@1.0.5:
+    resolution: {integrity: sha512-EIxHQ02eftAOmhgP41cdmghCuKmSnbCXzNmP7J99sFzz3HN8kAQ9WOJh5QchBjK+f8OuZG92JUruzoC4vwPNLA==}
     engines: {node: '>=22.12.0'}
     hasBin: true
     peerDependencies:
@@ -9399,11 +9399,11 @@ snapshots:
     transitivePeerDependencies:
       - debug
 
-  '@sliverp/qqbot@1.5.4(cclawd@1.0.3(@discordjs/opus@0.10.0(encoding@0.1.13))(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(@napi-rs/canvas@0.1.97)(@types/express@5.0.6)(encoding@0.1.13)(hono@4.12.8)(node-llama-cpp@3.16.2(typescript@5.9.3)))(clawdbot@2026.1.24-3(@discordjs/opus@0.10.0(encoding@0.1.13))(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(@types/express@5.0.6)(devtools-protocol@0.0.1596832)(encoding@0.1.13)(opusscript@0.1.1)(typescript@5.9.3))(moltbot@0.1.0)':
+  '@sliverp/qqbot@1.5.4(cclawd@1.0.5(@discordjs/opus@0.10.0(encoding@0.1.13))(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(@napi-rs/canvas@0.1.97)(@types/express@5.0.6)(encoding@0.1.13)(hono@4.12.8)(node-llama-cpp@3.16.2(typescript@5.9.3)))(clawdbot@2026.1.24-3(@discordjs/opus@0.10.0(encoding@0.1.13))(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(@types/express@5.0.6)(devtools-protocol@0.0.1596832)(encoding@0.1.13)(opusscript@0.1.1)(typescript@5.9.3))(moltbot@0.1.0)':
     dependencies:
       clawdbot: 2026.1.24-3(@discordjs/opus@0.10.0(encoding@0.1.13))(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(@types/express@5.0.6)(devtools-protocol@0.0.1596832)(encoding@0.1.13)(opusscript@0.1.1)(typescript@5.9.3)
       moltbot: 0.1.0
-      openclaw: cclawd@1.0.3(@discordjs/opus@0.10.0(encoding@0.1.13))(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(@napi-rs/canvas@0.1.97)(@types/express@5.0.6)(encoding@0.1.13)(hono@4.12.8)(node-llama-cpp@3.16.2(typescript@5.9.3))
+      openclaw: cclawd@1.0.5(@discordjs/opus@0.10.0(encoding@0.1.13))(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(@napi-rs/canvas@0.1.97)(@types/express@5.0.6)(encoding@0.1.13)(hono@4.12.8)(node-llama-cpp@3.16.2(typescript@5.9.3))
 
   '@smithy/abort-controller@4.2.12':
     dependencies:
@@ -9771,12 +9771,12 @@ snapshots:
       '@snazzah/davey-win32-ia32-msvc': 0.1.10
       '@snazzah/davey-win32-x64-msvc': 0.1.10
 
-  '@soimy/dingtalk@3.1.4(cclawd@1.0.3(@discordjs/opus@0.10.0(encoding@0.1.13))(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(@napi-rs/canvas@0.1.97)(@types/express@5.0.6)(encoding@0.1.13)(hono@4.12.8)(node-llama-cpp@3.16.2(typescript@5.9.3)))':
+  '@soimy/dingtalk@3.1.4(cclawd@1.0.5(@discordjs/opus@0.10.0(encoding@0.1.13))(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(@napi-rs/canvas@0.1.97)(@types/express@5.0.6)(encoding@0.1.13)(hono@4.12.8)(node-llama-cpp@3.16.2(typescript@5.9.3)))':
     dependencies:
       axios: 1.13.5(debug@4.4.3)
       dingtalk-stream: 2.1.4
       form-data: 4.0.5
-      openclaw: cclawd@1.0.3(@discordjs/opus@0.10.0(encoding@0.1.13))(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(@napi-rs/canvas@0.1.97)(@types/express@5.0.6)(encoding@0.1.13)(hono@4.12.8)(node-llama-cpp@3.16.2(typescript@5.9.3))
+      openclaw: cclawd@1.0.5(@discordjs/opus@0.10.0(encoding@0.1.13))(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(@napi-rs/canvas@0.1.97)(@types/express@5.0.6)(encoding@0.1.13)(hono@4.12.8)(node-llama-cpp@3.16.2(typescript@5.9.3))
       zod: 4.3.6
     transitivePeerDependencies:
       - bufferutil
@@ -10608,7 +10608,7 @@ snapshots:
 
   caniuse-lite@1.0.30001770: {}
 
-  cclawd@1.0.3(@discordjs/opus@0.10.0(encoding@0.1.13))(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(@napi-rs/canvas@0.1.97)(@types/express@5.0.6)(encoding@0.1.13)(hono@4.12.8)(node-llama-cpp@3.16.2(typescript@5.9.3)):
+  cclawd@1.0.5(@discordjs/opus@0.10.0(encoding@0.1.13))(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(@napi-rs/canvas@0.1.97)(@types/express@5.0.6)(encoding@0.1.13)(hono@4.12.8)(node-llama-cpp@3.16.2(typescript@5.9.3)):
     dependencies:
       '@agentclientprotocol/sdk': 0.15.0(zod@4.3.6)
       '@aws-sdk/client-bedrock': 3.1011.0
