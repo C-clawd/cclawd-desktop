@@ -1,0 +1,309 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "open-claw-authorization",
+    "description": "扫码认证授权服务",
+    "version": "1.0.0"
+  },
+  "tags": [],
+  "paths": {
+    "/api/v1/getApiKey": {
+      "get": {
+        "summary": "获取API密钥",
+        "deprecated": false,
+        "description": "通过用户ID和身份证号获取API密钥",
+        "tags": [],
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "query",
+            "description": "用户ID",
+            "required": true,
+            "example": "user001",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "idCard",
+            "in": "query",
+            "description": "身份证号",
+            "required": true,
+            "example": "110101199001011234",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "apiKey": {
+                          "type": "string",
+                          "description": "API密钥"
+                        }
+                      }
+                    }
+                  }
+                },
+                "example": {
+                  "code": 200,
+                  "message": "success",
+                  "data": {
+                    "apiKey": "5b1186084390321d6b5d1e1134dda96a"
+                  }
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": []
+      }
+    },
+    "/api/v1/getVerifyCode": {
+      "post": {
+        "summary": "获取二维码验证码",
+        "deprecated": false,
+        "description": "通过API密钥获取扫码认证的二维码和certToken",
+        "tags": [],
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "apiKey": {
+                    "type": "string",
+                    "description": "API密钥"
+                  },
+                  "authType": {
+                    "type": "string",
+                    "description": "认证类型"
+                  },
+                  "mode": {
+                    "type": "string",
+                    "description": "认证模式"
+                  }
+                },
+                "required": [
+                  "apiKey",
+                  "authType",
+                  "mode"
+                ]
+              },
+              "example": {
+                "apiKey": "5b1186084390321d6b5d1e1134dda96a",
+                "authType": "ScanAuth",
+                "mode": "66"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "certToken": {
+                          "type": "string",
+                          "description": "认证令牌"
+                        },
+                        "qrCodeUrl": {
+                          "type": "string",
+                          "description": "二维码链接"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                },
+                "example": {
+                  "code": 200,
+                  "message": "success",
+                  "data": {
+                    "certToken": "26643a6a-da63-4e10-a5ec-83f5c9e3eacb",
+                    "qrCodeUrl": "https://h5.dabby.com.cn/authhtml/index.html#/auth?certToken=26643a6a-da63-4e10-a5ec-83f5c9e3eacb",
+                    "message": "成功"
+                  }
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": []
+      }
+    },
+    "/api/v1/checkAuthStatus": {
+      "post": {
+        "summary": "检查认证状态",
+        "deprecated": false,
+        "description": "通过API密钥和certToken检查用户认证状态",
+        "tags": [],
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "apiKey": {
+                    "type": "string",
+                    "description": "API密钥"
+                  },
+                  "certToken": {
+                    "type": "string",
+                    "description": "认证令牌"
+                  }
+                },
+                "required": [
+                  "apiKey",
+                  "certToken"
+                ]
+              },
+              "example": {
+                "apiKey": "5b1186084390321d6b5d1e1134dda96a",
+                "certToken": "26643a6a-da63-4e10-a5ec-83f5c9e3eacb"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "authSuccess": {
+                          "type": "boolean",
+                          "description": "认证是否成功"
+                        },
+                        "authResult": {
+                          "type": "object",
+                          "description": "认证结果详情",
+                          "properties": {}
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                },
+                "example": {
+                  "code": 200,
+                  "message": "success",
+                  "data": {
+                    "authSuccess": true,
+                    "authResult": {},
+                    "message": "成功"
+                  }
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": []
+      }
+    }
+  },
+  "components": {
+    "schemas": {},
+    "responses": {
+      "记录不存在": {
+        "description": "",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "code": {
+                  "type": "integer"
+                },
+                "message": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code",
+                "message"
+              ]
+            }
+          }
+        }
+      },
+      "参数不正确": {
+        "description": "",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "code": {
+                  "type": "integer"
+                },
+                "message": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code",
+                "message"
+              ]
+            }
+          }
+        }
+      }
+    },
+    "securitySchemes": {}
+  },
+  "servers": [
+    {
+      "url": "https://cclawd.dbhl.cn",
+      "description": "开发环境"
+    }
+  ],
+  "security": []
+}

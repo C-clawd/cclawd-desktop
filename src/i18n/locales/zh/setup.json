@@ -2,7 +2,7 @@
     "steps": {
         "welcome": {
             "title": "欢迎使用 Cclawd",
-            "description": "您的 AI 助手已准备好进行配置"
+            "description": "你的 AI 助手已准备好开始配置"
         },
         "runtime": {
             "title": "环境检查",
@@ -10,7 +10,11 @@
         },
         "provider": {
             "title": "AI 提供商",
-            "description": "配置您的 AI 服务"
+            "description": "配置你的 AI 服务"
+        },
+        "realPerson": {
+            "title": "实人认证",
+            "description": "完成强制实名扫码认证"
         },
         "channel": {
             "title": "连接渠道",
@@ -23,15 +27,11 @@
         "complete": {
             "title": "准备就绪！",
             "description": "Cclawd 已准备好使用"
-        },
-        "realPerson": {
-            "title": "实人认证",
-            "description": "填写并保存认证环境变量"
         }
     },
     "welcome": {
         "title": "欢迎使用 Cclawd",
-        "description": "Cclawd 是 OpenClaw 的图形界面，让您可以在喜爱的消息平台上轻松使用 AI 助手。",
+        "description": "Cclawd 是 OpenClaw 的图形界面，让你可以在喜欢的消息平台上轻松使用 AI 助手。",
         "features": {
             "noCommand": "无需命令行",
             "modernUI": "现代美观的界面",
@@ -67,7 +67,7 @@
     },
     "provider": {
         "label": "模型提供商",
-        "selectPlaceholder": "选择提供商...",
+        "selectPlaceholder": "选择一个提供商...",
         "baseUrl": "基础 URL",
         "modelId": "模型 ID",
         "modelIdDesc": "提供商的模型标识符（例如 deepseek-ai/DeepSeek-V3）",
@@ -82,17 +82,17 @@
         "validateSave": "验证并保存",
         "valid": "提供商配置成功",
         "invalid": "无效的 API 密钥",
-        "storedLocally": "您的 API 密钥存储在本地机器上。"
+        "storedLocally": "你的 API 密钥存储在本地机器上。"
     },
     "channel": {
         "title": "连接消息渠道",
-        "subtitle": "选择要连接 AI 助手的平台。您可以稍后在设置中添加更多渠道。",
+        "subtitle": "选择要连接 AI 助手的平台。你可以稍后在设置中添加更多渠道。",
         "configure": "配置 {{name}}",
         "howTo": "如何连接：",
         "viewDocs": "查看文档",
         "validationError": "验证失败",
         "connected": "{{name}} 已连接",
-        "connectedDesc": "您的渠道已配置。将在网关启动时连接。",
+        "connectedDesc": "你的渠道已配置。将在网关启动时连接。",
         "configureAnother": "配置另一个渠道"
     },
     "installing": {
@@ -106,18 +106,18 @@
             "failed": "失败"
         },
         "error": "设置错误：",
-        "restart": "尝试重启应用",
+        "restart": "尝试重新启动应用",
         "wait": "这可能需要一点时间...",
         "skip": "跳过此步骤"
     },
     "complete": {
         "title": "设置完成！",
-        "subtitle": "Cclawd 已配置并准备就绪。您现在可以开始与您的 AI 助手聊天了。",
+        "subtitle": "Cclawd 已配置并准备就绪。现在你可以开始与 AI 助手聊天了。",
         "provider": "AI 提供商",
         "components": "组件",
         "gateway": "网关",
         "running": "运行中",
-        "footer": "您可以在设置中自定义技能并连接渠道"
+        "footer": "你可以在设置中自定义技能并连接渠道"
     },
     "nav": {
         "next": "下一步",
@@ -150,25 +150,43 @@
     },
     "realPerson": {
         "title": "实人认证",
-        "subtitle": "此步骤会读取 OpenClaw 的 .env 文件，并允许你编辑认证变量。",
-        "loading": "正在加载 .env 变量...",
-        "key": "环境变量",
-        "value": "值",
-        "valuePlaceholder": "请输入值",
-        "add": "新增变量",
-        "remove": "移除",
-        "save": "保存到 .env",
-        "saved": "已保存到 .env",
+        "subtitle": "请输入姓名和身份证号。扫脸认证成功后，Cclawd 会自动将 MFA_AUTH_API_KEY 写入 OpenClaw 的 .env 文件。",
+        "loading": "正在加载认证状态...",
+        "name": "姓名",
+        "namePlaceholder": "请输入真实姓名",
+        "idCard": "身份证号",
+        "idCardPlaceholder": "请输入身份证号",
+        "showIdCard": "显示身份证号",
+        "hideIdCard": "隐藏身份证号",
+        "start": "开始认证",
+        "retry": "重新轮询",
+        "refreshQr": "刷新二维码",
+        "pending": "认证进行中，正在等待扫码结果...",
+        "startFailed": "发起认证失败",
+        "statusFailed": "认证失败，请完成扫脸后重试。",
+        "saved": "认证成功，MFA_AUTH_API_KEY 已写入 .env",
+        "validation": {
+            "required": "请完整填写姓名和身份证号。"
+        },
+        "qr": {
+            "title": "扫码认证",
+            "scanHint": "请使用【微信/数字身份助手APP】进行扫码",
+            "subtitle": "请使用手机扫描二维码并完成扫脸认证。",
+            "subtitleChecking": "二维码已生成，正在等待认证结果...",
+            "alt": "实人认证二维码",
+            "open": "打开认证链接"
+        },
+        "success": {
+            "title": "认证完成",
+            "default": "实人认证已通过。",
+            "persisted": "实人认证已完成。"
+        },
         "loadFailed": "加载 .env 失败",
-        "saveFailed": "保存 .env 失败",
-        "invalidKey": "无效的环境变量名: {{key}}",
         "guide": {
-            "title": "如何获取 MFA_AUTH_API_KEY",
-            "step1": "1. 访问认证平台：cclawd.dbhl.cn/applyAccount",
-            "step2": "2. 点击“申请账号”",
-            "step3": "3. 填写姓名和身份证号申请 MFA_AUTH_API_KEY",
-            "step4": "4. 获取密钥后，在下方添加 MFA_AUTH_API_KEY 变量并保存",
-            "applyButton": "去申请密钥"
+            "title": "认证流程说明",
+            "step1": "1. 在下方填写姓名和身份证号。",
+            "step2": "2. 点击开始认证，系统会生成扫码二维码。",
+            "step3": "3. 使用手机扫码并完成扫脸认证。"
         }
     }
 }
