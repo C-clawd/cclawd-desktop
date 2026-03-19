@@ -43,6 +43,40 @@ export type RealPersonAuthCheckResult =
   | { status: 'success'; message: string }
   | { status: 'failed'; message: string; retCode?: number };
 
+async function createRealPersonAuthSession(apiKey: string): Promise<RealPersonAuthStartResult> {
+  const trimmedApiKey = apiKey.trim();
+  if (!trimmedApiKey) {
+    throw new Error('MFA_AUTH_API_KEY is required');
+  }
+
+  const verifyPayload = await requestJson(
+    new URL('/api/v1/getVerifyCode', REAL_PERSON_AUTH_BASE_URL),
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        apiKey: trimmedApiKey,
+        authType: 'ScanAuth',
+        mode: '66',
+      }),
+    },
+    'Failed to create verification QR code',
+  );
+
+  const certToken = typeof verifyPayload.data?.certToken === 'string' ? verifyPayload.data.certToken : '';
+  const qrCodeUrl = typeof verifyPayload.data?.qrCodeUrl === 'string' ? verifyPayload.data.qrCodeUrl : '';
+  if (!certToken || !qrCodeUrl) {
+    throw new Error(getResponseMessage(verifyPayload, 'Verification QR code response was incomplete'));
+  }
+
+  return {
+    apiKey: trimmedApiKey,
+    certToken,
+    qrCodeUrl,
+    qrCodeDataUrl: renderQrCodeDataUrl(qrCodeUrl),
+  };
+}
+
 function getResponseMessage(payload: RealPersonApiResponse, fallback: string): string {
   if (typeof payload.data?.message === 'string' && payload.data.message.trim()) {
     return payload.data.message;
@@ -212,32 +246,16 @@ export async function startRealPersonAuth(name: string, idCard: string): Promise
     throw new Error(getResponseMessage(apiKeyPayload, 'Verification API key was missing from response'));
   }
 
-  const verifyPayload = await requestJson(
-    new URL('/api/v1/getVerifyCode', REAL_PERSON_AUTH_BASE_URL),
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        apiKey,
-        authType: 'ScanAuth',
-        mode: '66',
-      }),
-    },
-    'Failed to create verification QR code',
-  );
+  return await createRealPersonAuthSession(apiKey);
+}
 
-  const certToken = typeof verifyPayload.data?.certToken === 'string' ? verifyPayload.data.certToken : '';
-  const qrCodeUrl = typeof verifyPayload.data?.qrCodeUrl === 'string' ? verifyPayload.data.qrCodeUrl : '';
-  if (!certToken || !qrCodeUrl) {
-    throw new Error(getResponseMessage(verifyPayload, 'Verification QR code response was incomplete'));
+export async function startRealPersonAuthWithSavedApiKey(): Promise<RealPersonAuthStartResult> {
+  const current = await readOpenClawEnv();
+  const savedApiKey = current.entries.find((entry) => entry.key === MFA_AUTH_API_KEY)?.value ?? '';
+  if (!savedApiKey.trim()) {
+    throw new Error('MFA_AUTH_API_KEY was not found in ~/.openclaw/.env');
   }
-
-  return {
-    apiKey,
-    certToken,
-    qrCodeUrl,
-    qrCodeDataUrl: renderQrCodeDataUrl(qrCodeUrl),
-  };
+  return await createRealPersonAuthSession(savedApiKey);
 }
 
 function upsertEnvEntry(entries: OpenClawEnvEntry[], key: string, value: string): OpenClawEnvEntry[] {

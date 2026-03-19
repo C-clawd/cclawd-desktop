@@ -121,6 +121,9 @@ Environment variables for bundled search skills:
 ### 🔐 Secure Provider Integration
 Connect to multiple AI providers (OpenAI, Anthropic, and more) with credentials stored securely in your system's native keychain. OpenAI supports both API key and browser OAuth (Codex subscription) sign-in.
 
+### 🪪 Periodic Real-Person Verification
+When periodic identity verification is enabled, Cclawd blocks the UI with a non-dismissible verification dialog until the current user completes face verification successfully. Development builds default to a short interval for testing; packaged builds default to 24 hours.
+
 ### 🌙 Adaptive Theming
 Light mode, dark mode, or system-synchronized themes. Cclawd adapts to your preferences automatically.
 

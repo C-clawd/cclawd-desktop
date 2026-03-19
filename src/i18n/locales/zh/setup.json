@@ -164,7 +164,7 @@
         "pending": "认证进行中，正在等待扫码结果...",
         "startFailed": "发起认证失败",
         "statusFailed": "认证失败，请完成扫脸后重试。",
-        "saved": "认证成功，MFA_AUTH_API_KEY 已写入 .env",
+        "saved": "认证成功",
         "validation": {
             "required": "请完整填写姓名和身份证号。"
         },

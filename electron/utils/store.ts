@@ -52,6 +52,12 @@ export interface AppSettings {
   sidebarCollapsed: boolean;
   devModeUnlocked: boolean;
 
+  // Security
+  periodicAuthEnabled: boolean;
+  periodicAuthIntervalMs: number;
+  periodicAuthLastVerifiedAt: number;
+  periodicAuthLocked: boolean;
+
   // Presets
   selectedBundles: string[];
   enabledSkills: string[];
@@ -72,6 +78,7 @@ function getSystemLocale(): string {
 }
 
 function createDefaultSettings(): AppSettings {
+  const defaultPeriodicAuthIntervalMs = app.isPackaged ? 24 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
   return {
     // General
     theme: 'system',
@@ -102,6 +109,12 @@ function createDefaultSettings(): AppSettings {
     // UI State
     sidebarCollapsed: false,
     devModeUnlocked: false,
+
+    // Security
+    periodicAuthEnabled: true,
+    periodicAuthIntervalMs: defaultPeriodicAuthIntervalMs,
+    periodicAuthLastVerifiedAt: 0,
+    periodicAuthLocked: false,
 
     // Presets
     selectedBundles: ['productivity', 'developer'],

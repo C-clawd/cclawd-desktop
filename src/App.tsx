@@ -20,6 +20,7 @@ import { Setup } from './pages/Setup';
 import { useSettingsStore } from './stores/settings';
 import { useGatewayStore } from './stores/gateway';
 import { applyGatewayTransportPreference } from './lib/api-client';
+import { PeriodicRealPersonAuthGuard } from './components/security/PeriodicRealPersonAuthGuard';
 
 
 /**
@@ -173,6 +174,8 @@ function App() {
             <Route path="/settings/*" element={<Settings />} />
           </Route>
         </Routes>
+
+        <PeriodicRealPersonAuthGuard />
 
         {/* Global toast notifications */}
         <Toaster

@@ -4,7 +4,22 @@ import { parseJsonBody } from '../route-utils';
 import { setCorsHeaders, sendJson, sendNoContent } from '../route-utils';
 import { runOpenClawDoctor, runOpenClawDoctorFix } from '../../utils/openclaw-doctor';
 import { readOpenClawEnv, writeOpenClawEnv, type OpenClawEnvEntry } from '../../utils/openclaw-env';
-import { checkRealPersonAuth, startRealPersonAuth } from '../../utils/real-person-auth';
+import { checkRealPersonAuth, startRealPersonAuth, startRealPersonAuthWithSavedApiKey } from '../../utils/real-person-auth';
+import { getSetting, setSetting } from '../../utils/store';
+
+async function buildPeriodicAuthState() {
+  return {
+    enabled: await getSetting('periodicAuthEnabled'),
+    intervalMs: await getSetting('periodicAuthIntervalMs'),
+    lastVerifiedAt: await getSetting('periodicAuthLastVerifiedAt'),
+    locked: await getSetting('periodicAuthLocked'),
+  };
+}
+
+async function markPeriodicAuthComplete() {
+  await setSetting('periodicAuthLastVerifiedAt', Date.now());
+  await setSetting('periodicAuthLocked', false);
+}
 
 export async function handleAppRoutes(
   req: IncomingMessage,
@@ -67,7 +82,49 @@ export async function handleAppRoutes(
   if (url.pathname === '/api/app/real-person-auth/check' && req.method === 'POST') {
     try {
       const body = await parseJsonBody<{ apiKey?: string; certToken?: string }>(req);
-      sendJson(res, 200, { success: true, ...(await checkRealPersonAuth(body.apiKey || '', body.certToken || '')) });
+      const result = await checkRealPersonAuth(body.apiKey || '', body.certToken || '');
+      if (result.status === 'success') {
+        await markPeriodicAuthComplete();
+      }
+      sendJson(res, 200, { success: true, ...result });
+    } catch (error) {
+      sendJson(res, 500, { success: false, error: String(error) });
+    }
+    return true;
+  }
+
+  if (url.pathname === '/api/app/real-person-auth/start-from-saved-key' && req.method === 'POST') {
+    try {
+      sendJson(res, 200, { success: true, ...(await startRealPersonAuthWithSavedApiKey()) });
+    } catch (error) {
+      sendJson(res, 500, { success: false, error: String(error) });
+    }
+    return true;
+  }
+
+  if (url.pathname === '/api/app/periodic-auth/state' && req.method === 'GET') {
+    try {
+      sendJson(res, 200, { success: true, ...(await buildPeriodicAuthState()) });
+    } catch (error) {
+      sendJson(res, 500, { success: false, error: String(error) });
+    }
+    return true;
+  }
+
+  if (url.pathname === '/api/app/periodic-auth/lock' && req.method === 'POST') {
+    try {
+      await setSetting('periodicAuthLocked', true);
+      sendJson(res, 200, { success: true, ...(await buildPeriodicAuthState()) });
+    } catch (error) {
+      sendJson(res, 500, { success: false, error: String(error) });
+    }
+    return true;
+  }
+
+  if (url.pathname === '/api/app/periodic-auth/complete' && req.method === 'POST') {
+    try {
+      await markPeriodicAuthComplete();
+      sendJson(res, 200, { success: true, ...(await buildPeriodicAuthState()) });
     } catch (error) {
       sendJson(res, 500, { success: false, error: String(error) });
     }

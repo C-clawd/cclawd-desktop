@@ -38,6 +38,12 @@ interface SettingsState {
   sidebarCollapsed: boolean;
   devModeUnlocked: boolean;
 
+  // Security
+  periodicAuthEnabled: boolean;
+  periodicAuthIntervalMs: number;
+  periodicAuthLastVerifiedAt: number;
+  periodicAuthLocked: boolean;
+
   // Setup
   setupComplete: boolean;
 
@@ -84,6 +90,10 @@ const defaultSettings = {
   autoDownloadUpdate: false,
   sidebarCollapsed: false,
   devModeUnlocked: false,
+  periodicAuthEnabled: true,
+  periodicAuthIntervalMs: import.meta.env.DEV ? 10_000 : 24 * 60 * 60 * 1000,
+  periodicAuthLastVerifiedAt: 0,
+  periodicAuthLocked: false,
   setupComplete: false,
 };
 
