@@ -14,7 +14,7 @@
         },
         "realPerson": {
             "title": "Real-Person Verification",
-            "description": "Fill in verification env settings"
+            "description": "Complete mandatory identity verification"
         },
         "channel": {
             "title": "Connect a Channel",
@@ -86,25 +86,43 @@
     },
     "realPerson": {
         "title": "Real-Person Verification",
-        "subtitle": "This step reads your OpenClaw .env file and lets you edit verification variables.",
-        "loading": "Loading .env variables...",
-        "key": "Environment Variable",
-        "value": "Value",
-        "valuePlaceholder": "Enter value",
-        "add": "Add Variable",
-        "remove": "Remove",
-        "save": "Save to .env",
-        "saved": "Saved to .env",
+        "subtitle": "Enter your real name and ID card number. After face verification succeeds, Cclawd will save MFA_AUTH_API_KEY to your OpenClaw .env automatically.",
+        "loading": "Loading verification status...",
+        "name": "Real Name",
+        "namePlaceholder": "Enter your full name",
+        "idCard": "ID Card Number",
+        "idCardPlaceholder": "Enter your ID card number",
+        "showIdCard": "Show ID card number",
+        "hideIdCard": "Hide ID card number",
+        "start": "Start Verification",
+        "retry": "Retry",
+        "refreshQr": "Refresh QR Code",
+        "pending": "Verification in progress. Waiting for scan result...",
+        "startFailed": "Failed to start verification",
+        "statusFailed": "Verification failed. Please retry after completing face verification.",
+        "saved": "Verification succeeded and MFA_AUTH_API_KEY was saved to .env",
+        "validation": {
+            "required": "Please enter both your name and ID card number."
+        },
+        "qr": {
+            "title": "Scan to Verify",
+            "scanHint": "Please use WeChat or the Digital Identity Assistant app to scan.",
+            "subtitle": "Use your phone to scan the QR code and complete face verification.",
+            "subtitleChecking": "QR code generated. Waiting for verification result...",
+            "alt": "Verification QR code",
+            "open": "Open Verification Link"
+        },
+        "success": {
+            "title": "Verification Complete",
+            "default": "Real-person verification succeeded.",
+            "persisted": "Real-person verification is already complete."
+        },
         "loadFailed": "Failed to load .env",
-        "saveFailed": "Failed to save .env",
-        "invalidKey": "Invalid env key: {{key}}",
         "guide": {
-            "title": "How to get MFA_AUTH_API_KEY",
-            "step1": "1. Visit the portal: cclawd.dbhl.cn/applyAccount",
-            "step2": "2. Click 'Apply for Account'",
-            "step3": "3. Fill in your name and ID number to apply for MFA_AUTH_API_KEY",
-            "step4": "4. Add the MFA_AUTH_API_KEY variable below and save",
-            "applyButton": "Apply for Key"
+            "title": "Verification Flow",
+            "step1": "1. Enter your real name and ID card number below.",
+            "step2": "2. Start verification to generate a QR code.",
+            "step3": "3. Scan the QR code on your phone and finish face verification."
         }
     },
     "channel": {

@@ -1,46 +1,46 @@
 {
     "steps": {
         "welcome": {
-            "title": "Cclawdへようこそ",
-            "description": "AIアシスタントの設定準備が整いました"
+            "title": "Cclawd へようこそ",
+            "description": "AI アシスタントの設定を始めましょう"
         },
         "runtime": {
             "title": "環境チェック",
-            "description": "システム要件を確認中"
+            "description": "システム要件を確認しています"
         },
         "provider": {
-            "title": "AIプロバイダー",
-            "description": "AIサービスを構成"
+            "title": "AI プロバイダー",
+            "description": "AI サービスを設定します"
+        },
+        "realPerson": {
+            "title": "本人確認",
+            "description": "必須の本人確認を完了します"
         },
         "channel": {
             "title": "チャンネル接続",
-            "description": "メッセージングプラットフォームを接続（オプション）"
+            "description": "メッセージプラットフォームを接続します（任意）"
         },
         "installing": {
             "title": "セットアップ中",
-            "description": "必須コンポーネントをインストール中"
+            "description": "必要なコンポーネントをインストールしています"
         },
         "complete": {
-            "title": "完了！",
-            "description": "Cclawdを使用する準備が整いました"
-        },
-        "realPerson": {
-            "title": "実人認証",
-            "description": "認証用の環境変数を設定します"
+            "title": "準備完了",
+            "description": "Cclawd を使う準備が整いました"
         }
     },
     "welcome": {
-        "title": "Cclawdへようこそ",
-        "description": "CclawdはOpenClawのグラフィカルインターフェースで、お気に入りのメッセージングプラットフォームでAIアシスタントを簡単に使用できます。",
+        "title": "Cclawd へようこそ",
+        "description": "Cclawd は OpenClaw のグラフィカルインターフェースで、お気に入りのメッセージプラットフォームで AI アシスタントを簡単に使えます。",
         "features": {
             "noCommand": "コマンドライン不要",
-            "modernUI": "モダンで美しいインターフェース",
-            "bundles": "プリインストールされたスキルバンドル",
+            "modernUI": "モダンで美しい UI",
+            "bundles": "プリインストール済みスキルバンドル",
             "crossPlatform": "クロスプラットフォーム対応"
         }
     },
     "runtime": {
-        "title": "環境をチェック中",
+        "title": "環境を確認中",
         "viewLogs": "ログを表示",
         "recheck": "再チェック",
         "nodejs": "Node.js ランタイム",
@@ -49,14 +49,14 @@
         "startGateway": "ゲートウェイを起動",
         "status": {
             "checking": "確認中...",
-            "success": "Node.js は利用可能です",
+            "success": "Node.js を利用できます",
             "error": "失敗",
             "gatewayRunning": "ポート {{port}} で実行中",
-            "packageReady": "OpenClaw パッケージ準備完了"
+            "packageReady": "OpenClaw パッケージの準備完了"
         },
         "issue": {
-            "title": "環境の問題が検出されました",
-            "desc": "OpenClawが正しくインストールされていることを確認してください。詳細はログを確認してください。"
+            "title": "環境の問題が見つかりました",
+            "desc": "OpenClaw が正しくインストールされていることを確認してください。詳細はログを確認してください。"
         },
         "logs": {
             "title": "アプリケーションログ",
@@ -70,7 +70,7 @@
         "selectPlaceholder": "プロバイダーを選択...",
         "baseUrl": "ベース URL",
         "modelId": "モデル ID",
-        "modelIdDesc": "プロバイダーのモデル識別子（例：deepseek-ai/DeepSeek-V3）",
+        "modelIdDesc": "プロバイダーのモデル識別子（例: deepseek-ai/DeepSeek-V3）",
         "protocol": "プロトコル",
         "protocols": {
             "openaiCompletions": "OpenAI Completions",
@@ -80,24 +80,24 @@
         "apiKey": "API キー",
         "save": "保存",
         "validateSave": "検証して保存",
-        "valid": "プロバイダーが正常に構成されました",
+        "valid": "プロバイダーの設定に成功しました",
         "invalid": "無効な API キー",
         "storedLocally": "API キーはローカルマシンに保存されます。"
     },
     "channel": {
-        "title": "メッセージングチャンネルを接続",
-        "subtitle": "AIアシスタントを接続するプラットフォームを選択してください。チャンネルは後で設定で追加できます。",
-        "configure": "{{name}} を構成",
-        "howTo": "接続方法：",
+        "title": "メッセージチャンネルを接続",
+        "subtitle": "AI アシスタントを接続するプラットフォームを選択してください。後から設定でさらに追加できます。",
+        "configure": "{{name}} を設定",
+        "howTo": "接続方法:",
         "viewDocs": "ドキュメントを表示",
         "validationError": "検証に失敗しました",
         "connected": "{{name}} 接続済み",
-        "connectedDesc": "チャンネルが構成されました。ゲートウェイ起動時に接続されます。",
-        "configureAnother": "別のチャンネルを構成"
+        "connectedDesc": "チャンネルは設定済みです。ゲートウェイ起動時に接続されます。",
+        "configureAnother": "別のチャンネルを設定"
     },
     "installing": {
-        "title": "必須コンポーネントをインストール中",
-        "subtitle": "AIアシスタントに必要なツールをセットアップしています",
+        "title": "必要なコンポーネントをインストール中",
+        "subtitle": "AI アシスタントに必要なツールをセットアップしています",
         "progress": "進捗",
         "status": {
             "pending": "待機中",
@@ -105,26 +105,26 @@
             "installed": "インストール済み",
             "failed": "失敗"
         },
-        "error": "セットアップエラー：",
+        "error": "セットアップエラー:",
         "restart": "アプリを再起動してください",
-        "wait": "これには少し時間がかかる場合があります...",
+        "wait": "少し時間がかかる場合があります...",
         "skip": "この手順をスキップ"
     },
     "complete": {
-        "title": "セットアップ完了！",
-        "subtitle": "Cclawdの構成が完了し、使用準備が整いました。AIアシスタントとのチャットを開始できます。",
+        "title": "セットアップ完了",
+        "subtitle": "Cclawd の設定が完了しました。AI アシスタントとの会話を始められます。",
         "provider": "AI プロバイダー",
         "components": "コンポーネント",
         "gateway": "ゲートウェイ",
         "running": "実行中",
-        "footer": "設定でスキルをカスタマイズしたり、チャンネルを接続したりできます"
+        "footer": "設定からスキルのカスタマイズやチャンネル接続を行えます"
     },
     "nav": {
         "next": "次へ",
         "back": "戻る",
         "skipStep": "この手順をスキップ",
         "skipSetup": "セットアップをスキップ",
-        "getStarted": "始める"
+        "getStarted": "開始"
     },
     "defaultSkills": {
         "opencode": {
@@ -133,42 +133,60 @@
         },
         "python-env": {
             "name": "Python 環境",
-            "description": "スキルのための Python ランタイム"
+            "description": "スキル用の Python ランタイム"
         },
         "code-assist": {
-            "name": "コードアシスト",
-            "description": "コードの分析と提案"
+            "name": "Code Assist",
+            "description": "コード解析と提案"
         },
         "file-tools": {
-            "name": "ファイルツール",
-            "description": "ファイルの操作と管理"
+            "name": "File Tools",
+            "description": "ファイル操作と管理"
         },
         "terminal": {
             "name": "ターミナル",
-            "description": "シェルコマンドの実行"
+            "description": "Shell コマンドの実行"
         }
     },
     "realPerson": {
-        "title": "実人認証",
-        "subtitle": "この手順では OpenClaw の .env を読み込み、認証用の変数を編集できます。",
-        "loading": ".env 変数を読み込み中...",
-        "key": "環境変数",
-        "value": "値",
-        "valuePlaceholder": "値を入力",
-        "add": "変数を追加",
-        "remove": "削除",
-        "save": ".env に保存",
-        "saved": ".env に保存しました",
+        "title": "本人確認",
+        "subtitle": "氏名と身分証番号を入力してください。顔認証が完了すると、Cclawd が MFA_AUTH_API_KEY を OpenClaw の .env に自動保存します。",
+        "loading": "認証状態を読み込み中...",
+        "name": "氏名",
+        "namePlaceholder": "氏名を入力",
+        "idCard": "身分証番号",
+        "idCardPlaceholder": "身分証番号を入力",
+        "showIdCard": "身分証番号を表示",
+        "hideIdCard": "身分証番号を非表示",
+        "start": "認証を開始",
+        "retry": "再確認",
+        "refreshQr": "QR コードを更新",
+        "pending": "認証中です。スキャン結果を待っています...",
+        "startFailed": "認証の開始に失敗しました",
+        "statusFailed": "認証に失敗しました。顔認証を完了してから再試行してください。",
+        "saved": "認証が完了し、MFA_AUTH_API_KEY を .env に保存しました",
+        "validation": {
+            "required": "氏名と身分証番号の両方を入力してください。"
+        },
+        "qr": {
+            "title": "QR コードをスキャン",
+            "scanHint": "WeChat または数字身份助手アプリでスキャンしてください。",
+            "subtitle": "スマートフォンで QR コードを読み取り、顔認証を完了してください。",
+            "subtitleChecking": "QR コードを生成しました。認証結果を待っています...",
+            "alt": "本人確認用 QR コード",
+            "open": "認証リンクを開く"
+        },
+        "success": {
+            "title": "認証完了",
+            "default": "本人確認が完了しました。",
+            "persisted": "本人確認はすでに完了しています。"
+        },
         "loadFailed": ".env の読み込みに失敗しました",
-        "saveFailed": ".env の保存に失敗しました",
-        "invalidKey": "無効な環境変数名: {{key}}",
         "guide": {
-            "title": "MFA_AUTH_API_KEY の取得方法",
-            "step1": "1. 認証プラットフォームにアクセス：cclawd.dbhl.cn/applyAccount",
-            "step2": "2. 「アカウントを申請」をクリック",
-            "step3": "3. 氏名と身分証番号を入力して MFA_AUTH_API_KEY を申請",
-            "step4": "4. キー取得後、以下の環境変数に MFA_AUTH_API_KEY を追加して保存",
-            "applyButton": "キーを申請する"
+            "title": "認証フロー",
+            "step1": "1. 下のフォームに氏名と身分証番号を入力します。",
+            "step2": "2. 認証を開始すると QR コードが生成されます。",
+            "step3": "3. スマートフォンで QR コードを読み取り、顔認証を完了します。"
         }
     }
 }

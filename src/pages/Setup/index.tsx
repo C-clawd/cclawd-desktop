@@ -41,16 +41,11 @@ interface SetupStep {
   description: string;
 }
 
-interface EnvFormEntry {
-  key: string;
-  value: string;
-}
-
 const STEP = {
   WELCOME: 0,
-  RUNTIME: 1,
-  PROVIDER: 2,
-  REAL_PERSON: 3,
+  REAL_PERSON: 1,
+  RUNTIME: 2,
+  PROVIDER: 3,
   INSTALLING: 4,
   COMPLETE: 5,
 } as const;
@@ -62,6 +57,11 @@ const getSteps = (t: TFunction): SetupStep[] => [
     description: t('steps.welcome.description'),
   },
   {
+    id: 'realPerson',
+    title: t('steps.realPerson.title'),
+    description: t('steps.realPerson.description'),
+  },
+  {
     id: 'runtime',
     title: t('steps.runtime.title'),
     description: t('steps.runtime.description'),
@@ -70,11 +70,6 @@ const getSteps = (t: TFunction): SetupStep[] => [
     id: 'provider',
     title: t('steps.provider.title'),
     description: t('steps.provider.description'),
-  },
-  {
-    id: 'realPerson',
-    title: t('steps.realPerson.title'),
-    description: t('steps.realPerson.description'),
   },
   {
     id: 'installing',
@@ -168,12 +163,12 @@ export function Setup() {
     switch (safeStepIndex) {
       case STEP.WELCOME:
         return true;
+      case STEP.REAL_PERSON:
+        return realPersonConfigured;
       case STEP.RUNTIME:
         return runtimeChecksPassed;
       case STEP.PROVIDER:
         return providerConfigured;
-      case STEP.REAL_PERSON:
-        return realPersonConfigured;
       case STEP.INSTALLING:
         return false; // Cannot manually proceed, auto-proceeds when done
       case STEP.COMPLETE:
@@ -391,36 +386,75 @@ interface RealPersonAuthContentProps {
   onConfiguredChange: (configured: boolean) => void;
 }
 
+type OpenClawEnvResponse = {
+  success?: boolean;
+  path?: string;
+  entries?: Array<{ key: string; value: string }>;
+  error?: string;
+};
+
+type RealPersonAuthStartResponse = {
+  success?: boolean;
+  apiKey?: string;
+  certToken?: string;
+  qrCodeUrl?: string;
+  qrCodeDataUrl?: string;
+  error?: string;
+};
+
+type RealPersonAuthCheckResponse = {
+  success?: boolean;
+  status?: 'pending' | 'success' | 'failed';
+  message?: string;
+  retCode?: number;
+  error?: string;
+};
+
 function RealPersonAuthContent({ onConfiguredChange }: RealPersonAuthContentProps) {
   const { t } = useTranslation('setup');
   const [envPath, setEnvPath] = useState('');
-  const [entries, setEntries] = useState<EnvFormEntry[]>([]);
+  const [name, setName] = useState('');
+  const [idCard, setIdCard] = useState('');
+  const [showIdCard, setShowIdCard] = useState(false);
+  const [starting, setStarting] = useState(false);
+  const [checking, setChecking] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [dirty, setDirty] = useState(false);
-  const [showValues, setShowValues] = useState<Record<string, boolean>>({});
+  const [status, setStatus] = useState<'idle' | 'qr' | 'success'>('idle');
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [session, setSession] = useState<{
+    apiKey: string;
+    certToken: string;
+    qrCodeUrl: string;
+    qrCodeDataUrl: string;
+  } | null>(null);
+  const pollTimerRef = useRef<number | null>(null);
 
-  const isSecretKey = useCallback((key: string) => (
-    /(token|secret|key|password|passwd|private|credential)/i.test(key)
-  ), []);
+  const clearPollTimer = useCallback(() => {
+    if (pollTimerRef.current !== null) {
+      window.clearTimeout(pollTimerRef.current);
+      pollTimerRef.current = null;
+    }
+  }, []);
 
   const loadEnv = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await hostApiFetch<{
-        success?: boolean;
-        path?: string;
-        entries?: EnvFormEntry[];
-        error?: string;
-      }>('/api/app/openclaw-env');
+      const response = await hostApiFetch<OpenClawEnvResponse>('/api/app/openclaw-env');
       if (response?.success === false) {
         throw new Error(response.error || 'Failed to load .env');
       }
       setEnvPath(response.path || '');
-      const nextEntries = Array.isArray(response.entries) ? response.entries : [];
-      setEntries(nextEntries.length > 0 ? nextEntries : [{ key: '', value: '' }]);
-      setDirty(false);
-      onConfiguredChange(true);
+      const hasSavedKey = Array.isArray(response.entries)
+        && response.entries.some((entry) => entry.key === 'MFA_AUTH_API_KEY' && entry.value.trim().length > 0);
+      if (hasSavedKey) {
+        setStatus('success');
+        setStatusMessage(t('realPerson.success.persisted'));
+        onConfiguredChange(true);
+      } else {
+        setStatus('idle');
+        onConfiguredChange(false);
+      }
     } catch (error) {
       onConfiguredChange(false);
       toast.error(t('realPerson.loadFailed'));
@@ -434,81 +468,124 @@ function RealPersonAuthContent({ onConfiguredChange }: RealPersonAuthContentProp
     void loadEnv();
   }, [loadEnv]);
 
-  const updateEntry = (index: number, patch: Partial<EnvFormEntry>) => {
-    setEntries((prev) => prev.map((item, i) => (i === index ? { ...item, ...patch } : item)));
-    setDirty(true);
-    onConfiguredChange(false);
-  };
+  useEffect(() => () => {
+    clearPollTimer();
+  }, [clearPollTimer]);
 
-  const addEntry = () => {
-    setEntries((prev) => [...prev, { key: '', value: '' }]);
-    setDirty(true);
-    onConfiguredChange(false);
-  };
+  const scheduleNextCheck = useCallback((activeSession: NonNullable<typeof session>) => {
+    clearPollTimer();
+    pollTimerRef.current = window.setTimeout(() => {
+      void (async () => {
+        setChecking(true);
+        try {
+          const response = await hostApiFetch<RealPersonAuthCheckResponse>('/api/app/real-person-auth/check', {
+            method: 'POST',
+            body: JSON.stringify({
+              apiKey: activeSession.apiKey,
+              certToken: activeSession.certToken,
+            }),
+          });
+          if (response?.success === false) {
+            throw new Error(response.error || 'Failed to check verification status');
+          }
 
-  const removeEntry = (index: number) => {
-    setEntries((prev) => {
-      const next = prev.filter((_, i) => i !== index);
-      return next.length > 0 ? next : [{ key: '', value: '' }];
-    });
-    setDirty(true);
-    onConfiguredChange(false);
-  };
+          if (response.status === 'success') {
+            clearPollTimer();
+            setStatus('success');
+            setChecking(false);
+            setErrorMessage(null);
+            setStatusMessage(response.message || t('realPerson.success.default'));
+            onConfiguredChange(true);
+            toast.success(t('realPerson.saved'));
+            return;
+          }
 
-  const toggleValueVisibility = (key: string, index: number) => {
-    const id = `${key}:${index}`;
-    setShowValues((prev) => ({ ...prev, [id]: !prev[id] }));
-  };
+          if (response.status === 'pending') {
+            setErrorMessage(null);
+            setStatusMessage(response.message || t('realPerson.pending'));
+            scheduleNextCheck(activeSession);
+            return;
+          }
 
-  const handleSave = async () => {
-    const nextEntries = entries
-      .map((item) => ({ key: item.key.trim(), value: item.value }))
-      .filter((item) => item.key.length > 0);
+          clearPollTimer();
+          setChecking(false);
+          setErrorMessage(response.message || t('realPerson.statusFailed'));
+          setStatusMessage(null);
+          onConfiguredChange(false);
+        } catch (error) {
+          clearPollTimer();
+          setChecking(false);
+          const message = String(error);
+          setErrorMessage(message);
+          setStatusMessage(null);
+          onConfiguredChange(false);
+        }
+      })();
+    }, 2000);
+  }, [clearPollTimer, onConfiguredChange, t]);
 
-    const invalidEntry = nextEntries.find((item) => !/^[A-Za-z_][A-Za-z0-9_]*$/.test(item.key));
-    if (invalidEntry) {
-      toast.error(t('realPerson.invalidKey', { key: invalidEntry.key }));
+  const handleStart = async () => {
+    if (!name.trim() || !idCard.trim()) {
+      setErrorMessage(t('realPerson.validation.required'));
       return;
     }
 
-    setSaving(true);
+    clearPollTimer();
+    setStarting(true);
+    setChecking(false);
+    setErrorMessage(null);
+    setStatusMessage(null);
+    onConfiguredChange(false);
+
     try {
-      const response = await hostApiFetch<{
-        success?: boolean;
-        path?: string;
-        entries?: EnvFormEntry[];
-        error?: string;
-      }>('/api/app/openclaw-env', {
-        method: 'PUT',
-        body: JSON.stringify({ entries: nextEntries }),
+      const response = await hostApiFetch<RealPersonAuthStartResponse>('/api/app/real-person-auth/start', {
+        method: 'POST',
+        body: JSON.stringify({ name: name.trim(), idCard: idCard.trim() }),
       });
       if (response?.success === false) {
-        throw new Error(response.error || 'Failed to save .env');
+        throw new Error(response.error || 'Failed to start verification');
       }
-      setEnvPath(response.path || envPath);
-      setEntries(Array.isArray(response.entries) && response.entries.length > 0 ? response.entries : [{ key: '', value: '' }]);
-      setDirty(false);
-      onConfiguredChange(true);
-      toast.success(t('realPerson.saved'));
+
+      if (!response.apiKey || !response.certToken || !response.qrCodeUrl || !response.qrCodeDataUrl) {
+        throw new Error(t('realPerson.startFailed'));
+      }
+
+      const nextSession = {
+        apiKey: response.apiKey,
+        certToken: response.certToken,
+        qrCodeUrl: response.qrCodeUrl,
+        qrCodeDataUrl: response.qrCodeDataUrl,
+      };
+      setSession(nextSession);
+      setStatus('qr');
+      setChecking(true);
+      setStatusMessage(t('realPerson.pending'));
+      scheduleNextCheck(nextSession);
     } catch (error) {
       onConfiguredChange(false);
-      toast.error(t('realPerson.saveFailed'));
-      console.error('Failed to save OpenClaw .env:', error);
+      setStatus('idle');
+      setSession(null);
+      setErrorMessage(String(error));
+      toast.error(t('realPerson.startFailed'));
+      console.error('Failed to start real-person verification:', error);
     } finally {
-      setSaving(false);
+      setStarting(false);
     }
   };
 
+  const handleRetry = async () => {
+    await handleStart();
+  };
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <div className="space-y-1">
         <h2 className="text-xl font-semibold">{t('realPerson.title')}</h2>
         <p className="text-sm text-muted-foreground">{t('realPerson.subtitle')}</p>
         {envPath && <p className="text-xs text-muted-foreground">{envPath}</p>}
       </div>
 
-      {/* MFA Guide Section */}
-      <div className="rounded-lg border bg-blue-500/5 p-4 space-y-3">
+      <div className="rounded-xl border bg-blue-500/5 p-4 space-y-3">
         <div className="flex items-center gap-2 text-blue-400 border-b border-blue-500/10 pb-2">
           <AlertCircle className="h-4 w-4" />
           <h3 className="font-medium">{t('realPerson.guide.title')}</h3>
@@ -517,17 +594,7 @@ function RealPersonAuthContent({ onConfiguredChange }: RealPersonAuthContentProp
           <p>{t('realPerson.guide.step1')}</p>
           <p>{t('realPerson.guide.step2')}</p>
           <p>{t('realPerson.guide.step3')}</p>
-          <p>{t('realPerson.guide.step4')}</p>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          className="w-full mt-1 border-blue-500/30 hover:bg-blue-500/10 text-blue-400"
-          onClick={() => invokeIpc('shell:openExternal', 'https://cclawd.dbhl.cn/applyAccount')}
-        >
-          <ExternalLink className="h-3.5 w-3.5 mr-2" />
-          {t('realPerson.guide.applyButton')}
-        </Button>
       </div>
 
       {loading ? (
@@ -535,63 +602,119 @@ function RealPersonAuthContent({ onConfiguredChange }: RealPersonAuthContentProp
           <Loader2 className="h-4 w-4 animate-spin" />
           <span>{t('realPerson.loading')}</span>
         </div>
-      ) : (
-        <div className="space-y-3">
-          {entries.map((entry, index) => {
-            const visibilityId = `${entry.key}:${index}`;
-            const showValue = showValues[visibilityId] ?? false;
-            const sensitive = isSecretKey(entry.key);
-            return (
-              <div key={`${entry.key}-${index}`} className="grid grid-cols-[1fr,1fr,auto] gap-2">
-                <div className="space-y-1">
-                  {index === 0 && <Label>{t('realPerson.key')}</Label>}
-                  <Input
-                    value={entry.key}
-                    onChange={(e) => updateEntry(index, { key: e.target.value })}
-                    placeholder="REAL_PERSON_KEY"
-                    autoComplete="off"
-                  />
-                </div>
-                <div className="space-y-1">
-                  {index === 0 && <Label>{t('realPerson.value')}</Label>}
-                  <div className="relative">
-                    <Input
-                      value={entry.value}
-                      type={sensitive && !showValue ? 'password' : 'text'}
-                      onChange={(e) => updateEntry(index, { value: e.target.value })}
-                      placeholder={t('realPerson.valuePlaceholder')}
-                      autoComplete="off"
-                      className={cn(sensitive && 'pr-10')}
-                    />
-                    {sensitive && (
-                      <button
-                        type="button"
-                        onClick={() => toggleValueVisibility(entry.key, index)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                      >
-                        {showValue ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                      </button>
-                    )}
-                  </div>
-                </div>
-                <div className="flex items-end">
-                  <Button variant="ghost" onClick={() => removeEntry(index)}>
-                    {t('realPerson.remove')}
-                  </Button>
-                </div>
-              </div>
-            );
-          })}
-
-          <div className="flex items-center justify-between pt-2">
-            <Button variant="outline" onClick={addEntry}>
-              {t('realPerson.add')}
-            </Button>
-            <Button onClick={handleSave} disabled={loading || saving || !dirty}>
-              {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-              {t('realPerson.save')}
-            </Button>
+      ) : status === 'success' ? (
+        <div className="rounded-2xl border border-green-500/20 bg-green-500/5 p-6 text-center space-y-4">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-green-500/15 text-green-400">
+            <CheckCircle2 className="h-8 w-8" />
           </div>
+          <div className="space-y-1">
+            <h3 className="text-lg font-semibold">{t('realPerson.success.title')}</h3>
+            <p className="text-sm text-muted-foreground">{statusMessage || t('realPerson.success.default')}</p>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="real-person-name">{t('realPerson.name')}</Label>
+              <Input
+                id="real-person-name"
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                placeholder={t('realPerson.namePlaceholder')}
+                autoComplete="name"
+                disabled={starting || checking || status === 'qr'}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="real-person-id-card">{t('realPerson.idCard')}</Label>
+              <div className="relative">
+                <Input
+                  id="real-person-id-card"
+                  type={showIdCard ? 'text' : 'password'}
+                  value={idCard}
+                  onChange={(event) => setIdCard(event.target.value)}
+                  placeholder={t('realPerson.idCardPlaceholder')}
+                  autoComplete="off"
+                  disabled={starting || checking || status === 'qr'}
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowIdCard((visible) => !visible)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  aria-label={showIdCard ? t('realPerson.hideIdCard') : t('realPerson.showIdCard')}
+                  disabled={starting || checking || status === 'qr'}
+                >
+                  {showIdCard ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {errorMessage && (
+            <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-3 text-sm text-red-400">
+              {errorMessage}
+            </div>
+          )}
+
+          {status === 'qr' && session && (
+            <div className="rounded-2xl border bg-card p-5 space-y-4">
+              <div className="text-center space-y-2">
+                <h3 className="text-lg font-semibold">{t('realPerson.qr.title')}</h3>
+                <p className="text-sm font-medium text-foreground">{t('realPerson.qr.scanHint')}</p>
+                <p className="text-sm text-muted-foreground">
+                  {checking ? t('realPerson.qr.subtitleChecking') : t('realPerson.qr.subtitle')}
+                </p>
+              </div>
+
+              <div className="mx-auto w-full max-w-xs rounded-2xl border bg-white p-4 shadow-sm">
+                <img
+                  src={session.qrCodeDataUrl}
+                  alt={t('realPerson.qr.alt')}
+                  className="mx-auto h-full w-full"
+                />
+              </div>
+
+              <div className="rounded-xl border bg-background/70 p-3 text-sm text-muted-foreground break-all">
+                {session.qrCodeUrl}
+              </div>
+
+              {statusMessage && (
+                <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+                  {checking ? <Loader2 className="h-4 w-4 animate-spin text-blue-500" /> : null}
+                  <span>{statusMessage}</span>
+                </div>
+              )}
+
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <Button
+                  variant="secondary"
+                  className="flex-1"
+                  onClick={() => invokeIpc('shell:openExternal', session.qrCodeUrl)}
+                >
+                  <ExternalLink className="mr-2 h-4 w-4" />
+                  {t('realPerson.qr.open')}
+                </Button>
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => void handleRetry()}
+                  disabled={starting}
+                >
+                  {starting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
+                  {t('realPerson.refreshQr')}
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {status === 'idle' && (
+            <Button onClick={() => void handleStart()} disabled={starting || !name.trim() || !idCard.trim()} className="w-full">
+              {starting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              {t('realPerson.start')}
+            </Button>
+          )}
         </div>
       )}
     </div>

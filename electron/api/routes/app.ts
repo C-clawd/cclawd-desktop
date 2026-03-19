@@ -4,6 +4,7 @@ import { parseJsonBody } from '../route-utils';
 import { setCorsHeaders, sendJson, sendNoContent } from '../route-utils';
 import { runOpenClawDoctor, runOpenClawDoctorFix } from '../../utils/openclaw-doctor';
 import { readOpenClawEnv, writeOpenClawEnv, type OpenClawEnvEntry } from '../../utils/openclaw-env';
+import { checkRealPersonAuth, startRealPersonAuth } from '../../utils/real-person-auth';
 
 export async function handleAppRoutes(
   req: IncomingMessage,
@@ -47,6 +48,26 @@ export async function handleAppRoutes(
       const body = await parseJsonBody<{ entries?: OpenClawEnvEntry[] }>(req);
       const entries = Array.isArray(body.entries) ? body.entries : [];
       sendJson(res, 200, { success: true, ...(await writeOpenClawEnv(entries)) });
+    } catch (error) {
+      sendJson(res, 500, { success: false, error: String(error) });
+    }
+    return true;
+  }
+
+  if (url.pathname === '/api/app/real-person-auth/start' && req.method === 'POST') {
+    try {
+      const body = await parseJsonBody<{ name?: string; idCard?: string }>(req);
+      sendJson(res, 200, { success: true, ...(await startRealPersonAuth(body.name || '', body.idCard || '')) });
+    } catch (error) {
+      sendJson(res, 500, { success: false, error: String(error) });
+    }
+    return true;
+  }
+
+  if (url.pathname === '/api/app/real-person-auth/check' && req.method === 'POST') {
+    try {
+      const body = await parseJsonBody<{ apiKey?: string; certToken?: string }>(req);
+      sendJson(res, 200, { success: true, ...(await checkRealPersonAuth(body.apiKey || '', body.certToken || '')) });
     } catch (error) {
       sendJson(res, 500, { success: false, error: String(error) });
     }
