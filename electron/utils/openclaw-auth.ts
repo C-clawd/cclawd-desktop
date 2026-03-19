@@ -132,6 +132,7 @@ async function discoverAgentIds(): Promise<string[]> {
 
 const OPENCLAW_CONFIG_PATH = join(homedir(), '.openclaw', 'openclaw.json');
 const VALID_COMPACTION_MODES = new Set(['default', 'safeguard']);
+const CCLAWD_MFA_AUTH_PLUGIN_ID = 'cclawd-mfa-auth';
 
 async function readOpenClawJson(): Promise<Record<string, unknown>> {
   return (await readJsonFile<Record<string, unknown>>(OPENCLAW_CONFIG_PATH)) ?? {};
@@ -172,6 +173,52 @@ async function writeOpenClawJson(config: Record<string, unknown>): Promise<void>
   config.commands = commands;
 
   await writeJsonFile(OPENCLAW_CONFIG_PATH, config);
+}
+
+export async function ensureRealPersonAuthPluginEnabled(): Promise<void> {
+  return withConfigLock(async () => {
+    const config = await readOpenClawJson();
+    const plugins = (
+      config.plugins && typeof config.plugins === 'object' && !Array.isArray(config.plugins)
+        ? { ...(config.plugins as Record<string, unknown>) }
+        : {}
+    ) as Record<string, unknown>;
+
+    if (plugins.enabled === undefined) {
+      plugins.enabled = true;
+    }
+
+    const allow = Array.isArray(plugins.allow)
+      ? [...(plugins.allow as unknown[]).filter((value): value is string => typeof value === 'string')]
+      : [];
+    if (!allow.includes(CCLAWD_MFA_AUTH_PLUGIN_ID)) {
+      allow.push(CCLAWD_MFA_AUTH_PLUGIN_ID);
+    }
+    plugins.allow = allow;
+
+    const entries = (
+      plugins.entries && typeof plugins.entries === 'object' && !Array.isArray(plugins.entries)
+        ? { ...(plugins.entries as Record<string, unknown>) }
+        : {}
+    ) as Record<string, unknown>;
+
+    const existingEntry = (
+      entries[CCLAWD_MFA_AUTH_PLUGIN_ID]
+      && typeof entries[CCLAWD_MFA_AUTH_PLUGIN_ID] === 'object'
+      && !Array.isArray(entries[CCLAWD_MFA_AUTH_PLUGIN_ID])
+        ? { ...(entries[CCLAWD_MFA_AUTH_PLUGIN_ID] as Record<string, unknown>) }
+        : {}
+    ) as Record<string, unknown>;
+
+    if (existingEntry.enabled === undefined) {
+      existingEntry.enabled = true;
+    }
+    entries[CCLAWD_MFA_AUTH_PLUGIN_ID] = existingEntry;
+    plugins.entries = entries;
+
+    config.plugins = plugins;
+    await writeOpenClawJson(config);
+  });
 }
 
 // ── Exported Functions (all async) ───────────────────────────────

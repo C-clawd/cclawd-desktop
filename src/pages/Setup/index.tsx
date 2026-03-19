@@ -483,6 +483,7 @@ function RealPersonAuthContent({ onConfiguredChange }: RealPersonAuthContentProp
             body: JSON.stringify({
               apiKey: activeSession.apiKey,
               certToken: activeSession.certToken,
+              context: 'setup',
             }),
           });
           if (response?.success === false) {

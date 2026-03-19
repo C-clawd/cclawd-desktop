@@ -180,6 +180,7 @@ export function PeriodicRealPersonAuthGuard() {
             body: JSON.stringify({
               apiKey: activeSession.apiKey,
               certToken: activeSession.certToken,
+              context: 'periodic',
             }),
           });
 
@@ -325,12 +326,6 @@ export function PeriodicRealPersonAuthGuard() {
                 <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
                 <span>{errorMessage}</span>
               </div>
-            </div>
-          )}
-
-          {statusMessage && !errorMessage && (
-            <div className="rounded-2xl border border-blue-500/30 bg-blue-500/10 p-4 text-center text-sm text-blue-100">
-              {statusMessage}
             </div>
           )}
 

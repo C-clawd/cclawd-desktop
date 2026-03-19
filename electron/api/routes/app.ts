@@ -4,7 +4,12 @@ import { parseJsonBody } from '../route-utils';
 import { setCorsHeaders, sendJson, sendNoContent } from '../route-utils';
 import { runOpenClawDoctor, runOpenClawDoctorFix } from '../../utils/openclaw-doctor';
 import { readOpenClawEnv, writeOpenClawEnv, type OpenClawEnvEntry } from '../../utils/openclaw-env';
-import { checkRealPersonAuth, startRealPersonAuth, startRealPersonAuthWithSavedApiKey } from '../../utils/real-person-auth';
+import {
+  checkRealPersonAuth,
+  ensureSetupRealPersonAuthConfig,
+  startRealPersonAuth,
+  startRealPersonAuthWithSavedApiKey,
+} from '../../utils/real-person-auth';
 import { getSetting, setSetting } from '../../utils/store';
 
 async function buildPeriodicAuthState() {
@@ -81,9 +86,12 @@ export async function handleAppRoutes(
 
   if (url.pathname === '/api/app/real-person-auth/check' && req.method === 'POST') {
     try {
-      const body = await parseJsonBody<{ apiKey?: string; certToken?: string }>(req);
+      const body = await parseJsonBody<{ apiKey?: string; certToken?: string; context?: 'setup' | 'periodic' }>(req);
       const result = await checkRealPersonAuth(body.apiKey || '', body.certToken || '');
       if (result.status === 'success') {
+        if (body.context === 'setup') {
+          await ensureSetupRealPersonAuthConfig();
+        }
         await markPeriodicAuthComplete();
       }
       sendJson(res, 200, { success: true, ...result });
