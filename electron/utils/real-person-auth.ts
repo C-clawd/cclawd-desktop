@@ -16,7 +16,7 @@ const REAL_PERSON_AUTH_BASE_URL = 'https://cclawd.dbhl.cn';
 const MFA_AUTH_API_KEY = 'MFA_AUTH_API_KEY';
 const REAL_PERSON_ENV_DEFAULTS: Array<OpenClawEnvEntry> = [
   { key: 'DABBY_API_BASE_URL', value: REAL_PERSON_AUTH_BASE_URL },
-  { key: 'MFA_REQUIRE_AUTH_ON_FIRST_MESSAGE', value: 'true' },
+  { key: 'MFA_REQUIRE_AUTH_ON_FIRST_MESSAGE', value: 'false' },
   { key: 'MFA_FIRST_MESSAGE_AUTH_DURATION', value: '86400000' },
   { key: 'MFA_AUTH_STATE_DIR', value: '~/.openclaw/cclawd-mfa-auth/' },
   { key: 'MFA_REQUIRE_AUTH_ON_SENSITIVE_OPERATION', value: 'true' },
