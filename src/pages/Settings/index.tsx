@@ -1057,7 +1057,7 @@ export function Settings() {
                 <strong className="text-foreground font-semibold">{t('about.appName')}</strong> - {t('about.tagline')}
               </p>
               <p>{t('about.basedOn')}</p>
-              <p>{t('about.version', { version: currentVersion })}</p>
+              {/* <p>{t('about.version', { version: currentVersion })}</p> */}
               {/* <div className="flex gap-4 pt-3">
                 <Button
                   variant="link"
