@@ -1008,13 +1008,13 @@ export function Settings() {
 
           {/* Updates */}
           <div>
-            <h2 className="text-3xl font-serif text-foreground mb-6 font-normal tracking-tight" style={{ fontFamily: 'Georgia, Cambria, "Times New Roman", Times, serif' }}>
+            {/* <h2 className="text-3xl font-serif text-foreground mb-6 font-normal tracking-tight" style={{ fontFamily: 'Georgia, Cambria, "Times New Roman", Times, serif' }}>
               {t('updates.title')}
-            </h2>
+            </h2> */}
             <div className="space-y-6">
-              <UpdateSettings />
+              {/* <UpdateSettings /> */}
 
-              <div className="flex items-center justify-between">
+              {/* <div className="flex items-center justify-between">
                 <div>
                   <Label className="text-[15px] font-medium text-foreground">{t('updates.autoCheck')}</Label>
                   <p className="text-[13px] text-muted-foreground mt-1">
@@ -1025,9 +1025,9 @@ export function Settings() {
                   checked={autoCheckUpdate}
                   onCheckedChange={setAutoCheckUpdate}
                 />
-              </div>
+              </div> */}
 
-              <div className="flex items-center justify-between">
+              {/* <div className="flex items-center justify-between">
                 <div>
                   <Label className="text-[15px] font-medium text-foreground">{t('updates.autoDownload')}</Label>
                   <p className="text-[13px] text-muted-foreground mt-1">
@@ -1041,7 +1041,7 @@ export function Settings() {
                     updateSetAutoDownload(value);
                   }}
                 />
-              </div>
+              </div> */}
             </div>
           </div>
 
@@ -1058,7 +1058,7 @@ export function Settings() {
               </p>
               <p>{t('about.basedOn')}</p>
               <p>{t('about.version', { version: currentVersion })}</p>
-              <div className="flex gap-4 pt-3">
+              {/* <div className="flex gap-4 pt-3">
                 <Button
                   variant="link"
                   className="h-auto p-0 text-[14px] text-blue-500 hover:text-blue-600 font-medium"
@@ -1073,7 +1073,7 @@ export function Settings() {
                 >
                   {t('about.github')}
                 </Button>
-              </div>
+              </div> */}
             </div>
           </div>
 
