@@ -34,6 +34,7 @@ import { toast } from 'sonner';
 import { invokeIpc } from '@/lib/api-client';
 import { hostApiFetch } from '@/lib/host-api';
 import { subscribeHostEvent } from '@/lib/host-events';
+
 interface SetupStep {
   id: string;
   title: string;
@@ -117,6 +118,10 @@ import {
 } from '@/lib/provider-accounts';
 import cclawdIcon from '@/assets/logo.png';
 import welcomeRobot from '@/assets/welcome-robot.png';
+import fisIcon from '@/assets/fis-icon.png';
+import faiIcon from '@/assets/f-ai-ico.png';
+import fzjIcon from '@/assets/f-zj-ico.png';
+import fwgIcon from '@/assets/f-wg-ico.png';
 
 // Use the shared provider registry for setup providers
 const providers = SETUP_PROVIDERS;
@@ -339,9 +344,9 @@ function WelcomeContent({ onNext }: WelcomeContentProps) {
   const { t } = useTranslation('setup');
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-0 h-full max-h-[576px] min-h-[576px]">
+    <div className="flex gap-0 h-full max-h-[576px] min-h-[576px]">
       {/* Left side - Robot illustration */}
-      <div className="flex  rounded-l-xl">
+      <div className="flex-1 flex items-center justify-start rounded-l-xl min-w-0">
         <img
           src={welcomeRobot}
           alt="Welcome Robot"
@@ -350,7 +355,7 @@ function WelcomeContent({ onNext }: WelcomeContentProps) {
       </div>
 
       {/* Right side - Content */}
-      <div className="flex flex-col items-center justify-center text-center space-y-6">
+      <div className="flex-1 flex flex-col items-center justify-center text-center space-y-6 min-w-0">
         <div className="flex justify-center">
           <img src={cclawdIcon} alt="Cclawd" className="h-20 w-20" />
         </div>
@@ -613,6 +618,7 @@ function RealPersonAuthContent({ onConfiguredChange }: RealPersonAuthContentProp
                 placeholder={t('realPerson.namePlaceholder')}
                 autoComplete="name"
                 disabled={starting || checking || status === 'qr'}
+                style={{ backgroundColor: '#F8F8FC' }}
               />
             </div>
             <div className="space-y-2">
@@ -627,6 +633,7 @@ function RealPersonAuthContent({ onConfiguredChange }: RealPersonAuthContentProp
                   autoComplete="off"
                   disabled={starting || checking || status === 'qr'}
                   className="pr-10"
+                  style={{ backgroundColor: '#F8F8FC' }}
                 />
                 <button
                   type="button"
@@ -648,7 +655,7 @@ function RealPersonAuthContent({ onConfiguredChange }: RealPersonAuthContentProp
           )}
 
           {status === 'qr' && session && (
-            <div className="rounded-2xl border bg-card p-5 space-y-4">
+            <div className="rounded-2xl  bg-card p-5 space-y-4" style={{background:'#F8F8FC'}}>
               <div className="text-center space-y-2">
                 <h3 className="text-lg font-semibold">{t('realPerson.qr.title')}</h3>
                 <p className="text-sm font-medium text-foreground">{t('realPerson.qr.scanHint')}</p>
@@ -657,7 +664,7 @@ function RealPersonAuthContent({ onConfiguredChange }: RealPersonAuthContentProp
                 </p>
               </div>
 
-              <div className="mx-auto w-full max-w-xs rounded-2xl border bg-white p-4 shadow-sm">
+              <div className="mx-auto w-full max-w-xs rounded-2xl border bg-white p-1 shadow-sm" style={{width:'216px'}}>
                 <img
                   src={session.qrCodeDataUrl}
                   alt={t('realPerson.qr.alt')}
@@ -665,7 +672,7 @@ function RealPersonAuthContent({ onConfiguredChange }: RealPersonAuthContentProp
                 />
               </div>
 
-              <div className="rounded-xl border bg-background/70 p-3 text-sm text-muted-foreground break-all">
+              <div className="rounded-xl bg-background/70 p-3 text-sm text-muted-foreground break-all">
                 {session.qrCodeUrl}
               </div>
 
@@ -676,18 +683,18 @@ function RealPersonAuthContent({ onConfiguredChange }: RealPersonAuthContentProp
                 </div>
               )}
 
-              <div className="flex flex-col gap-2 sm:flex-row">
+              <div className="flex flex-row gap-2 justify-end">
                 <Button
-                  variant="secondary"
-                  className="flex-1"
+                  variant="ghost"
+                  className="bg-blue-50 text-blue-600 hover:bg-blue-100 hover:text-blue-700"
                   onClick={() => invokeIpc('shell:openExternal', session.qrCodeUrl)}
                 >
                   <ExternalLink className="mr-2 h-4 w-4" />
                   {t('realPerson.qr.open')}
                 </Button>
                 <Button
-                  variant="outline"
-                  className="flex-1"
+                  variant="ghost"
+                  className="bg-blue-50 text-blue-600 hover:bg-blue-100 hover:text-blue-700"
                   onClick={() => void handleRetry()}
                   disabled={starting}
                 >
@@ -2085,7 +2092,13 @@ function CompleteContent({ selectedProvider, installedSkills }: CompleteContentP
 
   return (
     <div className="text-center space-y-6">
-      <div className="text-6xl mb-4">🎉</div>
+      <div className="text-6xl mb-4 flex justify-center">
+         <img
+          src={fisIcon}
+          alt=""
+          className="max-h-[110px] object-contain rounded-l-xl"
+        />
+      </div>
       <h2 className="text-xl font-semibold">{t('complete.title')}</h2>
       <p className="text-muted-foreground">
         {t('complete.subtitle')}
@@ -2093,19 +2106,28 @@ function CompleteContent({ selectedProvider, installedSkills }: CompleteContentP
 
       <div className="space-y-3 text-left max-w-xxl mx-auto">
         <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-          <span>{t('complete.provider')}</span>
+          <div className="flex items-center gap-1">
+            <img src={faiIcon} alt="" className="max-h-[18px] object-contain rounded-l-xl" />
+            <span>{t('complete.provider')}</span>
+          </div>
           <span className="text-success">
             {providerData ? <span className="flex items-center gap-1.5">{getProviderIconUrl(providerData.id) ? <img src={getProviderIconUrl(providerData.id)} alt={providerData.name} className={`h-4 w-4 inline-block ${shouldInvertInDark(providerData.id) ? 'dark:invert' : ''}`} /> : providerData.icon} {providerData.id === 'custom' ? t('settings:aiProviders.custom') : providerData.name}</span> : '—'}
           </span>
         </div>
         <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-          <span>{t('complete.components')}</span>
+         <div className="flex items-center gap-1">
+           <img src={fzjIcon} alt="" className="max-h-[18px] object-contain rounded-l-xl" />
+           <span>{t('complete.components')}</span>
+         </div>
           <span className="text-success">
             {installedSkillNames || `${installedSkills.length} ${t('installing.status.installed')}`}
           </span>
         </div>
         <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-          <span>{t('complete.gateway')}</span>
+          <div className="flex items-center gap-1">
+            <img src={fwgIcon} alt="" className="max-h-[18px] object-contain rounded-l-xl" />
+            <span>{t('complete.gateway')}</span>
+          </div>
           <span className={gatewayStatus.state === 'running' ? 'text-success' : 'text-yellow-400'}>
             {gatewayStatus.state === 'running' ? `✓ ${t('complete.running')}` : gatewayStatus.state}
           </span>
