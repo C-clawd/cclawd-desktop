@@ -549,7 +549,7 @@ export function Settings() {
                 <div className="flex flex-wrap items-center gap-2">
                   <div className={cn(
                     "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[13px] font-medium border",
-                    gatewayStatus.state === 'running' ? "bg-green-500/10 text-green-600 dark:text-green-500 border-green-500/20" :
+                    gatewayStatus.state === 'running' ? "bg-green-500/10 text-success dark:text-green-500 border-green-500/20" :
                       gatewayStatus.state === 'error' ? "bg-red-500/10 text-red-600 dark:text-red-500 border-red-500/20" :
                         "bg-black/5 dark:bg-white/5 text-muted-foreground border-transparent"
                   )}>

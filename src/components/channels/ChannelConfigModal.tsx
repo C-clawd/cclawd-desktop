@@ -536,7 +536,7 @@ export function ChannelConfigModal({
                   className={cn(
                     'p-4 rounded-2xl text-sm border',
                     validationResult.valid
-                      ? 'bg-green-500/10 text-green-700 dark:text-green-600 border-green-500/20'
+                      ? 'bg-green-500/10 text-green-700 dark:text-success border-green-500/20'
                       : 'bg-destructive/10 text-destructive border-destructive/20'
                   )}
                 >
@@ -558,7 +558,7 @@ export function ChannelConfigModal({
                         </ul>
                       )}
                       {validationResult.valid && validationResult.warnings.length > 0 && (
-                        <div className="mt-1 text-green-600 dark:text-green-600 space-y-0.5">
+                        <div className="mt-1 text-success dark:text-success space-y-0.5">
                           {validationResult.warnings.map((info, index) => (
                             <p key={index} className="text-xs">{info}</p>
                           ))}

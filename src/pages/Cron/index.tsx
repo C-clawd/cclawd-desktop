@@ -624,7 +624,7 @@ export function Cron() {
             <div className="p-5 rounded-[24px] bg-black/5 dark:bg-white/5 border border-transparent flex flex-col justify-between min-h-[130px] relative overflow-hidden group hover:bg-black/10 dark:hover:bg-white/10 transition-colors">
               <div className="flex items-center justify-between">
                 <div className="h-11 w-11 rounded-full bg-green-500/10 flex items-center justify-center">
-                  <Play className="h-5 w-5 text-green-600 dark:text-green-500 ml-0.5" />
+                  <Play className="h-5 w-5 text-success dark:text-green-500 ml-0.5" />
                 </div>
               </div>
               <div className="mt-4 flex items-baseline gap-3">

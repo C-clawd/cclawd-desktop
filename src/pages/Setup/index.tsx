@@ -30,7 +30,6 @@ import { useGatewayStore } from '@/stores/gateway';
 import { useSettingsStore } from '@/stores/settings';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
-import { SUPPORTED_LANGUAGES } from '@/i18n';
 import { toast } from 'sonner';
 import { invokeIpc } from '@/lib/api-client';
 import { hostApiFetch } from '@/lib/host-api';
@@ -117,6 +116,7 @@ import {
   pickPreferredAccount,
 } from '@/lib/provider-accounts';
 import cclawdIcon from '@/assets/logo.png';
+import welcomeRobot from '@/assets/welcome-robot.png';
 
 // Use the shared provider registry for setup providers
 const providers = SETUP_PROVIDERS;
@@ -213,36 +213,31 @@ export function Setup() {
       <TitleBar />
       <div className="flex-1 overflow-auto">
         {/* Progress Indicator */}
-        <div className="flex justify-center pt-8">
-          <div className="flex items-center gap-2">
-            {steps.map((s, i) => (
-              <div key={s.id} className="flex items-center">
-                <div
-                  className={cn(
-                    'flex h-8 w-8 items-center justify-center rounded-full border-2 transition-colors',
-                    i < safeStepIndex
-                      ? 'border-primary bg-primary text-primary-foreground'
-                      : i === safeStepIndex
-                        ? 'border-primary text-primary'
-                        : 'border-slate-600 text-slate-600'
-                  )}
-                >
-                  {i < safeStepIndex ? (
-                    <Check className="h-4 w-4" />
-                  ) : (
-                    <span className="text-sm">{i + 1}</span>
-                  )}
-                </div>
-                {i < steps.length - 1 && (
-                  <div
-                    className={cn(
-                      'h-0.5 w-8 transition-colors',
-                      i < safeStepIndex ? 'bg-primary' : 'bg-slate-600'
-                    )}
-                  />
-                )}
-              </div>
-            ))}
+        <div className="flex justify-center pt-10 px-8" style={{paddingTop:64}}>
+          <div className="flex items-center gap-4 w-full max-w-xl">
+            <span className="text-sm text-slate-400 whitespace-nowrap">
+              Step {safeStepIndex + 1}/{steps.length}
+            </span>
+            <div
+              className="flex-1 overflow-hidden"
+              style={{
+                height: '12px',
+                backgroundColor: '#D4E0FB',
+                borderRadius: '7px'
+              }}
+            >
+              <div
+                className="h-full transition-all duration-300 ease-out"
+                style={{
+                  width: `${((safeStepIndex + 1) / steps.length) * 100}%`,
+                  background: 'linear-gradient(270deg, #009EFB 0%, #0065F5 100%)',
+                  borderRadius: '7px'
+                }}
+              />
+            </div>
+            <span className="text-sm text-slate-400 whitespace-nowrap">
+              {Math.round(((safeStepIndex + 1) / steps.length) * 100)}%
+            </span>
           </div>
         </div>
 
@@ -253,16 +248,21 @@ export function Setup() {
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -20 }}
-            className="mx-auto max-w-2xl p-8"
+            className="mx-auto max-w-4xl p-10"
+            style={{paddingTop:68}}
           >
-            <div className="text-center mb-8">
-              <h1 className="text-3xl font-bold mb-2">{t(`steps.${step.id}.title`)}</h1>
-              <p className="text-slate-400">{t(`steps.${step.id}.description`)}</p>
-            </div>
+            {/* Title - hidden on welcome step */}
+            {!isFirstStep && (
+              <div className="text-center mb-8">
+                <h1 className="text-3xl font-bold mb-2">{t(`steps.${step.id}.title`)}</h1>
+                <p className="text-slate-400" style={{color:'#53617B'}}>{t(`steps.${step.id}.description`)}</p>
+              </div>
+            )}
+
 
             {/* Step-specific content */}
-            <div className="rounded-xl bg-card text-card-foreground border shadow-sm p-8 mb-8">
-              {safeStepIndex === STEP.WELCOME && <WelcomeContent />}
+            <div className={cn("rounded-xl bg-card text-card-foreground border shadow-sm", safeStepIndex === STEP.WELCOME ? "" : "p-6")} style={{borderColor:'#DDE3F1', boxShadow:' 0px 2px 4px 0px rgba(19,28,41,0.05)'}}>
+              {safeStepIndex === STEP.WELCOME && <WelcomeContent onNext={handleNext} />}
               {safeStepIndex === STEP.RUNTIME && <RuntimeContent onStatusChange={setRuntimeChecksPassed} />}
               {safeStepIndex === STEP.PROVIDER && (
                 <ProviderContent
@@ -290,38 +290,38 @@ export function Setup() {
                   installedSkills={installedSkills}
                 />
               )}
-            </div>
 
-            {/* Navigation - hidden during installation step */}
-            {safeStepIndex !== STEP.INSTALLING && (
-              <div className="flex justify-between">
-                <div>
-                  {!isFirstStep && (
-                    <Button variant="ghost" onClick={handleBack}>
-                      <ChevronLeft className="h-4 w-4 mr-2" />
-                      {t('nav.back')}
-                    </Button>
-                  )}
-                </div>
-                <div className="flex gap-2">
-                  {!isLastStep && safeStepIndex !== STEP.RUNTIME && (
-                    <Button variant="ghost" onClick={handleSkip}>
-                      {t('nav.skipSetup')}
-                    </Button>
-                  )}
-                  <Button onClick={handleNext} disabled={!canProceed}>
-                    {isLastStep ? (
-                      t('nav.getStarted')
-                    ) : (
-                      <>
-                        {t('nav.next')}
-                        <ChevronRight className="h-4 w-4 ml-2" />
-                      </>
+              {/* Navigation - hidden during welcome and installation steps */}
+              {safeStepIndex !== STEP.WELCOME && safeStepIndex !== STEP.INSTALLING && (
+                <div className="flex justify-between mt-8">
+                  <div>
+                    {!isFirstStep && (
+                      <Button variant="ghost" onClick={handleBack}>
+                        <ChevronLeft className="h-4 w-4 mr-2" />
+                        {t('nav.back')}
+                      </Button>
                     )}
-                  </Button>
+                  </div>
+                  <div className="flex gap-2">
+                    {/* {!isLastStep && safeStepIndex !== STEP.RUNTIME && (
+                      <Button variant="ghost" onClick={handleSkip}>
+                        {t('nav.skipSetup')}
+                      </Button>
+                    )} */}
+                    <Button onClick={handleNext} disabled={!canProceed} className="min-w-[120px]">
+                      {isLastStep ? (
+                        t('nav.getStarted')
+                      ) : (
+                        <>
+                          {t('nav.next')}
+                          {/* <ChevronRight className="h-4 w-4 ml-2" /> */}
+                        </>
+                      )}
+                    </Button>
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </motion.div>
         </AnimatePresence>
       </div>
@@ -331,53 +331,41 @@ export function Setup() {
 
 // ==================== Step Content Components ====================
 
-function WelcomeContent() {
-  const { t } = useTranslation(['setup', 'settings']);
-  const { language, setLanguage } = useSettingsStore();
+interface WelcomeContentProps {
+  onNext: () => void;
+}
+
+function WelcomeContent({ onNext }: WelcomeContentProps) {
+  const { t } = useTranslation('setup');
 
   return (
-    <div className="text-center space-y-4">
-      <div className="mb-4 flex justify-center">
-        <img src={cclawdIcon} alt="Cclawd" className="h-16 w-16" />
-      </div>
-      <h2 className="text-xl font-semibold">{t('welcome.title')}</h2>
-      <p className="text-muted-foreground">
-        {t('welcome.description')}
-      </p>
-
-      {/* Language Selector */}
-      <div className="flex justify-center gap-2 py-2">
-        {SUPPORTED_LANGUAGES.map((lang) => (
-          <Button
-            key={lang.code}
-            variant={language === lang.code ? 'secondary' : 'ghost'}
-            size="sm"
-            onClick={() => setLanguage(lang.code)}
-            className="h-7 text-xs"
-          >
-            {lang.label}
-          </Button>
-        ))}
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-0 h-full max-h-[576px] min-h-[576px]">
+      {/* Left side - Robot illustration */}
+      <div className="flex  rounded-l-xl">
+        <img
+          src={welcomeRobot}
+          alt="Welcome Robot"
+          className="max-w-full max-h-[576px] object-contain rounded-l-xl"
+        />
       </div>
 
-      <ul className="text-left space-y-2 text-muted-foreground pt-2">
-        <li className="flex items-center gap-2">
-          <CheckCircle2 className="h-5 w-5 text-green-600" />
-          {t('welcome.features.noCommand')}
-        </li>
-        <li className="flex items-center gap-2">
-          <CheckCircle2 className="h-5 w-5 text-green-600" />
-          {t('welcome.features.modernUI')}
-        </li>
-        <li className="flex items-center gap-2">
-          <CheckCircle2 className="h-5 w-5 text-green-600" />
-          {t('welcome.features.bundles')}
-        </li>
-        <li className="flex items-center gap-2">
-          <CheckCircle2 className="h-5 w-5 text-green-600" />
-          {t('welcome.features.crossPlatform')}
-        </li>
-      </ul>
+      {/* Right side - Content */}
+      <div className="flex flex-col items-center justify-center text-center space-y-6">
+        <div className="flex justify-center">
+          <img src={cclawdIcon} alt="Cclawd" className="h-20 w-20" />
+        </div>
+
+        <div className="space-y-3">
+          <h2 className="text-2xl font-semibold text-gray-900">欢迎使用Cclawd</h2>
+          <p className="text-muted-foreground max-w-sm mx-auto leading-relaxed">
+            Cclawd是在OpenClaw的原生内核之上，引入网关风控与生物识别确权机制，解决本地AI权限不可控、操作不可溯源的安全难题。
+          </p>
+        </div>
+
+        <Button onClick={onNext} className="min-w-[120px]">
+          开始配置
+        </Button>
+      </div>
     </div>
   );
 }
@@ -583,15 +571,15 @@ function RealPersonAuthContent({ onConfiguredChange }: RealPersonAuthContentProp
       <div className="space-y-1">
         <h2 className="text-xl font-semibold">{t('realPerson.title')}</h2>
         <p className="text-sm text-muted-foreground">{t('realPerson.subtitle')}</p>
-        {envPath && <p className="text-xs text-muted-foreground">{envPath}</p>}
+        {/* {envPath && <p className="text-xs text-muted-foreground">{envPath}</p>} */}
       </div>
 
-      <div className="rounded-xl border bg-blue-500/5 p-4 space-y-3">
-        <div className="flex items-center gap-2 text-blue-400 border-b border-blue-500/10 pb-2">
+      <div className="rounded-xl p-4 space-y-3" style={{background:'#F8F8FC'}}>
+        <div className="flex items-center gap-2">
           <AlertCircle className="h-4 w-4" />
           <h3 className="font-medium">{t('realPerson.guide.title')}</h3>
         </div>
-        <div className="space-y-2 text-sm text-slate-300">
+        <div className="space-y-2 text-sm text-slate-300" style={{color:'#53617B'}}>
           <p>{t('realPerson.guide.step1')}</p>
           <p>{t('realPerson.guide.step2')}</p>
           <p>{t('realPerson.guide.step3')}</p>
@@ -605,7 +593,7 @@ function RealPersonAuthContent({ onConfiguredChange }: RealPersonAuthContentProp
         </div>
       ) : status === 'success' ? (
         <div className="rounded-2xl border border-green-500/20 bg-green-500/5 p-6 text-center space-y-4">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-green-500/15 text-green-600">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-green-500/15 text-success">
             <CheckCircle2 className="h-8 w-8" />
           </div>
           <div className="space-y-1">
@@ -934,7 +922,7 @@ function RuntimeContent({ onStatusChange }: RuntimeContentProps) {
     }
     if (status === 'success') {
       return (
-        <span className="flex items-center gap-2 text-green-600 whitespace-nowrap">
+        <span className="flex items-center gap-2 text-success whitespace-nowrap">
           <CheckCircle2 className="h-5 w-5 flex-shrink-0" />
           {message}
         </span>
@@ -967,10 +955,10 @@ function RuntimeContent({ onStatusChange }: RuntimeContentProps) {
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-xl font-semibold">{t('runtime.title')}</h2>
         <div className="flex gap-2">
-          <Button variant="ghost" size="sm" onClick={handleShowLogs}>
+          <Button variant="ghost" size="sm" className="text-primary" onClick={handleShowLogs}>
             {t('runtime.viewLogs')}
           </Button>
-          <Button variant="ghost" size="sm" onClick={runChecks}>
+          <Button variant="ghost" size="sm" className="text-primary" onClick={runChecks}>
             <RefreshCw className="h-4 w-4 mr-2" />
             {t('runtime.recheck')}
           </Button>
@@ -1495,7 +1483,7 @@ function ProviderContent({
       <div className="space-y-2">
         <div className="flex items-center justify-between gap-3">
           <Label>{t('provider.label')}</Label>
-          {selectedProvider && providerDocsUrl && (
+          {/* {selectedProvider && providerDocsUrl && (
             <a
               href={providerDocsUrl}
               target="_blank"
@@ -1505,7 +1493,7 @@ function ProviderContent({
               {t('settings:aiProviders.dialog.customDoc')}
               <ExternalLink className="h-3 w-3" />
             </a>
-          )}
+          )} */}
         </div>
         <div className="relative" ref={providerMenuRef}>
           <button
@@ -1882,7 +1870,7 @@ function ProviderContent({
           </Button>
 
           {keyValid !== null && (
-            <p className={cn('text-sm text-center', keyValid ? 'text-green-600' : 'text-red-400')}>
+            <p className={cn('text-sm text-center', keyValid ? 'text-success' : 'text-red-400')}>
               {keyValid ? `✓ ${t('provider.valid')}` : `✗ ${t('provider.invalid')}`}
             </p>
           )}
@@ -1968,7 +1956,7 @@ function InstallingContent({ skills, onComplete, onSkip }: InstallingContentProp
       case 'installing':
         return <Loader2 className="h-5 w-5 text-primary animate-spin" />;
       case 'completed':
-        return <CheckCircle2 className="h-5 w-5 text-green-600" />;
+        return <CheckCircle2 className="h-5 w-5 text-success" />;
       case 'failed':
         return <XCircle className="h-5 w-5 text-red-400" />;
     }
@@ -1981,7 +1969,7 @@ function InstallingContent({ skills, onComplete, onSkip }: InstallingContentProp
       case 'installing':
         return <span className="text-primary">{t('installing.status.installing')}</span>;
       case 'completed':
-        return <span className="text-green-600">{t('installing.status.installed')}</span>;
+        return <span className="text-success">{t('installing.status.installed')}</span>;
       case 'failed':
         return <span className="text-red-400">{t('installing.status.failed')}</span>;
     }
@@ -2103,22 +2091,22 @@ function CompleteContent({ selectedProvider, installedSkills }: CompleteContentP
         {t('complete.subtitle')}
       </p>
 
-      <div className="space-y-3 text-left max-w-md mx-auto">
+      <div className="space-y-3 text-left max-w-xxl mx-auto">
         <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
           <span>{t('complete.provider')}</span>
-          <span className="text-green-600">
+          <span className="text-success">
             {providerData ? <span className="flex items-center gap-1.5">{getProviderIconUrl(providerData.id) ? <img src={getProviderIconUrl(providerData.id)} alt={providerData.name} className={`h-4 w-4 inline-block ${shouldInvertInDark(providerData.id) ? 'dark:invert' : ''}`} /> : providerData.icon} {providerData.id === 'custom' ? t('settings:aiProviders.custom') : providerData.name}</span> : '—'}
           </span>
         </div>
         <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
           <span>{t('complete.components')}</span>
-          <span className="text-green-600">
+          <span className="text-success">
             {installedSkillNames || `${installedSkills.length} ${t('installing.status.installed')}`}
           </span>
         </div>
         <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
           <span>{t('complete.gateway')}</span>
-          <span className={gatewayStatus.state === 'running' ? 'text-green-600' : 'text-yellow-400'}>
+          <span className={gatewayStatus.state === 'running' ? 'text-success' : 'text-yellow-400'}>
             {gatewayStatus.state === 'running' ? `✓ ${t('complete.running')}` : gatewayStatus.state}
           </span>
         </div>

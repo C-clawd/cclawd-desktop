@@ -653,7 +653,7 @@ function ProviderCard({
                 </p>
               </div>
               {hasConfiguredCredentials(account, status) ? (
-                <div className="flex items-center gap-1.5 text-[11px] font-medium text-green-600 dark:text-green-500 bg-green-500/10 px-2 py-1 rounded-md">
+                <div className="flex items-center gap-1.5 text-[11px] font-medium text-success dark:text-green-500 bg-green-500/10 px-2 py-1 rounded-md">
                   <div className="w-1.5 h-1.5 rounded-full bg-current" />
                   {t('aiProviders.card.configured')}
                 </div>
