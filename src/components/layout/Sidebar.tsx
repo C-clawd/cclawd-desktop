@@ -54,10 +54,8 @@ function NavItem({ to, icon, label, badge, collapsed, onClick }: NavItemProps) {
       className={({ isActive }) =>
         cn(
           'flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[14px] font-medium transition-colors',
-          'hover:bg-black/5 dark:hover:bg-white/5 text-foreground/80',
-          isActive
-            ? 'bg-black/5 dark:bg-white/10 text-foreground'
-            : '',
+          'hover:bg-[rgb(229.7,234.6,249.8)] dark:hover:bg-white/5 text-foreground/80',
+          isActive && 'bg-[rgb(230,235,250)] dark:bg-white/5 text-foreground',
           collapsed && 'justify-center px-0'
         )
       }
@@ -188,11 +186,6 @@ export function Sidebar() {
   }
 
   const navItems = [
-    { to: '/models', icon: <Cpu className="h-[18px] w-[18px]" strokeWidth={2} />, label: t('sidebar.models') },
-    { to: '/agents', icon: <Bot className="h-[18px] w-[18px]" strokeWidth={2} />, label: t('sidebar.agents') },
-    { to: '/channels', icon: <Network className="h-[18px] w-[18px]" strokeWidth={2} />, label: t('sidebar.channels') },
-    { to: '/skills', icon: <Puzzle className="h-[18px] w-[18px]" strokeWidth={2} />, label: t('sidebar.skills') },
-    { to: '/cron', icon: <Clock className="h-[18px] w-[18px]" strokeWidth={2} />, label: t('sidebar.cronTasks') },
     {
       to: '/trial',
       icon: <Timer className="h-[18px] w-[18px]" strokeWidth={2} />,
@@ -204,12 +197,18 @@ export function Sidebar() {
         ),
       }),
     },
+    { to: '/skills', icon: <Puzzle className="h-[18px] w-[18px]" strokeWidth={2} />, label: t('sidebar.skills') },
+    { to: '/agents', icon: <Bot className="h-[18px] w-[18px]" strokeWidth={2} />, label: t('sidebar.agents') },
+    { to: '/models', icon: <Cpu className="h-[18px] w-[18px]" strokeWidth={2} />, label: t('sidebar.models') },
+    { to: '/channels', icon: <Network className="h-[18px] w-[18px]" strokeWidth={2} />, label: t('sidebar.channels') },
+    { to: '/cron', icon: <Clock className="h-[18px] w-[18px]" strokeWidth={2} />, label: t('sidebar.cronTasks') },
   ];
 
   return (
     <aside
       className={cn(
-        'flex shrink-0 flex-col border-r bg-background/60 dark:bg-background transition-all duration-300',
+        'flex shrink-0 flex-col border-r transition-all duration-300',
+        'bg-[#eff1f8] dark:bg-background',
         sidebarCollapsed ? 'w-16' : 'w-64'
       )}
     >
@@ -226,7 +225,7 @@ export function Sidebar() {
         <Button
           variant="ghost"
           size="icon"
-          className="h-8 w-8 shrink-0 text-muted-foreground hover:bg-black/5 dark:hover:bg-white/10"
+          className="h-8 w-8 shrink-0 text-muted-foreground hover:bg-[rgb(229.7,234.6,249.8)] dark:hover:bg-white/10"
           onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
         >
           {sidebarCollapsed ? (
@@ -247,7 +246,7 @@ export function Sidebar() {
           }}
           className={cn(
             'flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-[14px] font-medium transition-colors mb-2',
-            'bg-black/5 dark:bg-accent shadow-none border border-transparent text-foreground',
+            'bg-white dark:bg-accent shadow-none border border-transparent text-foreground',
             sidebarCollapsed && 'justify-center px-0',
           )}
         >
@@ -278,16 +277,16 @@ export function Sidebar() {
                 {bucket.sessions.map((s) => {
                   const agentId = getAgentIdFromSessionKey(s.key);
                   const agentName = agentNameById[agentId] || agentId;
+                  const isSessionActive = isOnChat && currentSessionKey === s.key;
                   return (
                     <div key={s.key} className="group relative flex items-center">
                       <button
                         onClick={() => { switchSession(s.key); navigate('/'); }}
                         className={cn(
                           'w-full text-left rounded-lg px-2.5 py-1.5 text-[13px] transition-colors pr-7',
-                          'hover:bg-black/5 dark:hover:bg-white/5',
-                          isOnChat && currentSessionKey === s.key
-                            ? 'bg-black/5 dark:bg-white/10 text-foreground font-medium'
-                            : 'text-foreground/75',
+                          'hover:bg-[rgb(229.7,234.6,249.8)] dark:hover:bg-white/5',
+                          isSessionActive && 'bg-[rgb(230,235,250)] dark:bg-white/5 text-foreground font-medium',
+                          !isSessionActive && 'text-foreground/75',
                         )}
                       >
                         <div className="flex min-w-0 items-center gap-2">
@@ -330,8 +329,8 @@ export function Sidebar() {
           className={({ isActive }) =>
             cn(
               'flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[14px] font-medium transition-colors',
-              'hover:bg-black/5 dark:hover:bg-white/5 text-foreground/80',
-              isActive && 'bg-black/5 dark:bg-white/10 text-foreground',
+              'hover:bg-[rgb(229.7,234.6,249.8)] dark:hover:bg-white/5 text-foreground/80',
+              isActive && 'bg-[rgb(230,235,250)] dark:bg-white/5 text-foreground',
               sidebarCollapsed ? 'justify-center px-0' : ''
             )
           }
