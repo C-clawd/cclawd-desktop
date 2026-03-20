@@ -129,6 +129,26 @@ function createDefaultSettings(): AppSettings {
   };
 }
 
+async function sanitizePeriodicAuthSettingsOnLoad(store: {
+  get: <K extends keyof AppSettings>(key: K) => AppSettings[K];
+  set: <K extends keyof AppSettings>(key: K, value: AppSettings[K]) => void;
+}) {
+  const lastVerifiedAt = store.get('periodicAuthLastVerifiedAt');
+  const locked = store.get('periodicAuthLocked');
+  const intervalMs = store.get('periodicAuthIntervalMs');
+
+  // In packaged apps, guard against accidental dev/test intervals
+  // persisted from old builds or local debugging.
+  if (app.isPackaged && intervalMs < 60 * 60 * 1000) {
+    store.set('periodicAuthIntervalMs', 24 * 60 * 60 * 1000);
+  }
+
+  // If never verified, lock state should not trap users in a modal loop.
+  if (lastVerifiedAt <= 0 && locked) {
+    store.set('periodicAuthLocked', false);
+  }
+}
+
 /**
  * Get the settings store instance (lazy initialization)
  */
@@ -139,6 +159,7 @@ async function getSettingsStore() {
       name: 'settings',
       defaults: createDefaultSettings(),
     });
+    await sanitizePeriodicAuthSettingsOnLoad(settingsStoreInstance);
   }
   return settingsStoreInstance;
 }

@@ -121,8 +121,10 @@ export function PeriodicRealPersonAuthGuard() {
         const enabled = response.enabled !== false;
         const intervalMs = Math.max(1_000, response.intervalMs || 24 * 60 * 60 * 1000);
         const lastVerifiedAt = response.lastVerifiedAt || 0;
+        const hasVerifiedAt = lastVerifiedAt > 0;
         const locked = response.locked === true;
-        const due = locked || lastVerifiedAt <= 0 || (Date.now() - lastVerifiedAt) >= intervalMs;
+        const dueByInterval = hasVerifiedAt && (Date.now() - lastVerifiedAt) >= intervalMs;
+        const due = locked || dueByInterval;
 
         if (!enabled) {
           setOpen(false);
@@ -141,6 +143,13 @@ export function PeriodicRealPersonAuthGuard() {
             setErrorMessage(null);
             setSession(null);
           }
+          return;
+        }
+
+        if (!hasVerifiedAt) {
+          // First-run setup verification has not completed yet.
+          // Re-check periodically without forcing the periodic-auth modal.
+          scheduleEvaluation(5_000);
           return;
         }
 
