@@ -216,7 +216,7 @@ export function Sidebar() {
       <div className={cn("flex items-center p-2 h-12", sidebarCollapsed ? "justify-center" : "justify-between")}>
         {!sidebarCollapsed && (
           <div className="flex items-center gap-2 px-2 overflow-hidden">
-            <img src={logoPng} alt="Cclawd" className="h-10 w-auto shrink-0" />
+            <img src={logoPng} alt="Cclawd" className="h-8 w-auto shrink-0" />
             <span className="text-xl font-bold bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">
               Cclawd
             </span>

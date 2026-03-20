@@ -72,7 +72,7 @@ export const ChatMessage = memo(function ChatMessage({
     >
       {/* Avatar */}
       {!isUser && (
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full mt-1 bg-black/5 dark:bg-white/5 text-foreground">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full mt-1 bg-[#eff1f8] dark:bg-white/5 text-foreground">
           <Bot className="h-4 w-4" />
         </div>
       )}
@@ -338,7 +338,7 @@ function MessageBubble({
         !isUser && 'w-full',
         isUser
           ? 'bg-[#0233cb] text-white shadow-sm'
-          : 'bg-black/5 dark:bg-white/5 text-foreground',
+          : 'bg-[#eff1f8] dark:bg-white/5 text-foreground',
       )}
     >
       {isUser ? (
@@ -393,7 +393,7 @@ function ThinkingBlock({ content }: { content: string }) {
   const [expanded, setExpanded] = useState(false);
 
   return (
-    <div className="w-full rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5 text-[14px]">
+    <div className="w-full rounded-xl border border-black/10 dark:border-white/10 bg-[#eff1f8] dark:bg-white/5 text-[14px]">
       <button
         className="flex items-center gap-2 w-full px-3 py-2 text-muted-foreground hover:text-foreground transition-colors"
         onClick={() => setExpanded(!expanded)}
@@ -603,7 +603,7 @@ function ToolCard({ name, input }: { name: string; input: unknown }) {
   const [expanded, setExpanded] = useState(false);
 
   return (
-    <div className="rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5 text-[14px]">
+    <div className="rounded-xl border border-black/10 dark:border-white/10 bg-[#eff1f8] dark:bg-white/5 text-[14px]">
       <button
         className="flex items-center gap-2 w-full px-3 py-1.5 text-muted-foreground hover:text-foreground transition-colors"
         onClick={() => setExpanded(!expanded)}
