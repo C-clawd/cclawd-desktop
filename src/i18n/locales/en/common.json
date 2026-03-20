@@ -1,4 +1,4 @@
-{
+﻿{
     "sidebar": {
         "chat": "Chat",
         "newChat": "New Chat",
@@ -11,7 +11,15 @@
         "devConsole": "Developer Console",
         "models": "Models",
         "deleteSessionConfirm": "Are you sure you want to delete session \"{{label}}\"?",
-        "openClawPage": "OpenClaw Page"
+        "openClawPage": "OpenClaw Page",
+        "trial": "Trial"
+    },
+    "trial": {
+        "title": "Trial",
+        "remaining": "Remaining {{days}} days",
+        "desc": "30-day trial, decreases by 1 each day",
+        "start": "Trial starts: {{date}}",
+        "end": "Trial ends: {{date}}"
     },
     "actions": {
         "save": "Save",
@@ -57,3 +65,4 @@
         "warning": "Gateway is not running."
     }
 }
+

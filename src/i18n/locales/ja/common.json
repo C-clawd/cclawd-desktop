@@ -1,4 +1,4 @@
-{
+﻿{
     "sidebar": {
         "chat": "チャット",
         "newChat": "新しいチャット",
@@ -11,7 +11,15 @@
         "devConsole": "開発者コンソール",
         "models": "モデル",
         "deleteSessionConfirm": "セッション \"{{label}}\" を削除してもよろしいですか？",
-        "openClawPage": "OpenClaw ページ"
+        "openClawPage": "OpenClaw ページ",
+        "trial": "トライアル版"
+    },
+    "trial": {
+        "title": "トライアル版",
+        "remaining": "残り {{days}} 日",
+        "desc": "試用期間は30日、1日ごとに1日減少",
+        "start": "試用開始：{{date}}",
+        "end": "試用終了：{{date}}"
     },
     "actions": {
         "save": "保存",
@@ -57,3 +65,4 @@
         "warning": "ゲートウェイが停止中です。"
     }
 }
+

@@ -49,7 +49,6 @@ export function PeriodicRealPersonAuthGuard() {
   const [open, setOpen] = useState(false);
   const [starting, setStarting] = useState(false);
   const [checking, setChecking] = useState(false);
-  const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [session, setSession] = useState<RealPersonAuthSession | null>(null);
   const [qrVisible, setQrVisible] = useState(false);
@@ -140,7 +139,6 @@ export function PeriodicRealPersonAuthGuard() {
             setOpen(true);
             setQrVisible(false);
             setErrorMessage(null);
-            setStatusMessage(null);
             setSession(null);
           }
           return;
@@ -196,14 +194,12 @@ export function PeriodicRealPersonAuthGuard() {
             setSession(null);
             setQrVisible(false);
             setErrorMessage(null);
-            setStatusMessage(response.message || t('realPerson.success.default'));
             toast.success(t('realPerson.saved'));
             return;
           }
 
           if (response.status === 'pending') {
             setErrorMessage(null);
-            setStatusMessage(response.message || t('realPerson.pending'));
             scheduleNextCheck(activeSession);
             return;
           }
@@ -211,12 +207,10 @@ export function PeriodicRealPersonAuthGuard() {
           clearPollTimer();
           setChecking(false);
           setErrorMessage(response.message || t('realPerson.statusFailed'));
-          setStatusMessage(null);
         } catch (error) {
           clearPollTimer();
           setChecking(false);
           setErrorMessage(String(error));
-          setStatusMessage(null);
         }
       })();
     }, 2_000);
@@ -227,7 +221,6 @@ export function PeriodicRealPersonAuthGuard() {
     setStarting(true);
     setChecking(false);
     setErrorMessage(null);
-    setStatusMessage(null);
 
     try {
       const response = await hostApiFetch<RealPersonAuthStartResponse>('/api/app/real-person-auth/start-from-saved-key', {
@@ -252,7 +245,6 @@ export function PeriodicRealPersonAuthGuard() {
       setSession(nextSession);
       setQrVisible(true);
       setChecking(true);
-      setStatusMessage(t('realPerson.pending'));
       scheduleNextCheck(nextSession);
     } catch (error) {
       setSession(null);

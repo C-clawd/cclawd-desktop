@@ -58,6 +58,9 @@ export interface AppSettings {
   periodicAuthLastVerifiedAt: number;
   periodicAuthLocked: boolean;
 
+  // Trial
+  trialStartAt: number;
+
   // Presets
   selectedBundles: string[];
   enabledSkills: string[];
@@ -115,6 +118,9 @@ function createDefaultSettings(): AppSettings {
     periodicAuthIntervalMs: defaultPeriodicAuthIntervalMs,
     periodicAuthLastVerifiedAt: 0,
     periodicAuthLocked: false,
+
+    // Trial
+    trialStartAt: 0,
 
     // Presets
     selectedBundles: ['productivity', 'developer'],

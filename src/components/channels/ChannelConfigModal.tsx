@@ -3,8 +3,6 @@ import {
   X,
   Loader2,
   QrCode,
-  ExternalLink,
-  BookOpen,
   Eye,
   EyeOff,
   Check,
@@ -347,20 +345,6 @@ export function ChannelConfigModal({
     }
   };
 
-  const openDocs = () => {
-    if (!meta?.docsUrl) return;
-    const url = t(meta.docsUrl);
-    try {
-      if (window.electron?.openExternal) {
-        window.electron.openExternal(url);
-      } else {
-        window.open(url, '_blank');
-      }
-    } catch {
-      window.open(url, '_blank');
-    }
-  };
-
   const isFormValid = () => {
     if (!meta) return false;
     return meta.configFields
@@ -503,7 +487,7 @@ export function ChannelConfigModal({
                       {meta ? t(meta.description.replace('channels:', '')) : ''}
                     </p>
                   </div>
-                  <Button
+                  {/* <Button
                     variant="outline"
                     className={cn(outlineButtonClasses, 'h-8 px-3 shrink-0')}
                     onClick={openDocs}
@@ -511,7 +495,7 @@ export function ChannelConfigModal({
                     <BookOpen className="h-3 w-3 mr-1" />
                     {t('dialog.viewDocs')}
                     <ExternalLink className="h-3 w-3 ml-1" />
-                  </Button>
+                  </Button> */}
                 </div>
                 <ol className="list-decimal pl-5 text-[13px] text-muted-foreground leading-relaxed space-y-1.5">
                   {meta?.instructions.map((instruction, index) => (

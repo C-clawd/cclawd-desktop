@@ -26,6 +26,13 @@ async function markPeriodicAuthComplete() {
   await setSetting('periodicAuthLocked', false);
 }
 
+async function ensureTrialStartAt(): Promise<void> {
+  const current = await getSetting('trialStartAt');
+  if (!Number.isFinite(current) || current <= 0) {
+    await setSetting('trialStartAt', Date.now());
+  }
+}
+
 export async function handleAppRoutes(
   req: IncomingMessage,
   res: ServerResponse,
@@ -89,6 +96,7 @@ export async function handleAppRoutes(
       const body = await parseJsonBody<{ apiKey?: string; certToken?: string; context?: 'setup' | 'periodic' }>(req);
       const result = await checkRealPersonAuth(body.apiKey || '', body.certToken || '');
       if (result.status === 'success') {
+        await ensureTrialStartAt();
         if (body.context === 'setup') {
           await ensureSetupRealPersonAuthConfig();
         }

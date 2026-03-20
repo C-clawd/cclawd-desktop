@@ -31,7 +31,7 @@
     },
     "welcome": {
         "title": "欢迎使用 Cclawd",
-        "description": "Cclawd 是 OpenClaw 的图形界面，让你可以在喜欢的消息平台上轻松使用 AI 助手。",
+        "description": "Cclawd是在OpenClaw的原生内核之上，引入网关风控与生物识别确权机制，解决本地AI权限不可控、操作不可溯源的安全难题。",
         "features": {
             "noCommand": "无需命令行",
             "modernUI": "现代美观的界面",

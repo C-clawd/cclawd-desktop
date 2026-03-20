@@ -44,6 +44,9 @@ interface SettingsState {
   periodicAuthLastVerifiedAt: number;
   periodicAuthLocked: boolean;
 
+  // Trial
+  trialStartAt: number;
+
   // Setup
   setupComplete: boolean;
 
@@ -94,6 +97,7 @@ const defaultSettings = {
   periodicAuthIntervalMs: import.meta.env.DEV ? 10_000 : 24 * 60 * 60 * 1000,
   periodicAuthLastVerifiedAt: 0,
   periodicAuthLocked: false,
+  trialStartAt: 0,
   setupComplete: false,
 };
 
