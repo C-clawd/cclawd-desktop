@@ -5,7 +5,7 @@
  * are in the toolbar; messages render with markdown + streaming.
  */
 import { useEffect, useState } from 'react';
-import { AlertCircle, Loader2, Sparkles } from 'lucide-react';
+import { AlertCircle, Loader2, Sparkles, Bot } from 'lucide-react';
 import { useChatStore, type RawMessage } from '@/stores/chat';
 import { useGatewayStore } from '@/stores/gateway';
 import { useAgentsStore } from '@/stores/agents';
@@ -222,7 +222,7 @@ function TypingIndicator() {
   return (
     <div className="flex gap-3">
       <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full mt-1 bg-black/5 dark:bg-white/5 text-foreground">
-        <Sparkles className="h-4 w-4" />
+        <Bot className="h-4 w-4" />
       </div>
       <div className="bg-black/5 dark:bg-white/5 text-foreground rounded-2xl px-4 py-3">
         <div className="flex gap-1">
@@ -242,7 +242,7 @@ function ActivityIndicator({ phase }: { phase: 'tool_processing' }) {
   return (
     <div className="flex gap-3">
       <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full mt-1 bg-black/5 dark:bg-white/5 text-foreground">
-        <Sparkles className="h-4 w-4" />
+        <Bot className="h-4 w-4" />
       </div>
       <div className="bg-black/5 dark:bg-white/5 text-foreground rounded-2xl px-4 py-3">
         <div className="flex items-center gap-2 text-sm text-muted-foreground">

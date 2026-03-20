@@ -362,19 +362,19 @@ function WelcomeContent() {
 
       <ul className="text-left space-y-2 text-muted-foreground pt-2">
         <li className="flex items-center gap-2">
-          <CheckCircle2 className="h-5 w-5 text-green-400" />
+          <CheckCircle2 className="h-5 w-5 text-green-600" />
           {t('welcome.features.noCommand')}
         </li>
         <li className="flex items-center gap-2">
-          <CheckCircle2 className="h-5 w-5 text-green-400" />
+          <CheckCircle2 className="h-5 w-5 text-green-600" />
           {t('welcome.features.modernUI')}
         </li>
         <li className="flex items-center gap-2">
-          <CheckCircle2 className="h-5 w-5 text-green-400" />
+          <CheckCircle2 className="h-5 w-5 text-green-600" />
           {t('welcome.features.bundles')}
         </li>
         <li className="flex items-center gap-2">
-          <CheckCircle2 className="h-5 w-5 text-green-400" />
+          <CheckCircle2 className="h-5 w-5 text-green-600" />
           {t('welcome.features.crossPlatform')}
         </li>
       </ul>
@@ -605,7 +605,7 @@ function RealPersonAuthContent({ onConfiguredChange }: RealPersonAuthContentProp
         </div>
       ) : status === 'success' ? (
         <div className="rounded-2xl border border-green-500/20 bg-green-500/5 p-6 text-center space-y-4">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-green-500/15 text-green-400">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-green-500/15 text-green-600">
             <CheckCircle2 className="h-8 w-8" />
           </div>
           <div className="space-y-1">
@@ -934,7 +934,7 @@ function RuntimeContent({ onStatusChange }: RuntimeContentProps) {
     }
     if (status === 'success') {
       return (
-        <span className="flex items-center gap-2 text-green-400 whitespace-nowrap">
+        <span className="flex items-center gap-2 text-green-600 whitespace-nowrap">
           <CheckCircle2 className="h-5 w-5 flex-shrink-0" />
           {message}
         </span>
@@ -1882,7 +1882,7 @@ function ProviderContent({
           </Button>
 
           {keyValid !== null && (
-            <p className={cn('text-sm text-center', keyValid ? 'text-green-400' : 'text-red-400')}>
+            <p className={cn('text-sm text-center', keyValid ? 'text-green-600' : 'text-red-400')}>
               {keyValid ? `✓ ${t('provider.valid')}` : `✗ ${t('provider.invalid')}`}
             </p>
           )}
@@ -1968,7 +1968,7 @@ function InstallingContent({ skills, onComplete, onSkip }: InstallingContentProp
       case 'installing':
         return <Loader2 className="h-5 w-5 text-primary animate-spin" />;
       case 'completed':
-        return <CheckCircle2 className="h-5 w-5 text-green-400" />;
+        return <CheckCircle2 className="h-5 w-5 text-green-600" />;
       case 'failed':
         return <XCircle className="h-5 w-5 text-red-400" />;
     }
@@ -1981,7 +1981,7 @@ function InstallingContent({ skills, onComplete, onSkip }: InstallingContentProp
       case 'installing':
         return <span className="text-primary">{t('installing.status.installing')}</span>;
       case 'completed':
-        return <span className="text-green-400">{t('installing.status.installed')}</span>;
+        return <span className="text-green-600">{t('installing.status.installed')}</span>;
       case 'failed':
         return <span className="text-red-400">{t('installing.status.failed')}</span>;
     }
@@ -2106,19 +2106,19 @@ function CompleteContent({ selectedProvider, installedSkills }: CompleteContentP
       <div className="space-y-3 text-left max-w-md mx-auto">
         <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
           <span>{t('complete.provider')}</span>
-          <span className="text-green-400">
+          <span className="text-green-600">
             {providerData ? <span className="flex items-center gap-1.5">{getProviderIconUrl(providerData.id) ? <img src={getProviderIconUrl(providerData.id)} alt={providerData.name} className={`h-4 w-4 inline-block ${shouldInvertInDark(providerData.id) ? 'dark:invert' : ''}`} /> : providerData.icon} {providerData.id === 'custom' ? t('settings:aiProviders.custom') : providerData.name}</span> : '—'}
           </span>
         </div>
         <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
           <span>{t('complete.components')}</span>
-          <span className="text-green-400">
+          <span className="text-green-600">
             {installedSkillNames || `${installedSkills.length} ${t('installing.status.installed')}`}
           </span>
         </div>
         <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
           <span>{t('complete.gateway')}</span>
-          <span className={gatewayStatus.state === 'running' ? 'text-green-400' : 'text-yellow-400'}>
+          <span className={gatewayStatus.state === 'running' ? 'text-green-600' : 'text-yellow-400'}>
             {gatewayStatus.state === 'running' ? `✓ ${t('complete.running')}` : gatewayStatus.state}
           </span>
         </div>
