@@ -40,9 +40,9 @@ import jaCron from './locales/ja/cron.json';
 import jaSetup from './locales/ja/setup.json';
 
 export const SUPPORTED_LANGUAGES = [
-    { code: 'en', label: 'English' },
     { code: 'zh', label: '中文' },
-    { code: 'ja', label: '日本語' },
+    { code: 'en', label: '英文' },
+    { code: 'ja', label: '日文' },
 ] as const satisfies ReadonlyArray<{ code: LanguageCode; label: string }>;
 
 const resources = {

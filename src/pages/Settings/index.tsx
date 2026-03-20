@@ -476,6 +476,14 @@ export function Settings() {
                 <Label className="text-[15px] font-medium text-foreground/80">{t('appearance.theme')}</Label>
                 <div className="flex flex-wrap gap-2">
                   <Button
+                    variant={theme === 'system' ? 'secondary' : 'outline'}
+                    className={cn("rounded-full px-5 h-10 border-black/10 dark:border-white/10", theme === 'system' ? "bg-black/5 dark:bg-white/10 text-foreground" : "bg-transparent text-muted-foreground hover:bg-black/5 dark:hover:bg-white/5")}
+                    onClick={() => setTheme('system')}
+                  >
+                    <Monitor className="h-4 w-4 mr-2" />
+                    {t('appearance.system')}
+                  </Button>
+                  <Button
                     variant={theme === 'light' ? 'secondary' : 'outline'}
                     className={cn("rounded-full px-5 h-10 border-black/10 dark:border-white/10", theme === 'light' ? "bg-black/5 dark:bg-white/10 text-foreground" : "bg-transparent text-muted-foreground hover:bg-black/5 dark:hover:bg-white/5")}
                     onClick={() => setTheme('light')}
@@ -490,14 +498,6 @@ export function Settings() {
                   >
                     <Moon className="h-4 w-4 mr-2" />
                     {t('appearance.dark')}
-                  </Button>
-                  <Button
-                    variant={theme === 'system' ? 'secondary' : 'outline'}
-                    className={cn("rounded-full px-5 h-10 border-black/10 dark:border-white/10", theme === 'system' ? "bg-black/5 dark:bg-white/10 text-foreground" : "bg-transparent text-muted-foreground hover:bg-black/5 dark:hover:bg-white/5")}
-                    onClick={() => setTheme('system')}
-                  >
-                    <Monitor className="h-4 w-4 mr-2" />
-                    {t('appearance.system')}
                   </Button>
                 </div>
               </div>

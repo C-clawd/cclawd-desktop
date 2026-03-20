@@ -4,7 +4,7 @@
     "welcome": {
         "title": "Cclawd 聊天",
         "subtitle": "我能为你做些什么？",
-        "askQuestions": "处理任务",
+        "askQuestions": "处理工作任务",
         "askQuestionsDesc": "处理面向任务的请求",
         "creativeTasks": "持续执行",
         "creativeTasksDesc": "持续推进多步骤工作",

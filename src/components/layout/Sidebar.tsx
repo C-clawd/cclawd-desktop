@@ -6,17 +6,17 @@
 import { useEffect, useMemo, useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
-  Network,
   Bot,
-  Puzzle,
   Clock,
   Settings as SettingsIcon,
   PanelLeftClose,
   PanelLeft,
   Plus,
   Trash2,
-  Cpu,
   Timer,
+  ClipboardList,
+  Box,
+  BookAudio,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useSettingsStore } from '@/stores/settings';
@@ -55,7 +55,7 @@ function NavItem({ to, icon, label, badge, collapsed, onClick }: NavItemProps) {
         cn(
           'flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[14px] font-medium transition-colors',
           'hover:bg-[rgb(229.7,234.6,249.8)] dark:hover:bg-white/5 text-foreground/80',
-          isActive && 'bg-[rgb(230,235,250)] dark:bg-white/5 text-foreground',
+          isActive && 'bg-[rgb(230,235,250)] dark:bg-white/5 text-foreground font-bold',
           collapsed && 'justify-center px-0'
         )
       }
@@ -197,10 +197,10 @@ export function Sidebar() {
         ),
       }),
     },
-    { to: '/skills', icon: <Puzzle className="h-[18px] w-[18px]" strokeWidth={2} />, label: t('sidebar.skills') },
+    { to: '/skills', icon: <ClipboardList className="h-[18px] w-[18px]" strokeWidth={2} />, label: t('sidebar.skills') },
     { to: '/agents', icon: <Bot className="h-[18px] w-[18px]" strokeWidth={2} />, label: t('sidebar.agents') },
-    { to: '/models', icon: <Cpu className="h-[18px] w-[18px]" strokeWidth={2} />, label: t('sidebar.models') },
-    { to: '/channels', icon: <Network className="h-[18px] w-[18px]" strokeWidth={2} />, label: t('sidebar.channels') },
+    { to: '/models', icon: <Box className="h-[18px] w-[18px]" strokeWidth={2} />, label: t('sidebar.models') },
+    { to: '/channels', icon: <BookAudio className="h-[18px] w-[18px]" strokeWidth={2} />, label: t('sidebar.channels') },
     { to: '/cron', icon: <Clock className="h-[18px] w-[18px]" strokeWidth={2} />, label: t('sidebar.cronTasks') },
   ];
 
@@ -216,7 +216,7 @@ export function Sidebar() {
       <div className={cn("flex items-center p-2 h-12", sidebarCollapsed ? "justify-center" : "justify-between")}>
         {!sidebarCollapsed && (
           <div className="flex items-center gap-2 px-2 overflow-hidden">
-            <img src={logoPng} alt="Cclawd" className="h-5 w-auto shrink-0" />
+            <img src={logoPng} alt="Cclawd" className="h-10 w-auto shrink-0" />
             <span className="text-xl font-bold bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">
               Cclawd
             </span>
@@ -285,7 +285,7 @@ export function Sidebar() {
                         className={cn(
                           'w-full text-left rounded-lg px-2.5 py-1.5 text-[13px] transition-colors pr-7',
                           'hover:bg-[rgb(229.7,234.6,249.8)] dark:hover:bg-white/5',
-                          isSessionActive && 'bg-[rgb(230,235,250)] dark:bg-white/5 text-foreground font-medium',
+                          isSessionActive && 'bg-[rgb(230,235,250)] dark:bg-white/5 text-foreground font-bold',
                           !isSessionActive && 'text-foreground/75',
                         )}
                       >
@@ -330,7 +330,7 @@ export function Sidebar() {
             cn(
               'flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[14px] font-medium transition-colors',
               'hover:bg-[rgb(229.7,234.6,249.8)] dark:hover:bg-white/5 text-foreground/80',
-              isActive && 'bg-[rgb(230,235,250)] dark:bg-white/5 text-foreground',
+              isActive && 'bg-[rgb(230,235,250)] dark:bg-white/5 text-foreground font-bold',
               sidebarCollapsed ? 'justify-center px-0' : ''
             )
           }

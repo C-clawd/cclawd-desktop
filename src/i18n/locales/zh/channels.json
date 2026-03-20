@@ -1,28 +1,28 @@
 {
-    "title": "消息频道",
+    "title": "消息渠道",
     "subtitle": "连接到消息平台，配置仅对主 Agent 生效",
     "refresh": "刷新",
-    "addChannel": "添加频道",
+    "addChannel": "添加消息渠道",
     "stats": {
-        "total": "频道总数",
+        "total": "消息渠道总数",
         "connected": "已连接",
         "disconnected": "未连接"
     },
-    "gatewayWarning": "网关未运行。未启用网关时无法管理频道。",
-    "availableChannels": "可用频道",
-    "supportedChannels": "支持的频道",
+    "gatewayWarning": "网关未运行。未启用网关时无法管理消息渠道。",
+    "availableChannels": "可用消息渠道",
+    "supportedChannels": "支持的消息渠道",
     "pluginBadge": "插件",
-    "available": "可用频道",
-    "availableDesc": "连接一个新的频道",
-    "configured": "已配置频道",
-    "configuredDesc": "管理已完成配置的频道",
+    "available": "可用消息渠道",
+    "availableDesc": "连接一个新的消息渠道",
+    "configured": "已配置消息渠道",
+    "configuredDesc": "管理已完成配置的消息渠道",
     "configuredBadge": "已配置",
-    "deleteConfirm": "确定要删除此频道吗？",
+    "deleteConfirm": "确定要删除此消息渠道吗？",
     "showAll": "显示全部",
     "toast": {
         "whatsappConnected": "WhatsApp 连接成功",
         "whatsappFailed": "WhatsApp 连接失败: {{error}}",
-        "channelSaved": "频道 {{name}} 已保存",
+        "channelSaved": "消息渠道 {{name}} 已保存",
         "channelConnecting": "正在连接 {{name}}...",
         "restartManual": "请手动重启网关",
         "configFailed": "配置失败: {{error}}"
@@ -30,21 +30,21 @@
     "dialog": {
         "updateTitle": "更新 {{name}}",
         "configureTitle": "配置 {{name}}",
-        "addTitle": "添加频道",
+        "addTitle": "添加消息渠道",
         "existingDesc": "更新您现有的配置",
-        "selectDesc": "选择要配置的频道类型",
+        "selectDesc": "选择要配置的消息渠道类型",
         "qrCode": "二维码",
         "token": "令牌",
         "scanQR": "使用 {{name}} 扫描此二维码",
         "refreshCode": "刷新代码",
         "loadingConfig": "正在加载配置...",
-        "existingHint": "您已配置过此频道",
+        "existingHint": "您已配置过此消息渠道",
         "howToConnect": "如何连接",
         "viewDocs": "查看文档",
-        "channelName": "频道名称",
+        "channelName": "消息渠道名称",
         "channelNamePlaceholder": "我的 {{name}}",
-        "enableChannel": "启用频道",
-        "enableChannelDesc": "关闭后会保存配置，但不会启动该频道",
+        "enableChannel": "启用消息渠道",
+        "enableChannelDesc": "关闭后会保存配置，但不会启动该消息渠道",
         "credentialsVerified": "凭证已验证",
         "validationFailed": "验证失败",
         "warnings": "警告",
@@ -95,9 +95,9 @@
                     "description": "限制机器人仅在特定服务器工作。右键点击服务器 → 复制服务器 ID。"
                 },
                 "channelId": {
-                    "label": "频道 ID (可选)",
+                    "label": "消息渠道 ID (可选)",
                     "placeholder": "例如 123456789012345678",
-                    "description": "限制机器人仅在特定频道工作。右键点击频道 → 复制频道 ID。"
+                    "description": "限制机器人仅在特定消息渠道工作。右键点击消息渠道 → 复制消息渠道 ID。"
                 }
             },
             "instructions": [
@@ -120,7 +120,7 @@
             ]
         },
         "dingtalk": {
-            "description": "通过 OpenClaw 渠道插件连接钉钉（Stream 模式）",
+            "description": "通过 OpenClaw 消息渠道插件连接钉钉（Stream 模式）",
             "docsUrl": "https://icnnp7d0dymg.feishu.cn/wiki/Y5eNwiSiZidkLskrwtJc1rUln0b#doxcnr8KfaA2mNPeQUeHO83eDPh",
             "fields": {
                 "clientId": {
@@ -249,18 +249,18 @@
             "docsUrl": "https://docs.openclaw.ai/channels/line",
             "fields": {
                 "channelAccessToken": {
-                    "label": "频道访问令牌",
-                    "placeholder": "您的 LINE 频道访问令牌"
+                    "label": "消息渠道访问令牌",
+                    "placeholder": "您的 LINE 消息渠道访问令牌"
                 },
                 "channelSecret": {
-                    "label": "频道密钥",
-                    "placeholder": "您的 LINE 频道密钥"
+                    "label": "消息渠道密钥",
+                    "placeholder": "您的 LINE 消息渠道密钥"
                 }
             },
             "instructions": [
                 "前往 LINE 开发者控制台",
-                "创建一个 Messaging API 频道",
-                "获取频道访问令牌和密钥"
+                "创建一个 Messaging API 消息渠道",
+                "获取消息渠道访问令牌和密钥"
             ]
         },
         "msteams": {
@@ -280,7 +280,7 @@
                 "前往 Azure 门户",
                 "注册一个新的 Bot 应用",
                 "获取应用 ID 并创建密码",
-                "配置 Teams 频道"
+                "配置 Teams 消息渠道"
             ]
         },
         "googlechat": {
