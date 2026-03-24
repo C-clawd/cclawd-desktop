@@ -84,7 +84,7 @@ function createDefaultSettings(): AppSettings {
   const defaultPeriodicAuthIntervalMs = app.isPackaged ? 24 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
   return {
     // General
-    theme: 'system',
+    theme: 'light',
     language: resolveSupportedLanguage(getSystemLocale()),
     startMinimized: false,
     launchAtStartup: false,

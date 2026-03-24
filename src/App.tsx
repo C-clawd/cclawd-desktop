@@ -92,7 +92,6 @@ function App() {
   const navigate = useNavigate();
   const location = useLocation();
   const initSettings = useSettingsStore((state) => state.init);
-  const theme = useSettingsStore((state) => state.theme);
   const language = useSettingsStore((state) => state.language);
   const setupComplete = useSettingsStore((state) => state.setupComplete);
   const initGateway = useGatewayStore((state) => state.init);
@@ -138,20 +137,12 @@ function App() {
     };
   }, [navigate]);
 
-  // Apply theme
+  // Apply theme - force light mode only
   useEffect(() => {
     const root = window.document.documentElement;
     root.classList.remove('light', 'dark');
-
-    if (theme === 'system') {
-      const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches
-        ? 'dark'
-        : 'light';
-      root.classList.add(systemTheme);
-    } else {
-      root.classList.add(theme);
-    }
-  }, [theme]);
+    root.classList.add('light');
+  }, []);
 
   useEffect(() => {
     applyGatewayTransportPreference();
