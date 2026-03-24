@@ -133,16 +133,52 @@ function cleanupKoffi(nodeModulesDir, platform, arch) {
 // ── Platform-specific: scoped native packages ────────────────────────────────
 // Packages like @napi-rs/canvas-darwin-arm64, @img/sharp-linux-x64, etc.
 // Only the variant matching the target platform should survive.
+//
+// Some packages use non-standard platform names:
+//   - @node-llama-cpp: "mac" instead of "darwin", "win" instead of "win32"
+//   - sqlite-vec: "windows" instead of "win32" (unscoped, handled separately)
+// We normalise them before comparison.
 
+const PLATFORM_ALIASES = {
+  darwin: 'darwin', mac: 'darwin',
+  linux: 'linux', linuxmusl: 'linux',
+  win32: 'win32', win: 'win32', windows: 'win32',
+};
+
+// Each regex MUST have capture group 1 = platform name and group 2 = arch name.
+// Compound arch suffixes (e.g. "x64-msvc", "arm64-gnu", "arm64-metal") are OK —
+// we strip the suffix after the first dash to get the base arch.
 const PLATFORM_NATIVE_SCOPES = {
   '@napi-rs': /^canvas-(darwin|linux|win32)-(x64|arm64)/,
-  '@img': /^sharp(?:-libvips)?-(darwin|linux|win32)-(x64|arm64)/,
+  '@img': /^sharp(?:-libvips)?-(darwin|linux(?:musl)?|win32)-(x64|arm64|arm|ppc64|riscv64|s390x)/,
   '@mariozechner': /^clipboard-(darwin|linux|win32)-(x64|arm64|universal)/,
+  '@snazzah': /^davey-(darwin|linux|android|freebsd|win32|wasm32)-(x64|arm64|arm|ia32|arm64-gnu|arm64-musl|x64-gnu|x64-musl|x64-msvc|arm64-msvc|ia32-msvc|arm-eabi|arm-gnueabihf|wasi)/,
+  '@lydell': /^node-pty-(darwin|linux|win32)-(x64|arm64)/,
+  '@reflink': /^reflink-(darwin|linux|win32)-(x64|arm64|x64-gnu|x64-musl|arm64-gnu|arm64-musl|x64-msvc|arm64-msvc)/,
+  '@node-llama-cpp': /^(mac|linux|win)-(arm64|x64|armv7l)(-metal|-cuda|-cuda-ext|-vulkan)?$/,
+  '@esbuild': /^(darwin|linux|win32|android|freebsd|netbsd|openbsd|sunos|aix|openharmony)-(x64|arm64|arm|ia32|loong64|mips64el|ppc64|riscv64|s390x)/,
 };
+
+// Unscoped packages that follow a <name>-<platform>-<arch> convention.
+// Each entry: { prefix, pattern } where pattern captures (platform, arch).
+const UNSCOPED_NATIVE_PACKAGES = [
+  // sqlite-vec uses "windows" instead of "win32"
+  { prefix: 'sqlite-vec-', pattern: /^sqlite-vec-(darwin|linux|windows)-(x64|arm64)$/ },
+];
+
+/**
+ * Normalise the base arch from a potentially compound value.
+ * e.g. "x64-msvc" → "x64", "arm64-gnu" → "arm64", "arm64-metal" → "arm64"
+ */
+function baseArch(rawArch) {
+  const dash = rawArch.indexOf('-');
+  return dash > 0 ? rawArch.slice(0, dash) : rawArch;
+}
 
 function cleanupNativePlatformPackages(nodeModulesDir, platform, arch) {
   let removed = 0;
 
+  // 1. Scoped packages (e.g. @snazzah/davey-darwin-arm64)
   for (const [scope, pattern] of Object.entries(PLATFORM_NATIVE_SCOPES)) {
     const scopeDir = join(nodeModulesDir, scope);
     if (!existsSync(scopeDir)) continue;
@@ -151,8 +187,8 @@ function cleanupNativePlatformPackages(nodeModulesDir, platform, arch) {
       const match = entry.match(pattern);
       if (!match) continue; // not a platform-specific package, leave it
 
-      const pkgPlatform = match[1];
-      const pkgArch = match[2];
+      const pkgPlatform = PLATFORM_ALIASES[match[1]] || match[1];
+      const pkgArch = baseArch(match[2]);
 
       const isMatch =
         pkgPlatform === platform &&
@@ -161,6 +197,31 @@ function cleanupNativePlatformPackages(nodeModulesDir, platform, arch) {
       if (!isMatch) {
         try {
           rmSync(join(scopeDir, entry), { recursive: true, force: true });
+          removed++;
+        } catch { /* */ }
+      }
+    }
+  }
+
+  // 2. Unscoped packages (e.g. sqlite-vec-darwin-arm64)
+  for (const { pattern } of UNSCOPED_NATIVE_PACKAGES) {
+    let entries;
+    try { entries = readdirSync(nodeModulesDir); } catch { continue; }
+
+    for (const entry of entries) {
+      const match = entry.match(pattern);
+      if (!match) continue;
+
+      const pkgPlatform = PLATFORM_ALIASES[match[1]] || match[1];
+      const pkgArch = baseArch(match[2]);
+
+      const isMatch =
+        pkgPlatform === platform &&
+        (pkgArch === arch || pkgArch === 'universal');
+
+      if (!isMatch) {
+        try {
+          rmSync(join(nodeModulesDir, entry), { recursive: true, force: true });
           removed++;
         } catch { /* */ }
       }
@@ -224,27 +285,54 @@ function patchBrokenModules(nodeModulesDir) {
     }
   }
 
-  // https-proxy-agent@8.x only defines exports.import (ESM) with no CJS
-  // fallback.  The openclaw Gateway loads it via require(), which triggers
-  // ERR_PACKAGE_PATH_NOT_EXPORTED.  Patch exports to add CJS conditions.
+  // https-proxy-agent: add a CJS `require` condition only when we can point to
+  // a real CommonJS entry. Mapping `require` to an ESM file can cause
+  // ERR_REQUIRE_CYCLE_MODULE in Node.js CLI/TUI flows.
   const hpaPkgPath = join(nodeModulesDir, 'https-proxy-agent', 'package.json');
   if (existsSync(hpaPkgPath)) {
     try {
+      const { existsSync: fsExistsSync } = require('fs');
       const raw = readFileSync(hpaPkgPath, 'utf8');
       const pkg = JSON.parse(raw);
       const exp = pkg.exports;
-      // Only patch if exports exists and lacks a CJS 'require' condition
-      if (exp && exp.import && !exp.require && !exp['.']) {
+      const hasRequireCondition = Boolean(
+        (exp && typeof exp === 'object' && exp.require) ||
+        (exp && typeof exp === 'object' && exp['.'] && exp['.'].require)
+      );
+
+      const pkgDir = dirname(hpaPkgPath);
+      const mainEntry = typeof pkg.main === 'string' ? pkg.main : null;
+      const dotImport = exp && typeof exp === 'object' && exp['.'] && typeof exp['.'].import === 'string'
+        ? exp['.'].import
+        : null;
+      const rootImport = exp && typeof exp === 'object' && typeof exp.import === 'string'
+        ? exp.import
+        : null;
+      const importEntry = dotImport || rootImport;
+
+      const cjsCandidates = [
+        mainEntry,
+        importEntry && importEntry.endsWith('.js') ? importEntry.replace(/\.js$/, '.cjs') : null,
+        './dist/index.cjs',
+      ].filter(Boolean);
+
+      const requireTarget = cjsCandidates.find((candidate) =>
+        fsExistsSync(join(pkgDir, candidate)),
+      );
+
+      // Only patch if exports exists, lacks a CJS `require` condition, and we
+      // have a verified CJS target file.
+      if (exp && !hasRequireCondition && requireTarget) {
         pkg.exports = {
           '.': {
-            import: exp.import,
-            require: exp.import, // ESM dist works for CJS too via Node.js interop
-            default: typeof exp.import === 'string' ? exp.import : exp.import.default,
+            import: importEntry || requireTarget,
+            require: requireTarget,
+            default: importEntry || requireTarget,
           },
         };
         writeFileSync(hpaPkgPath, JSON.stringify(pkg, null, 2) + '\n', 'utf8');
         count++;
-        console.log('[after-pack] 🩹 Patched https-proxy-agent exports for CJS compatibility');
+        console.log(`[after-pack] 🩹 Patched https-proxy-agent exports for CJS compatibility (require=${requireTarget})`);
       }
     } catch (err) {
       console.warn('[after-pack] ⚠️  Failed to patch https-proxy-agent:', err.message);
@@ -253,6 +341,48 @@ function patchBrokenModules(nodeModulesDir) {
 
   if (count > 0) {
     console.log(`[after-pack] 🩹 Patched ${count} broken module(s) in ${nodeModulesDir}`);
+  }
+}
+
+// ── Plugin ID mismatch patcher ───────────────────────────────────────────────
+// Some plugins (e.g. wecom) have a compiled JS entry that hardcodes a different
+// ID than what openclaw.plugin.json declares.  The Gateway rejects mismatches,
+// so we fix them after copying.
+
+const PLUGIN_ID_FIXES = {
+  'wecom-openclaw-plugin': 'wecom',
+};
+
+function patchPluginIds(pluginDir, expectedId) {
+  const { readFileSync, writeFileSync } = require('fs');
+
+  const pkgJsonPath = join(pluginDir, 'package.json');
+  if (!existsSync(pkgJsonPath)) return;
+
+  const pkg = JSON.parse(readFileSync(pkgJsonPath, 'utf8'));
+  const entryFiles = [pkg.main, pkg.module].filter(Boolean);
+
+  for (const entry of entryFiles) {
+    const entryPath = join(pluginDir, entry);
+    if (!existsSync(entryPath)) continue;
+
+    let content = readFileSync(entryPath, 'utf8');
+    let patched = false;
+
+    for (const [wrongId, correctId] of Object.entries(PLUGIN_ID_FIXES)) {
+      if (correctId !== expectedId) continue;
+      const pattern = new RegExp(`(\\bid\\s*:\\s*)(["'])${wrongId.replace(/-/g, '\\-')}\\2`, 'g');
+      const replaced = content.replace(pattern, `$1$2${correctId}$2`);
+      if (replaced !== content) {
+        content = replaced;
+        patched = true;
+        console.log(`[after-pack] 🩹 Patching plugin ID in ${entry}: "${wrongId}" → "${correctId}"`);
+      }
+    }
+
+    if (patched) {
+      writeFileSync(entryPath, content, 'utf8');
+    }
   }
 }
 
@@ -422,6 +552,7 @@ exports.default = async function afterPack(context) {
     { npmName: '@wecom/wecom-openclaw-plugin', pluginId: 'wecom' },
     { npmName: '@sliverp/qqbot', pluginId: 'qqbot' },
     { npmName: '@larksuite/openclaw-lark', pluginId: 'feishu-openclaw-plugin' },
+    { npmName: '@tencent-weixin/openclaw-weixin', pluginId: 'openclaw-weixin' },
   ];
 
   mkdirSync(pluginsDestRoot, { recursive: true });
@@ -436,6 +567,8 @@ exports.default = async function afterPack(context) {
         cleanupKoffi(pluginNM, platform, arch);
         cleanupNativePlatformPackages(pluginNM, platform, arch);
       }
+      // Fix hardcoded plugin ID mismatches in compiled JS
+      patchPluginIds(pluginDestDir, pluginId);
     }
   }
 

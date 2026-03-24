@@ -20,9 +20,9 @@ import { Setup } from './pages/Setup';
 import { Trial } from './pages/Trial';
 import { useSettingsStore } from './stores/settings';
 import { useGatewayStore } from './stores/gateway';
+import { useProviderStore } from './stores/providers';
 import { applyGatewayTransportPreference } from './lib/api-client';
 import { PeriodicRealPersonAuthGuard } from './components/security/PeriodicRealPersonAuthGuard';
-import { isTrialExpired } from '../shared/trial';
 
 
 /**
@@ -95,9 +95,8 @@ function App() {
   const initSettings = useSettingsStore((state) => state.init);
   const language = useSettingsStore((state) => state.language);
   const setupComplete = useSettingsStore((state) => state.setupComplete);
-  const trialStartAt = useSettingsStore((state) => state.trialStartAt);
   const initGateway = useGatewayStore((state) => state.init);
-  const trialExpired = isTrialExpired(trialStartAt);
+  const initProviders = useProviderStore((state) => state.init);
 
   useEffect(() => {
     initSettings();
@@ -115,19 +114,17 @@ function App() {
     initGateway();
   }, [initGateway]);
 
+  // Initialize provider snapshot on mount
+  useEffect(() => {
+    initProviders();
+  }, [initProviders]);
+
   // Redirect to setup wizard if not complete
   useEffect(() => {
     if (!setupComplete && !location.pathname.startsWith('/setup')) {
       navigate('/setup');
     }
   }, [setupComplete, location.pathname, navigate]);
-
-  useEffect(() => {
-    if (!setupComplete || location.pathname.startsWith('/setup')) return;
-    if (!trialExpired) return;
-    if (location.pathname.startsWith('/trial') || location.pathname.startsWith('/settings')) return;
-    navigate('/trial', { replace: true });
-  }, [location.pathname, navigate, setupComplete, trialExpired]);
 
   // Listen for navigation events from main process
   useEffect(() => {

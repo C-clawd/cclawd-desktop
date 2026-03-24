@@ -131,11 +131,24 @@ async function discoverAgentIds(): Promise<string[]> {
 // ── OpenClaw Config Helpers ──────────────────────────────────────
 
 const OPENCLAW_CONFIG_PATH = join(homedir(), '.openclaw', 'openclaw.json');
+const FEISHU_PLUGIN_ID_CANDIDATES = ['openclaw-lark', 'feishu-openclaw-plugin'] as const;
 const VALID_COMPACTION_MODES = new Set(['default', 'safeguard']);
 const CCLAWD_MFA_AUTH_PLUGIN_ID = 'cclawd-mfa-auth';
 
 async function readOpenClawJson(): Promise<Record<string, unknown>> {
   return (await readJsonFile<Record<string, unknown>>(OPENCLAW_CONFIG_PATH)) ?? {};
+}
+
+async function resolveInstalledFeishuPluginId(): Promise<string | null> {
+  const extensionRoot = join(homedir(), '.openclaw', 'extensions');
+  for (const dirName of FEISHU_PLUGIN_ID_CANDIDATES) {
+    const manifestPath = join(extensionRoot, dirName, 'openclaw.plugin.json');
+    const manifest = await readJsonFile<{ id?: unknown }>(manifestPath);
+    if (typeof manifest?.id === 'string' && manifest.id.trim()) {
+      return manifest.id.trim();
+    }
+  }
+  return null;
 }
 
 function normalizeAgentsDefaultsCompactionMode(config: Record<string, unknown>): void {
@@ -591,10 +604,12 @@ function upsertOpenClawProviderEntry(
     models: mergeProviderModels(registryModels, existingModels, runtimeModels),
   };
   if (options.apiKeyEnv) nextProvider.apiKey = options.apiKeyEnv;
-  if (options.headers && Object.keys(options.headers).length > 0) {
-    nextProvider.headers = options.headers;
-  } else {
-    delete nextProvider.headers;
+  if (options.headers !== undefined) {
+    if (Object.keys(options.headers).length > 0) {
+      nextProvider.headers = options.headers;
+    } else {
+      delete nextProvider.headers;
+    }
   }
   if (options.authHeader !== undefined) {
     nextProvider.authHeader = options.authHeader;
@@ -774,6 +789,18 @@ export async function getActiveOpenClawProviders(): Promise<Set<string>> {
         }
       }
     }
+
+    // 3. agents.defaults.model.primary — the default model reference encodes
+    //    the provider prefix (e.g. "qwen-portal/coder-model" → "qwen-portal").
+    //    This covers providers that are active via OAuth or env-key but don't
+    //    have an explicit models.providers entry.
+    const agents = config.agents as Record<string, unknown> | undefined;
+    const defaults = agents?.defaults as Record<string, unknown> | undefined;
+    const modelConfig = defaults?.model as Record<string, unknown> | undefined;
+    const primaryModel = typeof modelConfig?.primary === 'string' ? modelConfig.primary : undefined;
+    if (primaryModel?.includes('/')) {
+      activeProviders.add(primaryModel.split('/')[0]);
+    }
   } catch (err) {
     console.warn('Failed to read openclaw.json for active providers:', err);
   }
@@ -782,7 +809,43 @@ export async function getActiveOpenClawProviders(): Promise<Set<string>> {
 }
 
 /**
- * Write the Cclawd gateway token into ~/.openclaw/openclaw.json.
+ * Read models.providers entries and agents.defaults.model from openclaw.json.
+ * Used by ClawX to seed the provider store when it's empty but providers are
+ * configured externally (e.g. via CLI or by editing openclaw.json directly).
+ */
+export async function getOpenClawProvidersConfig(): Promise<{
+  providers: Record<string, Record<string, unknown>>;
+  defaultModel: string | undefined;
+}> {
+  try {
+    const config = await readOpenClawJson();
+
+    const models = config.models as Record<string, unknown> | undefined;
+    const providers =
+      models?.providers && typeof models.providers === 'object'
+        ? (models.providers as Record<string, Record<string, unknown>>)
+        : {};
+
+    const agents = config.agents as Record<string, unknown> | undefined;
+    const defaults =
+      agents?.defaults && typeof agents.defaults === 'object'
+        ? (agents.defaults as Record<string, unknown>)
+        : undefined;
+    const modelConfig =
+      defaults?.model && typeof defaults.model === 'object'
+        ? (defaults.model as Record<string, unknown>)
+        : undefined;
+    const defaultModel =
+      typeof modelConfig?.primary === 'string' ? modelConfig.primary : undefined;
+
+    return { providers, defaultModel };
+  } catch {
+    return { providers: {}, defaultModel: undefined };
+  }
+}
+
+/**
+ * Write the ClawX gateway token into ~/.openclaw/openclaw.json.
  */
 export async function syncGatewayTokenToConfig(token: string): Promise<void> {
   return withConfigLock(async () => {
@@ -857,6 +920,45 @@ export async function syncBrowserConfigToOpenClaw(): Promise<void> {
     config.browser = browser;
     await writeOpenClawJson(config);
     console.log('Synced browser config to openclaw.json');
+  });
+}
+
+/**
+ * Ensure session idle-reset is configured in ~/.openclaw/openclaw.json.
+ *
+ * By default OpenClaw resets the "main" session daily at 04:00 local time,
+ * which means conversations disappear after roughly one day.  ClawX sets
+ * `session.idleMinutes` to 10 080 (7 days) so that conversations are
+ * preserved for a week unless the user has explicitly configured their own
+ * value.  When `idleMinutes` is set without `session.reset` /
+ * `session.resetByType`, OpenClaw stays in idle-only mode (no daily reset).
+ */
+export async function syncSessionIdleMinutesToOpenClaw(): Promise<void> {
+  const DEFAULT_IDLE_MINUTES = 10_080; // 7 days
+
+  return withConfigLock(async () => {
+    const config = await readOpenClawJson();
+
+    const session = (
+      config.session && typeof config.session === 'object'
+        ? { ...(config.session as Record<string, unknown>) }
+        : {}
+    ) as Record<string, unknown>;
+
+    // Only set idleMinutes if the user has not configured it yet.
+    if (session.idleMinutes !== undefined) return;
+
+    // If the user has explicit reset / resetByType / resetByChannel config,
+    // they are actively managing session lifecycle — don't interfere.
+    if (session.reset !== undefined
+      || session.resetByType !== undefined
+      || session.resetByChannel !== undefined) return;
+
+    session.idleMinutes = DEFAULT_IDLE_MINUTES;
+    config.session = session;
+
+    await writeOpenClawJson(config);
+    console.log(`Synced session.idleMinutes=${DEFAULT_IDLE_MINUTES} (7d) to openclaw.json`);
   });
 }
 
@@ -998,6 +1100,28 @@ export async function sanitizeOpenClawConfig(): Promise<void> {
             }
           }
           if (modified) pluginsObj.load = validLoad;
+        } else if (pluginsObj.load && typeof pluginsObj.load === 'object' && !Array.isArray(pluginsObj.load)) {
+          // Handle nested shape: plugins.load.paths (array of absolute paths)
+          const loadObj = pluginsObj.load as Record<string, unknown>;
+          if (Array.isArray(loadObj.paths)) {
+            const validPaths: unknown[] = [];
+            const countBefore = loadObj.paths.length;
+            for (const p of loadObj.paths) {
+              if (typeof p === 'string' && p.startsWith('/')) {
+                if (p.includes('node_modules/openclaw/extensions') || !(await fileExists(p))) {
+                  console.log(`[sanitize] Removing stale/bundled plugin path "${p}" from plugins.load.paths`);
+                  modified = true;
+                } else {
+                  validPaths.push(p);
+                }
+              } else {
+                validPaths.push(p);
+              }
+            }
+            if (validPaths.length !== countBefore) {
+              loadObj.paths = validPaths;
+            }
+          }
         }
       }
     }
@@ -1063,66 +1187,106 @@ export async function sanitizeOpenClawConfig(): Promise<void> {
     }
 
     // ── plugins.entries.feishu cleanup ──────────────────────────────
-    // The official feishu plugin registers its channel AS 'feishu' via
-    // openclaw.plugin.json.  An explicit entries.feishu.enabled=false
-    // (set by older Cclawd to disable the legacy built-in) blocks the
-    // official plugin's channel from starting.  Only clean up when the
-    // new openclaw-lark plugin is already configured (to avoid removing
-    // a legitimate old-style feishu plugin from users who haven't upgraded).
+    // Normalize feishu plugin ids dynamically based on installed manifest.
+    // Different environments may report either "openclaw-lark" or
+    // "feishu-openclaw-plugin" as the runtime plugin id.
     if (typeof plugins === 'object' && !Array.isArray(plugins)) {
       const pluginsObj = plugins as Record<string, unknown>;
-      const pEntries = pluginsObj.entries as Record<string, Record<string, unknown>> | undefined;
+      const pEntries = (
+        pluginsObj.entries && typeof pluginsObj.entries === 'object' && !Array.isArray(pluginsObj.entries)
+          ? pluginsObj.entries
+          : {}
+      ) as Record<string, Record<string, unknown>>;
+      if (!pluginsObj.entries || typeof pluginsObj.entries !== 'object' || Array.isArray(pluginsObj.entries)) {
+        pluginsObj.entries = pEntries;
+      }
 
-      // ── feishu-openclaw-plugin → openclaw-lark migration ────────
-      // Plugin @larksuite/openclaw-lark ≥2026.3.12 changed its manifest
-      // id from 'feishu-openclaw-plugin' to 'openclaw-lark'.  Migrate
-      // both plugins.allow and plugins.entries so Gateway validation
-      // doesn't reject the config with "plugin not found".
-      const LEGACY_FEISHU_ID = 'feishu-openclaw-plugin';
-      const NEW_FEISHU_ID = 'openclaw-lark';
-      if (Array.isArray(pluginsObj.allow)) {
-        const allowArr = pluginsObj.allow as string[];
-        const legacyIdx = allowArr.indexOf(LEGACY_FEISHU_ID);
-        if (legacyIdx !== -1) {
-          if (!allowArr.includes(NEW_FEISHU_ID)) {
-            allowArr[legacyIdx] = NEW_FEISHU_ID;
-          } else {
-            allowArr.splice(legacyIdx, 1);
-          }
-          console.log(`[sanitize] Migrated plugins.allow: ${LEGACY_FEISHU_ID} → ${NEW_FEISHU_ID}`);
+      const allowArr = Array.isArray(pluginsObj.allow) ? pluginsObj.allow as string[] : [];
+      if (!Array.isArray(pluginsObj.allow)) {
+        pluginsObj.allow = allowArr;
+      }
+
+      const installedFeishuId = await resolveInstalledFeishuPluginId();
+      const configuredFeishuId =
+        FEISHU_PLUGIN_ID_CANDIDATES.find((id) => allowArr.includes(id))
+        || FEISHU_PLUGIN_ID_CANDIDATES.find((id) => Boolean(pEntries[id]));
+      const canonicalFeishuId = installedFeishuId || configuredFeishuId || FEISHU_PLUGIN_ID_CANDIDATES[0];
+
+      const existingFeishuEntry =
+        FEISHU_PLUGIN_ID_CANDIDATES.map((id) => pEntries[id]).find(Boolean)
+        || pEntries.feishu;
+
+      const normalizedAllow = allowArr.filter(
+        (id) => id !== 'feishu' && !FEISHU_PLUGIN_ID_CANDIDATES.includes(id as typeof FEISHU_PLUGIN_ID_CANDIDATES[number]),
+      );
+      normalizedAllow.push(canonicalFeishuId);
+      if (JSON.stringify(normalizedAllow) !== JSON.stringify(allowArr)) {
+        pluginsObj.allow = normalizedAllow;
+        modified = true;
+        console.log(`[sanitize] Normalized plugins.allow for feishu -> ${canonicalFeishuId}`);
+      }
+
+      if (existingFeishuEntry || !pEntries[canonicalFeishuId]) {
+        pEntries[canonicalFeishuId] = {
+          ...(existingFeishuEntry || {}),
+          ...(pEntries[canonicalFeishuId] || {}),
+          enabled: true,
+        };
+        modified = true;
+      }
+      for (const id of FEISHU_PLUGIN_ID_CANDIDATES) {
+        if (id !== canonicalFeishuId && pEntries[id]) {
+          delete pEntries[id];
           modified = true;
         }
       }
-      if (pEntries?.[LEGACY_FEISHU_ID]) {
-        if (!pEntries[NEW_FEISHU_ID]) {
-          pEntries[NEW_FEISHU_ID] = pEntries[LEGACY_FEISHU_ID];
+
+      // ── wecom-openclaw-plugin → wecom migration ────────────────
+      const LEGACY_WECOM_ID = 'wecom-openclaw-plugin';
+      const NEW_WECOM_ID = 'wecom';
+      if (Array.isArray(pluginsObj.allow)) {
+        const allowArr = pluginsObj.allow as string[];
+        const legacyIdx = allowArr.indexOf(LEGACY_WECOM_ID);
+        if (legacyIdx !== -1) {
+          if (!allowArr.includes(NEW_WECOM_ID)) {
+            allowArr[legacyIdx] = NEW_WECOM_ID;
+          } else {
+            allowArr.splice(legacyIdx, 1);
+          }
+          console.log(`[sanitize] Migrated plugins.allow: ${LEGACY_WECOM_ID} → ${NEW_WECOM_ID}`);
+          modified = true;
         }
-        delete pEntries[LEGACY_FEISHU_ID];
-        console.log(`[sanitize] Migrated plugins.entries: ${LEGACY_FEISHU_ID} → ${NEW_FEISHU_ID}`);
+      }
+      if (pEntries?.[LEGACY_WECOM_ID]) {
+        if (!pEntries[NEW_WECOM_ID]) {
+          pEntries[NEW_WECOM_ID] = pEntries[LEGACY_WECOM_ID];
+        }
+        delete pEntries[LEGACY_WECOM_ID];
+        console.log(`[sanitize] Migrated plugins.entries: ${LEGACY_WECOM_ID} → ${NEW_WECOM_ID}`);
         modified = true;
       }
 
-      // ── Remove bare 'feishu' when openclaw-lark is present ─────────
+      // ── Remove bare 'feishu' when canonical feishu plugin is present ──
       // The Gateway binary automatically adds bare 'feishu' to plugins.allow
-      // because the openclaw-lark plugin registers the 'feishu' channel.
+      // because the official plugin registers the 'feishu' channel.
       // However, there's no plugin with id='feishu', so Gateway validation
       // fails with "plugin not found: feishu".  Remove it from allow[] and
       // disable the entries.feishu entry to prevent Gateway from re-adding it.
       const allowArr2 = Array.isArray(pluginsObj.allow) ? pluginsObj.allow as string[] : [];
-      const hasNewFeishu = allowArr2.includes(NEW_FEISHU_ID) || !!pEntries?.[NEW_FEISHU_ID];
-      if (hasNewFeishu) {
+      const hasCanonicalFeishu = allowArr2.includes(canonicalFeishuId) || !!pEntries[canonicalFeishuId];
+      if (hasCanonicalFeishu) {
         // Remove bare 'feishu' from plugins.allow
         const bareFeishuIdx = allowArr2.indexOf('feishu');
         if (bareFeishuIdx !== -1) {
           allowArr2.splice(bareFeishuIdx, 1);
-          console.log('[sanitize] Removed bare "feishu" from plugins.allow (openclaw-lark is configured)');
+          console.log('[sanitize] Removed bare "feishu" from plugins.allow (feishu plugin is configured)');
           modified = true;
         }
         // Disable bare 'feishu' in plugins.entries so Gateway won't re-add it
-        if (pEntries?.feishu) {
+        if (pEntries.feishu) {
           if (pEntries.feishu.enabled !== false) {
             pEntries.feishu.enabled = false;
-            console.log('[sanitize] Disabled bare plugins.entries.feishu (openclaw-lark is configured)');
+            console.log('[sanitize] Disabled bare plugins.entries.feishu (feishu plugin is configured)');
             modified = true;
           }
         }

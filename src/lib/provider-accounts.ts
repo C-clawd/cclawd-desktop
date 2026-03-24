@@ -81,6 +81,7 @@ export function legacyProviderToAccount(provider: ProviderWithKeyInfo): Provider
     label: provider.name,
     authMode: provider.type === 'ollama' ? 'local' : 'api_key',
     baseUrl: provider.baseUrl,
+    headers: provider.headers,
     model: provider.model,
     fallbackModels: provider.fallbackModels,
     fallbackAccountIds: provider.fallbackProviderIds,
@@ -97,11 +98,14 @@ export function buildProviderListItems(
   vendors: ProviderVendorInfo[],
   defaultAccountId: string | null,
 ): ProviderListItem[] {
-  const vendorMap = new Map(vendors.map((vendor) => [vendor.id, vendor]));
-  const statusMap = new Map(statuses.map((status) => [status.id, status]));
+  const safeAccounts = accounts ?? [];
+  const safeStatuses = statuses ?? [];
+  const safeVendors = vendors ?? [];
+  const vendorMap = new Map(safeVendors.map((vendor) => [vendor.id, vendor]));
+  const statusMap = new Map(safeStatuses.map((status) => [status.id, status]));
 
-  if (accounts.length > 0) {
-    return accounts
+  if (safeAccounts.length > 0) {
+    return safeAccounts
       .map((account) => ({
         account,
         vendor: vendorMap.get(account.vendorId),
@@ -114,7 +118,7 @@ export function buildProviderListItems(
       });
   }
 
-  return statuses.map((status) => ({
+  return safeStatuses.map((status) => ({
     account: legacyProviderToAccount(status),
     vendor: vendorMap.get(status.type),
     status,

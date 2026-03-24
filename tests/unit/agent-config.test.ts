@@ -220,4 +220,147 @@ describe('agent config lifecycle', () => {
     warnSpy.mockRestore();
     infoSpy.mockRestore();
   });
+
+  it('does not delete a legacy-named account when it is owned by another agent', async () => {
+    await writeOpenClawJson({
+      agents: {
+        list: [
+          { id: 'main', name: 'Main', default: true },
+          { id: 'test2', name: 'test2' },
+          { id: 'test3', name: 'test3' },
+        ],
+      },
+      channels: {
+        feishu: {
+          enabled: true,
+          defaultAccount: 'default',
+          accounts: {
+            default: { enabled: true, appId: 'main-app' },
+            test2: { enabled: true, appId: 'legacy-test2-app' },
+          },
+        },
+      },
+      bindings: [
+        {
+          agentId: 'test3',
+          match: {
+            channel: 'feishu',
+            accountId: 'test2',
+          },
+        },
+      ],
+    });
+
+    const { deleteAgentConfig } = await import('@electron/utils/agent-config');
+    await deleteAgentConfig('test2');
+
+    const config = await readOpenClawJson();
+    const feishu = (config.channels as Record<string, unknown>).feishu as {
+      accounts?: Record<string, unknown>;
+    };
+    expect(feishu.accounts?.test2).toBeDefined();
+  });
+
+  it('allows the same agent to bind multiple different channels', async () => {
+    await writeOpenClawJson({
+      agents: {
+        list: [
+          { id: 'main', name: 'Main', default: true },
+        ],
+      },
+      channels: {
+        feishu: { enabled: true },
+        telegram: { enabled: true },
+      },
+    });
+
+    const { assignChannelAccountToAgent, listAgentsSnapshot } = await import('@electron/utils/agent-config');
+
+    await assignChannelAccountToAgent('main', 'feishu', 'default');
+    await assignChannelAccountToAgent('main', 'telegram', 'default');
+
+    const snapshot = await listAgentsSnapshot();
+    expect(snapshot.channelAccountOwners['feishu:default']).toBe('main');
+    expect(snapshot.channelAccountOwners['telegram:default']).toBe('main');
+  });
+
+  it('replaces previous account binding for the same agent and channel', async () => {
+    await writeOpenClawJson({
+      agents: {
+        list: [
+          { id: 'main', name: 'Main', default: true },
+        ],
+      },
+      channels: {
+        feishu: {
+          enabled: true,
+          defaultAccount: 'default',
+          accounts: {
+            default: { enabled: true, appId: 'main-app' },
+            alt: { enabled: true, appId: 'alt-app' },
+          },
+        },
+      },
+    });
+
+    const { assignChannelAccountToAgent, listAgentsSnapshot } = await import('@electron/utils/agent-config');
+
+    await assignChannelAccountToAgent('main', 'feishu', 'default');
+    await assignChannelAccountToAgent('main', 'feishu', 'alt');
+
+    const snapshot = await listAgentsSnapshot();
+    expect(snapshot.channelAccountOwners['feishu:default']).toBeUndefined();
+    expect(snapshot.channelAccountOwners['feishu:alt']).toBe('main');
+  });
+
+  it('keeps a single owner for the same channel account', async () => {
+    await writeOpenClawJson({
+      agents: {
+        list: [
+          { id: 'main', name: 'Main', default: true },
+          { id: 'test2', name: 'test2' },
+        ],
+      },
+      channels: {
+        feishu: {
+          enabled: true,
+          accounts: {
+            default: { enabled: true, appId: 'main-app' },
+          },
+        },
+      },
+    });
+
+    const { assignChannelAccountToAgent, listAgentsSnapshot } = await import('@electron/utils/agent-config');
+
+    await assignChannelAccountToAgent('main', 'feishu', 'default');
+    await assignChannelAccountToAgent('test2', 'feishu', 'default');
+
+    const snapshot = await listAgentsSnapshot();
+    expect(snapshot.channelAccountOwners['feishu:default']).toBe('test2');
+  });
+
+  it('can clear one channel account binding without affecting another channel on the same agent', async () => {
+    await writeOpenClawJson({
+      agents: {
+        list: [
+          { id: 'main', name: 'Main', default: true },
+        ],
+      },
+      channels: {
+        feishu: { enabled: true },
+        telegram: { enabled: true },
+      },
+    });
+
+    const { assignChannelAccountToAgent, clearChannelBinding, listAgentsSnapshot } = await import('@electron/utils/agent-config');
+
+    await assignChannelAccountToAgent('main', 'feishu', 'default');
+    await assignChannelAccountToAgent('main', 'telegram', 'default');
+    await clearChannelBinding('feishu', 'default');
+
+    const snapshot = await listAgentsSnapshot();
+    expect(snapshot.channelAccountOwners['feishu:default']).toBeUndefined();
+    expect(snapshot.channelAccountOwners['telegram:default']).toBe('main');
+  });
 });
