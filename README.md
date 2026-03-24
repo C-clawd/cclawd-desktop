@@ -103,23 +103,25 @@ When you target another agent with `@agent`, Cclawd switches into that agent's o
 
 ### 📡 Multi-Channel Management
 Configure and monitor multiple AI channels simultaneously. Each channel operates independently, allowing you to run specialized agents for different tasks.
+Each channel now supports multiple accounts, per-account agent binding, and switching the channel default account directly from the Channels page.
+ClawX now also bundles Tencent's official personal WeChat channel plugin, so you can link WeChat directly from the Channels page with an in-app QR flow.
 
 ### ⏰ Cron-Based Automation
 Schedule AI tasks to run automatically. Define triggers, set intervals, and let your AI agents work around the clock without manual intervention.
 
 ### 🧩 Extensible Skill System
 Extend your AI agents with pre-built skills. Browse, install, and manage skills through the integrated skill panel—no package managers required.
-Cclawd also pre-bundles full document-processing skills (`pdf`, `xlsx`, `docx`, `pptx`), deploys them automatically to the managed skills directory (default `~/.openclaw/skills`) on startup, and enables them by default on first install. Additional bundled skills (`find-skills`, `self-improving-agent`, `tavily-search`, `brave-web-search`, `bocha-skill`) are also enabled by default; if required API keys are missing, OpenClaw will surface configuration errors in runtime.  
+ClawX also pre-bundles full document-processing skills (`pdf`, `xlsx`, `docx`, `pptx`), deploys them automatically to the managed skills directory (default `~/.openclaw/skills`) on startup, and enables them by default on first install. Additional bundled skills (`find-skills`, `self-improving-agent`, `tavily-search`, `brave-web-search`) are also enabled by default; if required API keys are missing, OpenClaw will surface configuration errors in runtime.  
 The Skills page can display skills discovered from multiple OpenClaw sources (managed dir, workspace, and extra skill dirs), and now shows each skill's actual location so you can open the real folder directly.
 
 Environment variables for bundled search skills:
 - `BRAVE_SEARCH_API_KEY` for `brave-web-search`
 - `TAVILY_API_KEY` for `tavily-search` (OAuth may also be supported by upstream skill runtime)
-- `BOCHA_API_KEY` for `bocha-skill`
 - `find-skills` and `self-improving-agent` do not require API keys
 
 ### 🔐 Secure Provider Integration
 Connect to multiple AI providers (OpenAI, Anthropic, and more) with credentials stored securely in your system's native keychain. OpenAI supports both API key and browser OAuth (Codex subscription) sign-in.
+For **Custom** providers used with OpenAI-compatible gateways, you can set a custom `User-Agent` in **Settings → AI Providers → Edit Provider** for compatibility-sensitive endpoints.
 
 ### 🪪 Periodic Real-Person Verification
 When periodic identity verification is enabled, Cclawd blocks the UI with a non-dismissible verification dialog until the current user completes face verification successfully. Development builds default to a short interval for testing; packaged builds default to 24 hours.
@@ -197,8 +199,11 @@ Notes:
 - A bare `host:port` value is treated as HTTP.
 - If advanced proxy fields are left empty, Cclawd falls back to `Proxy Server`.
 - Saving proxy settings reapplies Electron networking immediately and restarts the Gateway automatically.
-- Cclawd also syncs the proxy to OpenClaw's Telegram channel config when Telegram is enabled.
+- ClawX also syncs the proxy to OpenClaw's Telegram channel config when Telegram is enabled.
+- Gateway restarts preserve an existing Telegram channel proxy if ClawX proxy is currently disabled.
+- To explicitly clear Telegram channel proxy from OpenClaw config, save proxy settings with proxy disabled.
 - In **Settings → Advanced → Developer**, you can run **OpenClaw Doctor** to execute `openclaw doctor --json` and inspect the diagnostic output without leaving the app.
+- On packaged Windows builds, the bundled `openclaw` CLI/TUI runs via the shipped `node.exe` entrypoint to keep terminal input behavior stable.
 
 ---
 
@@ -259,6 +264,17 @@ Cclawd employs a **dual-process architecture** with a unified host API layer. Th
 - **Secure Storage**: API keys and sensitive data leverage the operating system's native secure storage mechanisms
 - **CORS-Safe by Design**: Local HTTP access is proxied by Main, preventing renderer-side CORS issues
 
+### Process Model & Gateway Troubleshooting
+
+- ClawX is an Electron app, so **one app instance normally appears as multiple OS processes** (main/renderer/zygote/utility). This is expected.
+- Single-instance protection uses Electron's lock plus a local process-file lock fallback, preventing duplicate app launch in environments where desktop IPC/session bus is unstable.
+- During rolling upgrades, mixed old/new app versions can still have asymmetric protection behavior. For best reliability, upgrade all desktop clients to the same version.
+- The OpenClaw Gateway listener should still be **single-owner**: only one process should listen on `127.0.0.1:18789`.
+- To verify the active listener:
+  - macOS/Linux: `lsof -nP -iTCP:18789 -sTCP:LISTEN`
+  - Windows (PowerShell): `Get-NetTCPConnection -LocalPort 18789 -State Listen`
+- Clicking the window close button (`X`) hides ClawX to tray; it does **not** fully quit the app. Use tray menu **Quit ClawX** for complete shutdown.
+
 ---
 
 ## Use Cases
@@ -316,7 +332,7 @@ Chain multiple skills together to create sophisticated automation pipelines. Pro
 ```bash
 # Development
 pnpm run init             # Install dependencies + download uv
-pnpm dev                  # Start with hot reload
+pnpm dev                  # Start with hot reload (auto-prepares bundled skills if missing)
 
 # Quality
 pnpm lint                 # Run ESLint
@@ -331,7 +347,7 @@ pnpm run comms:compare    # Compare replay metrics against baseline thresholds
 # Build & Package
 pnpm run build:vite       # Build frontend only
 pnpm build                # Full production build (with packaging assets)
-pnpm package              # Package for current platform
+pnpm package              # Package for current platform (includes bundled preinstalled skills)
 pnpm package:mac          # Package for macOS
 pnpm package:win          # Package for Windows
 pnpm package:linux        # Package for Linux

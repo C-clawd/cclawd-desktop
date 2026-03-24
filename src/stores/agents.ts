@@ -8,10 +8,11 @@ interface AgentsState {
   defaultAgentId: string;
   configuredChannelTypes: string[];
   channelOwners: Record<string, string>;
+  channelAccountOwners: Record<string, string>;
   loading: boolean;
   error: string | null;
   fetchAgents: () => Promise<void>;
-  createAgent: (name: string) => Promise<void>;
+  createAgent: (name: string, options?: { inheritWorkspace?: boolean }) => Promise<void>;
   updateAgent: (agentId: string, name: string) => Promise<void>;
   deleteAgent: (agentId: string) => Promise<void>;
   assignChannel: (agentId: string, channelType: ChannelType) => Promise<void>;
@@ -21,10 +22,11 @@ interface AgentsState {
 
 function applySnapshot(snapshot: AgentsSnapshot | undefined) {
   return snapshot ? {
-    agents: snapshot.agents,
-    defaultAgentId: snapshot.defaultAgentId,
-    configuredChannelTypes: snapshot.configuredChannelTypes,
-    channelOwners: snapshot.channelOwners,
+    agents: snapshot.agents ?? [],
+    defaultAgentId: snapshot.defaultAgentId ?? 'main',
+    configuredChannelTypes: snapshot.configuredChannelTypes ?? [],
+    channelOwners: snapshot.channelOwners ?? {},
+    channelAccountOwners: snapshot.channelAccountOwners ?? {},
   } : {};
 }
 
@@ -33,6 +35,7 @@ export const useAgentsStore = create<AgentsState>((set) => ({
   defaultAgentId: 'main',
   configuredChannelTypes: [],
   channelOwners: {},
+  channelAccountOwners: {},
   loading: false,
   error: null,
 
@@ -49,12 +52,12 @@ export const useAgentsStore = create<AgentsState>((set) => ({
     }
   },
 
-  createAgent: async (name: string) => {
+  createAgent: async (name: string, options?: { inheritWorkspace?: boolean }) => {
     set({ error: null });
     try {
       const snapshot = await hostApiFetch<AgentsSnapshot & { success?: boolean }>('/api/agents', {
         method: 'POST',
-        body: JSON.stringify({ name }),
+        body: JSON.stringify({ name, inheritWorkspace: options?.inheritWorkspace }),
       });
       set(applySnapshot(snapshot));
     } catch (error) {

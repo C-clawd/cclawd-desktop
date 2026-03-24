@@ -1,4 +1,5 @@
-import { readFile, rm } from 'fs/promises';
+import { existsSync } from 'fs';
+import { mkdir, readFile, rm, writeFile } from 'fs/promises';
 import { join } from 'path';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -124,7 +125,7 @@ describe('parseDoctorValidationOutput', () => {
 
     expect(out.undetermined).toBe(true);
     expect(out.errors).toEqual([]);
-    expect(out.warnings.some((w) => w.includes('falling back to local channel config checks'))).toBe(true);
+    expect(out.warnings.some((w: string) => w.includes('falling back to local channel config checks'))).toBe(true);
   });
 
   it('falls back with hint when output is empty', async () => {
@@ -134,6 +135,62 @@ describe('parseDoctorValidationOutput', () => {
 
     expect(out.undetermined).toBe(true);
     expect(out.errors).toEqual([]);
-    expect(out.warnings.some((w) => w.includes('falling back to local channel config checks'))).toBe(true);
+    expect(out.warnings.some((w: string) => w.includes('falling back to local channel config checks'))).toBe(true);
+  });
+});
+
+describe('WeCom plugin configuration', () => {
+  beforeEach(async () => {
+    vi.resetAllMocks();
+    vi.resetModules();
+    await rm(testHome, { recursive: true, force: true });
+    await rm(testUserData, { recursive: true, force: true });
+  });
+
+  it('sets plugins.entries.wecom.enabled when saving wecom config', async () => {
+    const { saveChannelConfig } = await import('@electron/utils/channel-config');
+
+    await saveChannelConfig('wecom', { botId: 'test-bot', secret: 'test-secret' }, 'agent-a');
+
+    const config = await readOpenClawJson();
+    const plugins = config.plugins as { allow: string[], entries: Record<string, { enabled?: boolean }> };
+    
+    expect(plugins.allow).toContain('wecom');
+    expect(plugins.entries['wecom'].enabled).toBe(true);
+  });
+});
+
+describe('WeChat dangling plugin cleanup', () => {
+  beforeEach(async () => {
+    vi.resetAllMocks();
+    vi.resetModules();
+    await rm(testHome, { recursive: true, force: true });
+    await rm(testUserData, { recursive: true, force: true });
+  });
+
+  it('removes dangling openclaw-weixin plugin registration and state when no channel config exists', async () => {
+    const { cleanupDanglingWeChatPluginState, writeOpenClawConfig } = await import('@electron/utils/channel-config');
+
+    await writeOpenClawConfig({
+      plugins: {
+        enabled: true,
+        allow: ['openclaw-weixin'],
+        entries: {
+          'openclaw-weixin': { enabled: true },
+        },
+      },
+    });
+
+    const staleStateDir = join(testHome, '.openclaw', 'openclaw-weixin', 'accounts');
+    await mkdir(staleStateDir, { recursive: true });
+    await writeFile(join(staleStateDir, 'bot-im-bot.json'), JSON.stringify({ token: 'stale-token' }), 'utf8');
+    await writeFile(join(testHome, '.openclaw', 'openclaw-weixin', 'accounts.json'), JSON.stringify(['bot-im-bot']), 'utf8');
+
+    const result = await cleanupDanglingWeChatPluginState();
+    expect(result.cleanedDanglingState).toBe(true);
+
+    const config = await readOpenClawJson();
+    expect(config.plugins).toBeUndefined();
+    expect(existsSync(join(testHome, '.openclaw', 'openclaw-weixin'))).toBe(false);
   });
 });
