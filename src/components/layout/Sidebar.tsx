@@ -198,7 +198,7 @@ export function Sidebar() {
       }),
     },
     { to: '/skills', icon: <ClipboardList className="h-[18px] w-[18px]" strokeWidth={2} />, label: t('sidebar.skills') },
-    { to: '/agents', icon: <Bot className="h-[18px] w-[18px]" strokeWidth={2} />, label: t('sidebar.agents') },
+    // { to: '/agents', icon: <Bot className="h-[18px] w-[18px]" strokeWidth={2} />, label: t('sidebar.agents') },
     { to: '/models', icon: <Box className="h-[18px] w-[18px]" strokeWidth={2} />, label: t('sidebar.models') },
     { to: '/channels', icon: <BookAudio className="h-[18px] w-[18px]" strokeWidth={2} />, label: t('sidebar.channels') },
     { to: '/cron', icon: <Clock className="h-[18px] w-[18px]" strokeWidth={2} />, label: t('sidebar.cronTasks') },
