@@ -17,9 +17,12 @@
     "trial": {
         "title": "Trial",
         "remaining": "Remaining {{days}} days",
-        "desc": "30-day trial, decreases by 1 each day",
+        "expired": "Trial expired",
+        "expiredBadge": "Expired",
+        "desc": "{{days}}-day trial, decreases by 1 each day",
         "start": "Trial starts: {{date}}",
-        "end": "Trial ends: {{date}}"
+        "end": "Trial ends: {{date}}",
+        "locked": "Core features such as chat, agents, channels, skills, and cron are locked after the trial ends."
     },
     "actions": {
         "save": "Save",

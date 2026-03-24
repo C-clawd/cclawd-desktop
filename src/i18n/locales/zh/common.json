@@ -17,9 +17,12 @@
     "trial": {
         "title": "试用版",
         "remaining": "剩余 {{days}} 天",
-        "desc": "试用期为 30 天，每过一天减 1",
+        "expired": "试用期已结束",
+        "expiredBadge": "已过期",
+        "desc": "试用期为 {{days}} 天，每过一天减 1",
         "start": "试用开始：{{date}}",
-        "end": "试用结束：{{date}}"
+        "end": "试用结束：{{date}}",
+        "locked": "试用期结束后，聊天、机器人、渠道、技能和定时任务等核心功能已锁定。"
     },
     "actions": {
         "save": "保存",

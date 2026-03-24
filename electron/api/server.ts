@@ -15,6 +15,8 @@ import { handleFileRoutes } from './routes/files';
 import { handleSessionRoutes } from './routes/sessions';
 import { handleCronRoutes } from './routes/cron';
 import { sendJson } from './route-utils';
+import { getSetting } from '../utils/store';
+import { isTrialExpired, shouldBlockExpiredTrialRequest } from '../../shared/trial';
 
 type RouteHandler = (
   req: IncomingMessage,
@@ -42,6 +44,11 @@ export function startHostApiServer(ctx: HostApiContext, port = PORTS.CLAWX_HOST_
   const server = createServer(async (req, res) => {
     try {
       const requestUrl = new URL(req.url || '/', `http://127.0.0.1:${port}`);
+      const trialStartAt = await getSetting('trialStartAt');
+      if (isTrialExpired(trialStartAt) && shouldBlockExpiredTrialRequest(requestUrl.pathname)) {
+        sendJson(res, 403, { success: false, code: 'TRIAL_EXPIRED', error: 'Trial expired' });
+        return;
+      }
       for (const handler of routeHandlers) {
         if (await handler(req, res, requestUrl, ctx)) {
           return;

@@ -6,7 +6,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
-  Bot,
   Clock,
   Settings as SettingsIcon,
   PanelLeftClose,
@@ -28,6 +27,7 @@ import { Badge } from '@/components/ui/badge';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { useTranslation } from 'react-i18next';
 import logoPng from '@/assets/logo.png';
+import { getRemainingTrialDays, isTrialExpired } from '../../../shared/trial';
 
 type SessionBucketKey =
   | 'today'
@@ -190,12 +190,9 @@ export function Sidebar() {
       to: '/trial',
       icon: <Timer className="h-[18px] w-[18px]" strokeWidth={2} />,
       label: t('sidebar.trial'),
-      badge: t('trial.remaining', {
-        days: Math.max(
-          0,
-          30 - Math.floor((nowMs - (trialStartAt || nowMs)) / (24 * 60 * 60 * 1000))
-        ),
-      }),
+      badge: isTrialExpired(trialStartAt, nowMs)
+        ? t('trial.expiredBadge')
+        : t('trial.remaining', { days: getRemainingTrialDays(trialStartAt, nowMs) }),
     },
     { to: '/skills', icon: <ClipboardList className="h-[18px] w-[18px]" strokeWidth={2} />, label: t('sidebar.skills') },
     // { to: '/agents', icon: <Bot className="h-[18px] w-[18px]" strokeWidth={2} />, label: t('sidebar.agents') },

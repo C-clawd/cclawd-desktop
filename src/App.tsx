@@ -22,6 +22,7 @@ import { useSettingsStore } from './stores/settings';
 import { useGatewayStore } from './stores/gateway';
 import { applyGatewayTransportPreference } from './lib/api-client';
 import { PeriodicRealPersonAuthGuard } from './components/security/PeriodicRealPersonAuthGuard';
+import { isTrialExpired } from '../shared/trial';
 
 
 /**
@@ -94,7 +95,9 @@ function App() {
   const initSettings = useSettingsStore((state) => state.init);
   const language = useSettingsStore((state) => state.language);
   const setupComplete = useSettingsStore((state) => state.setupComplete);
+  const trialStartAt = useSettingsStore((state) => state.trialStartAt);
   const initGateway = useGatewayStore((state) => state.init);
+  const trialExpired = isTrialExpired(trialStartAt);
 
   useEffect(() => {
     initSettings();
@@ -118,6 +121,13 @@ function App() {
       navigate('/setup');
     }
   }, [setupComplete, location.pathname, navigate]);
+
+  useEffect(() => {
+    if (!setupComplete || location.pathname.startsWith('/setup')) return;
+    if (!trialExpired) return;
+    if (location.pathname.startsWith('/trial') || location.pathname.startsWith('/settings')) return;
+    navigate('/trial', { replace: true });
+  }, [location.pathname, navigate, setupComplete, trialExpired]);
 
   // Listen for navigation events from main process
   useEffect(() => {
