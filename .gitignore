@@ -65,3 +65,4 @@ docs/pr-session-notes-*.md
 
 .cursor/
 .pnpm-store/
+pnpm-lock.yaml

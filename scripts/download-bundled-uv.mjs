@@ -42,6 +42,84 @@ const PLATFORM_GROUPS = {
   'linux': ['linux-x64', 'linux-arm64']
 };
 
+const DOWNLOAD_TIMEOUT_MS = 60_000;
+const DOWNLOAD_RETRIES = 3;
+
+function isTransientDownloadError(error) {
+  const code = error?.code ?? error?.cause?.code;
+  return [
+    'UND_ERR_SOCKET',
+    'UND_ERR_CONNECT_TIMEOUT',
+    'UND_ERR_HEADERS_TIMEOUT',
+    'UND_ERR_BODY_TIMEOUT',
+    'ECONNRESET',
+    'ETIMEDOUT',
+    'ECONNREFUSED',
+    'EAI_AGAIN',
+  ].includes(code);
+}
+
+async function sleep(ms) {
+  await new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function downloadWithFetch(downloadUrl, archivePath) {
+  let lastError;
+
+  for (let attempt = 1; attempt <= DOWNLOAD_RETRIES; attempt += 1) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), DOWNLOAD_TIMEOUT_MS);
+
+    try {
+      const response = await fetch(downloadUrl, {
+        redirect: 'follow',
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to download: ${response.status} ${response.statusText}`);
+      }
+
+      const buffer = await response.arrayBuffer();
+      await fs.writeFile(archivePath, Buffer.from(buffer));
+      return;
+    } catch (error) {
+      lastError = error;
+      const shouldRetry =
+        attempt < DOWNLOAD_RETRIES &&
+        (error?.name === 'AbortError' || isTransientDownloadError(error));
+
+      if (!shouldRetry) {
+        throw error;
+      }
+
+      echo(
+        chalk.yellow(
+          `   Download attempt ${attempt}/${DOWNLOAD_RETRIES} failed (${error?.cause?.code ?? error?.code ?? error?.name ?? 'unknown error'}). Retrying...`
+        )
+      );
+      await sleep(attempt * 1_500);
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  throw lastError;
+}
+
+async function downloadWithPowerShell(downloadUrl, archivePath) {
+  const { execFileSync } = await import('child_process');
+  const psCommand = [
+    "$ProgressPreference = 'SilentlyContinue'",
+    `[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12`,
+    `$url = '${downloadUrl.replace(/'/g, "''")}'`,
+    `$dest = '${archivePath.replace(/'/g, "''")}'`,
+    "Invoke-WebRequest -UseBasicParsing -Uri $url -OutFile $dest",
+  ].join('; ');
+
+  execFileSync('powershell.exe', ['-NoProfile', '-Command', psCommand], { stdio: 'inherit' });
+}
+
 async function setupTarget(id) {
   const target = TARGETS[id];
   if (!target) {
@@ -65,10 +143,20 @@ async function setupTarget(id) {
   try {
     // Download
     echo`⬇️ Downloading: ${downloadUrl}`;
-    const response = await fetch(downloadUrl);
-    if (!response.ok) throw new Error(`Failed to download: ${response.statusText}`);
-    const buffer = await response.arrayBuffer();
-    await fs.writeFile(archivePath, Buffer.from(buffer));
+    try {
+      await downloadWithFetch(downloadUrl, archivePath);
+    } catch (error) {
+      if (os.platform() !== 'win32') {
+        throw error;
+      }
+
+      echo(
+        chalk.yellow(
+          `   Node download failed (${error?.cause?.code ?? error?.code ?? error?.name ?? 'unknown error'}). Falling back to PowerShell...`
+        )
+      );
+      await downloadWithPowerShell(downloadUrl, archivePath);
+    }
 
     // Extract
     echo`📂 Extracting...`;
