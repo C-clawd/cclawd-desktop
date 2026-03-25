@@ -2,7 +2,9 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 
 export const TRIAL_TOTAL_DAYS = 30;
 export const TRIAL_TOTAL_MS = TRIAL_TOTAL_DAYS * DAY_MS;
-const TRIAL_ALLOWED_PATH_PREFIXES = ['/api/app', '/api/events', '/api/settings'];
+const TRIAL_ALLOWED_ROUTES = [
+  { pathname: '/api/settings', method: 'GET' },
+];
 
 export function hasTrialStarted(trialStartAt: number): boolean {
   return Number.isFinite(trialStartAt) && trialStartAt > 0;
@@ -28,6 +30,6 @@ export function isTrialExpired(trialStartAt: number, nowMs = Date.now()): boolea
   return trialEndAt > 0 && nowMs >= trialEndAt;
 }
 
-export function shouldBlockExpiredTrialRequest(pathname: string): boolean {
-  return !TRIAL_ALLOWED_PATH_PREFIXES.some((prefix) => pathname.startsWith(prefix));
+export function shouldBlockExpiredTrialRequest(pathname: string, method: string): boolean {
+  return !TRIAL_ALLOWED_ROUTES.some((route) => route.pathname === pathname && route.method === method);
 }

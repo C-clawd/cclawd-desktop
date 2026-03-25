@@ -5,10 +5,22 @@ const runOpenClawDoctorMock = vi.fn();
 const runOpenClawDoctorFixMock = vi.fn();
 const sendJsonMock = vi.fn();
 const sendNoContentMock = vi.fn();
+const ensureTrialStartAtMock = vi.fn();
 
 vi.mock('@electron/utils/openclaw-doctor', () => ({
   runOpenClawDoctor: (...args: unknown[]) => runOpenClawDoctorMock(...args),
   runOpenClawDoctorFix: (...args: unknown[]) => runOpenClawDoctorFixMock(...args),
+}));
+
+vi.mock('@electron/utils/real-person-auth', () => ({
+  checkRealPersonAuth: vi.fn(),
+  ensureSetupRealPersonAuthConfig: vi.fn(),
+  startRealPersonAuth: vi.fn(),
+  startRealPersonAuthWithSavedApiKey: vi.fn(),
+}));
+
+vi.mock('@electron/utils/trial', () => ({
+  ensureTrialStartAt: (...args: unknown[]) => ensureTrialStartAtMock(...args),
 }));
 
 vi.mock('@electron/api/route-utils', () => ({
@@ -21,6 +33,7 @@ vi.mock('@electron/api/route-utils', () => ({
 describe('handleAppRoutes', () => {
   beforeEach(() => {
     vi.resetAllMocks();
+    ensureTrialStartAtMock.mockResolvedValue(0);
   });
 
   it('runs openclaw doctor through the host api', async () => {

@@ -49,6 +49,7 @@ interface SettingsState {
 
   // Setup
   setupComplete: boolean;
+  initialized: boolean;
 
   // Actions
   init: () => Promise<void>;
@@ -99,6 +100,7 @@ const defaultSettings = {
   periodicAuthLocked: false,
   trialStartAt: 0,
   setupComplete: false,
+  initialized: false,
 };
 
 export const useSettingsStore = create<SettingsState>()(
@@ -123,6 +125,8 @@ export const useSettingsStore = create<SettingsState>()(
         } catch {
           // Keep renderer-persisted settings as a fallback when the main
           // process store is not reachable.
+        } finally {
+          set({ initialized: true });
         }
       },
 

@@ -22,7 +22,7 @@
         "desc": "{{days}}-day trial, decreases by 1 each day",
         "start": "Trial starts: {{date}}",
         "end": "Trial ends: {{date}}",
-        "locked": "Core features such as chat, agents, channels, skills, and cron are locked after the trial ends."
+        "locked": "The trial has ended. Cclawd is locked and can no longer be used, including chat, agents, channels, skills, cron, and settings."
     },
     "actions": {
         "save": "Save",

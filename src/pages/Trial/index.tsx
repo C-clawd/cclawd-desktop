@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useSettingsStore } from '@/stores/settings';
@@ -7,7 +7,14 @@ import { getRemainingTrialDays, getTrialEndAt, isTrialExpired, TRIAL_TOTAL_DAYS 
 export function Trial() {
   const { t } = useTranslation('common');
   const trialStartAt = useSettingsStore((state) => state.trialStartAt);
-  const nowMs = Date.now();
+  const [nowMs, setNowMs] = useState(Date.now());
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setNowMs(Date.now());
+    }, 60 * 1000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   const remainingDays = useMemo(() => getRemainingTrialDays(trialStartAt, nowMs), [nowMs, trialStartAt]);
   const expired = useMemo(() => isTrialExpired(trialStartAt, nowMs), [nowMs, trialStartAt]);

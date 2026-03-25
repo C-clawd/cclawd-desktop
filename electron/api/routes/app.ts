@@ -11,6 +11,7 @@ import {
   startRealPersonAuthWithSavedApiKey,
 } from '../../utils/real-person-auth';
 import { getSetting, setSetting } from '../../utils/store';
+import { ensureTrialStartAt } from '../../utils/trial';
 
 async function buildPeriodicAuthState() {
   return {
@@ -24,13 +25,6 @@ async function buildPeriodicAuthState() {
 async function markPeriodicAuthComplete() {
   await setSetting('periodicAuthLastVerifiedAt', Date.now());
   await setSetting('periodicAuthLocked', false);
-}
-
-async function ensureTrialStartAt(): Promise<void> {
-  const current = await getSetting('trialStartAt');
-  if (!Number.isFinite(current) || current <= 0) {
-    await setSetting('trialStartAt', Date.now());
-  }
 }
 
 export async function handleAppRoutes(

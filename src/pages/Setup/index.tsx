@@ -443,6 +443,7 @@ function RealPersonAuthContent({ onConfiguredChange }: RealPersonAuthContentProp
       if (hasSavedKey) {
         setStatus('success');
         setStatusMessage(t('realPerson.success.persisted'));
+        await useSettingsStore.getState().init();
         onConfiguredChange(true);
       } else {
         setStatus('idle');
@@ -489,6 +490,7 @@ function RealPersonAuthContent({ onConfiguredChange }: RealPersonAuthContentProp
             setChecking(false);
             setErrorMessage(null);
             setStatusMessage(response.message || t('realPerson.success.default'));
+            await useSettingsStore.getState().init();
             onConfiguredChange(true);
             toast.success(t('realPerson.saved'));
             return;

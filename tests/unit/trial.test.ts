@@ -28,14 +28,13 @@ describe('trial helpers', () => {
 
 describe('expired trial api access', () => {
   it('allows settings and app routes so the lock screen can still function', () => {
-    expect(shouldBlockExpiredTrialRequest('/api/settings')).toBe(false);
-    expect(shouldBlockExpiredTrialRequest('/api/app/periodic-auth/state')).toBe(false);
-    expect(shouldBlockExpiredTrialRequest('/api/events')).toBe(false);
+    expect(shouldBlockExpiredTrialRequest('/api/settings', 'GET')).toBe(false);
   });
 
-  it('blocks core feature routes', () => {
-    expect(shouldBlockExpiredTrialRequest('/api/gateway/rpc')).toBe(true);
-    expect(shouldBlockExpiredTrialRequest('/api/sessions')).toBe(true);
-    expect(shouldBlockExpiredTrialRequest('/api/usage/recent-token-history')).toBe(true);
+  it('blocks writes and core feature routes', () => {
+    expect(shouldBlockExpiredTrialRequest('/api/settings', 'PUT')).toBe(true);
+    expect(shouldBlockExpiredTrialRequest('/api/gateway/rpc', 'POST')).toBe(true);
+    expect(shouldBlockExpiredTrialRequest('/api/sessions', 'GET')).toBe(true);
+    expect(shouldBlockExpiredTrialRequest('/api/usage/recent-token-history', 'GET')).toBe(true);
   });
 });

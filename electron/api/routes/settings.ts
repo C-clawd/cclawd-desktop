@@ -6,6 +6,8 @@ import { getAllSettings, getSetting, resetSettings, setSetting, type AppSettings
 import type { HostApiContext } from '../context';
 import { parseJsonBody, sendJson } from '../route-utils';
 
+const READ_ONLY_SETTINGS = new Set<keyof AppSettings>(['trialStartAt']);
+
 async function handleProxySettingsChange(ctx: HostApiContext): Promise<void> {
   const settings = await getAllSettings();
   await syncProxyConfigToOpenClaw(settings, { preserveExistingWhenDisabled: false });
@@ -30,6 +32,12 @@ function patchTouchesLaunchAtStartup(patch: Partial<AppSettings>): boolean {
   return Object.prototype.hasOwnProperty.call(patch, 'launchAtStartup');
 }
 
+function sanitizeSettingsPatch(patch: Partial<AppSettings>): Partial<AppSettings> {
+  return Object.fromEntries(
+    Object.entries(patch).filter(([key]) => !READ_ONLY_SETTINGS.has(key as keyof AppSettings))
+  ) as Partial<AppSettings>;
+}
+
 export async function handleSettingsRoutes(
   req: IncomingMessage,
   res: ServerResponse,
@@ -43,7 +51,7 @@ export async function handleSettingsRoutes(
 
   if (url.pathname === '/api/settings' && req.method === 'PUT') {
     try {
-      const patch = await parseJsonBody<Partial<AppSettings>>(req);
+      const patch = sanitizeSettingsPatch(await parseJsonBody<Partial<AppSettings>>(req));
       const entries = Object.entries(patch) as Array<[keyof AppSettings, AppSettings[keyof AppSettings]]>;
       for (const [key, value] of entries) {
         await setSetting(key, value);
@@ -74,6 +82,10 @@ export async function handleSettingsRoutes(
   if (url.pathname.startsWith('/api/settings/') && req.method === 'PUT') {
     const key = url.pathname.slice('/api/settings/'.length) as keyof AppSettings;
     try {
+      if (READ_ONLY_SETTINGS.has(key)) {
+        sendJson(res, 403, { success: false, code: 'PERMISSION', error: `${key} is read-only` });
+        return true;
+      }
       const body = await parseJsonBody<{ value: AppSettings[keyof AppSettings] }>(req);
       await setSetting(key, body.value);
       if (
@@ -98,7 +110,11 @@ export async function handleSettingsRoutes(
 
   if (url.pathname === '/api/settings/reset' && req.method === 'POST') {
     try {
+      const currentTrialStartAt = await getSetting('trialStartAt');
       await resetSettings();
+      if (currentTrialStartAt > 0) {
+        await setSetting('trialStartAt', currentTrialStartAt);
+      }
       await handleProxySettingsChange(ctx);
       await syncLaunchAtStartupSettingFromStore();
       sendJson(res, 200, { success: true, settings: await getAllSettings() });

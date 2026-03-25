@@ -23,6 +23,7 @@ import { useGatewayStore } from './stores/gateway';
 import { useProviderStore } from './stores/providers';
 import { applyGatewayTransportPreference } from './lib/api-client';
 import { PeriodicRealPersonAuthGuard } from './components/security/PeriodicRealPersonAuthGuard';
+import { isTrialExpired } from '../shared/trial';
 
 
 /**
@@ -95,8 +96,11 @@ function App() {
   const initSettings = useSettingsStore((state) => state.init);
   const language = useSettingsStore((state) => state.language);
   const setupComplete = useSettingsStore((state) => state.setupComplete);
+  const initialized = useSettingsStore((state) => state.initialized);
+  const trialStartAt = useSettingsStore((state) => state.trialStartAt);
   const initGateway = useGatewayStore((state) => state.init);
   const initProviders = useProviderStore((state) => state.init);
+  const trialExpired = initialized && isTrialExpired(trialStartAt);
 
   useEffect(() => {
     initSettings();
@@ -111,20 +115,28 @@ function App() {
 
   // Initialize Gateway connection on mount
   useEffect(() => {
+    if (!initialized || trialExpired) return;
     initGateway();
-  }, [initGateway]);
+  }, [initGateway, initialized, trialExpired]);
 
   // Initialize provider snapshot on mount
   useEffect(() => {
+    if (!initialized || trialExpired) return;
     initProviders();
-  }, [initProviders]);
+  }, [initProviders, initialized, trialExpired]);
 
-  // Redirect to setup wizard if not complete
+  // Redirect to setup wizard or trial lock screen when appropriate.
   useEffect(() => {
+    if (!initialized) return;
+    if (trialExpired && location.pathname !== '/trial') {
+      navigate('/trial');
+      return;
+    }
+    if (trialExpired) return;
     if (!setupComplete && !location.pathname.startsWith('/setup')) {
       navigate('/setup');
     }
-  }, [setupComplete, location.pathname, navigate]);
+  }, [initialized, location.pathname, navigate, setupComplete, trialExpired]);
 
   // Listen for navigation events from main process
   useEffect(() => {
@@ -158,24 +170,33 @@ function App() {
   return (
     <ErrorBoundary>
       <TooltipProvider delayDuration={300}>
-        <Routes>
-          {/* Setup wizard (shown on first launch) */}
-          <Route path="/setup/*" element={<Setup />} />
-
-          {/* Main application routes */}
-          <Route element={<MainLayout />}>
-            <Route path="/" element={<Chat />} />
-            <Route path="/models" element={<Models />} />
-            <Route path="/agents" element={<Agents />} />
-            <Route path="/channels" element={<Channels />} />
-            <Route path="/skills" element={<Skills />} />
-            <Route path="/cron" element={<Cron />} />
+        {trialExpired ? (
+          <Routes>
             <Route path="/trial" element={<Trial />} />
-            <Route path="/settings/*" element={<Settings />} />
-          </Route>
-        </Routes>
+            <Route path="*" element={<Trial />} />
+          </Routes>
+        ) : (
+          <>
+            <Routes>
+              {/* Setup wizard (shown on first launch) */}
+              <Route path="/setup/*" element={<Setup />} />
 
-        <PeriodicRealPersonAuthGuard />
+              {/* Main application routes */}
+              <Route element={<MainLayout />}>
+                <Route path="/" element={<Chat />} />
+                <Route path="/models" element={<Models />} />
+                <Route path="/agents" element={<Agents />} />
+                <Route path="/channels" element={<Channels />} />
+                <Route path="/skills" element={<Skills />} />
+                <Route path="/cron" element={<Cron />} />
+                <Route path="/trial" element={<Trial />} />
+                <Route path="/settings/*" element={<Settings />} />
+              </Route>
+            </Routes>
+
+            <PeriodicRealPersonAuthGuard />
+          </>
+        )}
 
         {/* Global toast notifications */}
         <Toaster
