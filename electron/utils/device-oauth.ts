@@ -17,25 +17,68 @@
  * the Electron IPC system to display UI in the Cclawd frontend.
  */
 import { EventEmitter } from 'events';
+import { pathToFileURL } from 'url';
+import { join } from 'path';
 import { BrowserWindow, shell } from 'electron';
 import { logger } from './logger';
 import { saveProvider, getProvider, ProviderConfig } from './secure-storage';
 import { getProviderDefaultModel } from './provider-registry';
-import { isOpenClawPresent } from './paths';
+import { getOpenClawDir, isOpenClawPresent } from './paths';
 import { proxyAwareFetch } from './proxy-fetch';
-import {
-    loginMiniMaxPortalOAuth,
-    type MiniMaxOAuthToken,
-    type MiniMaxRegion,
-} from '../../node_modules/openclaw/extensions/minimax-portal-auth/oauth';
-import {
-    loginQwenPortalOAuth,
-    type QwenOAuthToken,
-} from '../../node_modules/openclaw/extensions/qwen-portal-auth/oauth';
 import { saveOAuthTokenToOpenClaw, setOpenClawDefaultModelWithOverride } from './openclaw-auth';
 
 export type OAuthProviderType = 'minimax-portal' | 'minimax-portal-cn' | 'qwen-portal';
-export type { MiniMaxRegion };
+export type MiniMaxRegion = 'global' | 'cn';
+
+type MiniMaxOAuthToken = {
+    access: string;
+    refresh: string;
+    expires: number;
+    resourceUrl?: string;
+};
+
+type QwenOAuthToken = {
+    access: string;
+    refresh: string;
+    expires: number;
+    resourceUrl?: string;
+};
+
+type MiniMaxOAuthModule = {
+    loginMiniMaxPortalOAuth: (options: {
+        region?: MiniMaxRegion;
+        openUrl: (url: string) => Promise<void>;
+        note: (message: string, title?: string) => Promise<void>;
+        progress: {
+            update: (message: string) => void;
+            stop: (message?: string) => void;
+        };
+    }) => Promise<MiniMaxOAuthToken>;
+};
+
+type QwenOAuthModule = {
+    loginQwenPortalOAuth: (options: {
+        openUrl: (url: string) => Promise<void>;
+        note: (message: string, title?: string) => Promise<void>;
+        progress: {
+            update: (message: string) => void;
+            stop: (message?: string) => void;
+        };
+    }) => Promise<QwenOAuthToken>;
+};
+
+async function importOpenClawModule<T>(relativePath: string): Promise<T> {
+    const moduleUrl = pathToFileURL(join(getOpenClawDir(), relativePath)).href;
+    return import(/* @vite-ignore */ moduleUrl) as Promise<T>;
+}
+
+async function loadMiniMaxOAuthModule(): Promise<MiniMaxOAuthModule> {
+    return importOpenClawModule<MiniMaxOAuthModule>('dist/extensions/minimax/oauth.js');
+}
+
+async function loadQwenOAuthModule(): Promise<QwenOAuthModule> {
+    return importOpenClawModule<QwenOAuthModule>('dist/extensions/qwen-portal-auth/oauth.js');
+}
 
 // ─────────────────────────────────────────────────────────────
 // DeviceOAuthManager
@@ -120,6 +163,7 @@ class DeviceOAuthManager extends EventEmitter {
             throw new Error('OpenClaw package not found');
         }
         const provider = this.activeProvider!;
+        const { loginMiniMaxPortalOAuth } = await loadMiniMaxOAuthModule();
 
         const token: MiniMaxOAuthToken = await this.runWithProxyAwareFetch(() => loginMiniMaxPortalOAuth({
             region,
@@ -170,6 +214,7 @@ class DeviceOAuthManager extends EventEmitter {
             throw new Error('OpenClaw package not found');
         }
         const provider = this.activeProvider!;
+        const { loginQwenPortalOAuth } = await loadQwenOAuthModule();
 
         const token: QwenOAuthToken = await this.runWithProxyAwareFetch(() => loginQwenPortalOAuth({
             openUrl: async (url) => {

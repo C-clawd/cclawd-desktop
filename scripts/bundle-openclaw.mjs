@@ -20,6 +20,7 @@ import 'zx/globals';
 
 const ROOT = path.resolve(__dirname, '..');
 const OUTPUT = path.join(ROOT, 'build', 'openclaw');
+const WORK_OUTPUT = path.join(ROOT, 'build', `openclaw.tmp-${process.pid}-${Date.now()}`);
 const NODE_MODULES = path.join(ROOT, 'node_modules');
 
 // On Windows, pnpm virtual store paths can exceed MAX_PATH (260 chars).
@@ -27,6 +28,15 @@ function normWin(p) {
   if (process.platform !== 'win32') return p;
   if (p.startsWith('\\\\?\\')) return p;
   return '\\\\?\\' + p.replace(/\//g, '\\');
+}
+
+function rmRecursiveWithRetry(target) {
+  fs.rmSync(normWin(target), {
+    recursive: true,
+    force: true,
+    maxRetries: process.platform === 'win32' ? 10 : 0,
+    retryDelay: process.platform === 'win32' ? 100 : 0,
+  });
 }
 
 echo`📦 Bundling openclaw for electron-builder...`;
@@ -41,15 +51,18 @@ if (!fs.existsSync(openclawLink)) {
 const openclawReal = fs.realpathSync(openclawLink);
 echo`   openclaw resolved: ${openclawReal}`;
 
-// 2. Clean and create output directory
-if (fs.existsSync(OUTPUT)) {
-  fs.rmSync(OUTPUT, { recursive: true });
+// 2. Create a fresh temp output directory.
+// Windows can keep deep node_modules trees busy long enough that deleting the
+// previous bundle up front fails with ENOTEMPTY. Build into a temp dir first,
+// then swap it into place at the end.
+if (fs.existsSync(WORK_OUTPUT)) {
+  rmRecursiveWithRetry(WORK_OUTPUT);
 }
-fs.mkdirSync(OUTPUT, { recursive: true });
+fs.mkdirSync(WORK_OUTPUT, { recursive: true });
 
-// 3. Copy openclaw package itself to OUTPUT root
+// 3. Copy openclaw package itself to the temp output root
 echo`   Copying openclaw package...`;
-fs.cpSync(openclawReal, OUTPUT, { recursive: true, dereference: true });
+fs.cpSync(openclawReal, WORK_OUTPUT, { recursive: true, dereference: true });
 
 // 4. Recursively collect ALL transitive dependencies via pnpm virtual store BFS
 //
@@ -179,14 +192,14 @@ while (queue.length > 0) {
 echo`   Found ${collected.size} total packages (direct + transitive)`;
 echo`   Skipped ${skippedDevCount} dev-only package references`;
 
-// 5. Copy all collected packages into OUTPUT/node_modules/ (flat structure)
+// 5. Copy all collected packages into WORK_OUTPUT/node_modules/ (flat structure)
 //
 // IMPORTANT: BFS guarantees direct deps are encountered before transitive deps.
 // When the same package name appears at different versions (e.g. chalk@5 from
 // openclaw directly, chalk@4 from a transitive dep), we keep the FIRST one
 // (direct dep version) and skip later duplicates. This prevents version
 // conflicts like CJS chalk@4 overwriting ESM chalk@5.
-const outputNodeModules = path.join(OUTPUT, 'node_modules');
+const outputNodeModules = path.join(WORK_OUTPUT, 'node_modules');
 fs.mkdirSync(outputNodeModules, { recursive: true });
 
 const copiedNames = new Set(); // Track package names already copied
@@ -239,9 +252,9 @@ function formatSize(bytes) {
 
 function rmSafe(target) {
   try {
-    const stat = fs.lstatSync(target);
-    if (stat.isDirectory()) fs.rmSync(target, { recursive: true, force: true });
-    else fs.rmSync(target, { force: true });
+    const stat = fs.lstatSync(normWin(target));
+    if (stat.isDirectory()) rmRecursiveWithRetry(target);
+    else fs.rmSync(normWin(target), { force: true });
     return true;
   } catch { return false; }
 }
@@ -367,9 +380,9 @@ function cleanupBundle(outputDir) {
 
 echo``;
 echo`🧹 Cleaning up bundle (removing dev artifacts, docs, source maps, type defs)...`;
-const sizeBefore = getDirSize(OUTPUT);
-const cleanedCount = cleanupBundle(OUTPUT);
-const sizeAfter = getDirSize(OUTPUT);
+const sizeBefore = getDirSize(WORK_OUTPUT);
+const cleanedCount = cleanupBundle(WORK_OUTPUT);
+const sizeAfter = getDirSize(WORK_OUTPUT);
 echo`   Removed ${cleanedCount} files/directories`;
 echo`   Size: ${formatSize(sizeBefore)} → ${formatSize(sizeAfter)} (saved ${formatSize(sizeBefore - sizeAfter)})`;
 
@@ -694,14 +707,14 @@ function patchBundledRuntime(outputDir) {
 }
 
 patchBrokenModules(outputNodeModules);
-patchBundledRuntime(OUTPUT);
+patchBundledRuntime(WORK_OUTPUT);
 
-// 8. Verify the bundle
-const entryExists = fs.existsSync(path.join(OUTPUT, 'openclaw.mjs'));
-const distExists = fs.existsSync(path.join(OUTPUT, 'dist', 'entry.js'));
+// 8. Verify the temp bundle
+const entryExists = fs.existsSync(path.join(WORK_OUTPUT, 'openclaw.mjs'));
+const distExists = fs.existsSync(path.join(WORK_OUTPUT, 'dist', 'entry.js'));
 
 echo``;
-echo`✅ Bundle complete: ${OUTPUT}`;
+echo`   Temp bundle ready: ${WORK_OUTPUT}`;
 echo`   Unique packages copied: ${copiedCount}`;
 echo`   Dev-only packages skipped: ${skippedDevCount}`;
 echo`   Duplicate versions skipped: ${skippedDupes}`;
@@ -713,3 +726,33 @@ if (!entryExists || !distExists) {
   echo`❌ Bundle verification failed!`;
   process.exit(1);
 }
+
+// 9. Atomically swap the fresh temp bundle into the final output path.
+if (fs.existsSync(OUTPUT)) {
+  const staleOutput = `${OUTPUT}.stale-${Date.now()}`;
+  try {
+    fs.renameSync(normWin(OUTPUT), normWin(staleOutput));
+    try {
+      rmRecursiveWithRetry(staleOutput);
+    } catch {
+      echo`   ⚠️  Deferred cleanup for stale bundle: ${staleOutput}`;
+    }
+  } catch {
+    try {
+      rmRecursiveWithRetry(OUTPUT);
+    } catch {
+      echo`   ⚠️  Could not rotate or remove existing bundle in place; will try overwrite fallback`;
+    }
+  }
+}
+
+try {
+  fs.renameSync(normWin(WORK_OUTPUT), normWin(OUTPUT));
+} catch {
+  fs.mkdirSync(OUTPUT, { recursive: true });
+  fs.cpSync(normWin(WORK_OUTPUT), normWin(OUTPUT), { recursive: true, dereference: true, force: true });
+  rmRecursiveWithRetry(WORK_OUTPUT);
+}
+
+echo``;
+echo`✅ Bundle complete: ${OUTPUT}`;

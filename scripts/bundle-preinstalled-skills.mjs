@@ -4,12 +4,13 @@ import 'zx/globals';
 import { readFileSync, existsSync, mkdirSync, rmSync, cpSync, writeFileSync } from 'node:fs';
 import { join, dirname, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { execFileSync } from 'node:child_process';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, '..');
 const MANIFEST_PATH = join(ROOT, 'resources', 'skills', 'preinstalled-manifest.json');
 const OUTPUT_ROOT = join(ROOT, 'build', 'preinstalled-skills');
-const TMP_ROOT = join(ROOT, 'build', '.tmp-preinstalled-skills');
+const TMP_ROOT = join(ROOT, 'build', `.tmp-preinstalled-skills-${process.pid}-${Date.now()}`);
 
 function loadManifest() {
   if (!existsSync(MANIFEST_PATH)) {
@@ -57,13 +58,77 @@ function shouldCopySkillFile(srcPath) {
   const base = basename(srcPath);
   if (base === '.git') return false;
   if (base === '.subset.tar') return false;
+  if (base === '.subset.zip') return false;
   return true;
+}
+
+function runGit(args, options = {}) {
+  if (process.platform === 'win32') {
+    return execFileSync('git', args, {
+      stdio: ['ignore', 'pipe', 'inherit'],
+      encoding: 'utf8',
+      ...options,
+    });
+  }
+
+  const result = execFileSync('git', args, {
+    stdio: ['ignore', 'pipe', 'inherit'],
+    encoding: 'utf8',
+    ...options,
+  });
+  return result;
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function runGitWithRetry(args, options = {}, retryOptions = {}) {
+  const {
+    attempts = 4,
+    baseDelayMs = 1500,
+    label = `git ${args.join(' ')}`,
+  } = retryOptions;
+
+  let lastError;
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    try {
+      return runGit(args, options);
+    } catch (error) {
+      lastError = error;
+      if (attempt === attempts) break;
+      const delayMs = baseDelayMs * attempt;
+      echo`   ⚠️  ${label} failed (attempt ${attempt}/${attempts}), retrying in ${delayMs}ms`;
+      await sleep(delayMs);
+    }
+  }
+
+  throw lastError;
 }
 
 async function extractArchive(archiveFileName, cwd) {
   const prevCwd = $.cwd;
   $.cwd = cwd;
   try {
+    if (process.platform === 'win32' && archiveFileName.endsWith('.zip')) {
+      const archivePath = join(cwd, archiveFileName);
+      execFileSync(
+        'powershell.exe',
+        [
+          '-NoProfile',
+          '-NonInteractive',
+          '-Command',
+          'Expand-Archive',
+          '-LiteralPath',
+          archivePath,
+          '-DestinationPath',
+          cwd,
+          '-Force',
+        ],
+        { stdio: 'inherit' },
+      );
+      return;
+    }
     try {
       await $`tar -xf ${archiveFileName}`;
       return;
@@ -82,22 +147,29 @@ async function extractArchive(archiveFileName, cwd) {
 
 async function fetchSparseRepo(repo, ref, paths, checkoutDir) {
   const remote = `https://github.com/${repo}.git`;
+  rmSync(checkoutDir, { recursive: true, force: true });
   mkdirSync(checkoutDir, { recursive: true });
-  const gitCheckoutDir = toGitPath(checkoutDir);
-  const archiveFileName = '.subset.tar';
+  const archiveFileName = process.platform === 'win32' ? '.subset.zip' : '.subset.tar';
   const archivePath = join(checkoutDir, archiveFileName);
   const archivePaths = [...new Set(paths.map(normalizeRepoPath))];
+  const archiveFormat = process.platform === 'win32' ? 'zip' : 'tar';
 
-  await $`git init ${gitCheckoutDir}`;
-  await $`git -C ${gitCheckoutDir} remote add origin ${remote}`;
-  await $`git -C ${gitCheckoutDir} fetch --depth 1 origin ${ref}`;
+  runGit(['init', checkoutDir]);
+  runGit(['-C', checkoutDir, 'remote', 'add', 'origin', remote]);
+  await runGitWithRetry(
+    ['-C', checkoutDir, 'fetch', '--depth', '1', 'origin', ref],
+    {},
+    { label: `git fetch ${repo} ${ref}` },
+  );
   // Do not checkout working tree on Windows: upstream repos may contain
   // Windows-invalid paths. Export only requested directories via git archive.
-  await $`git -C ${gitCheckoutDir} archive --format=tar --output ${archiveFileName} FETCH_HEAD ${archivePaths}`;
+  runGit(['-C', checkoutDir, 'archive', `--format=${archiveFormat}`, `--output=${archiveFileName}`, 'FETCH_HEAD', ...archivePaths], {
+    cwd: checkoutDir,
+  });
   await extractArchive(archiveFileName, checkoutDir);
   rmSync(archivePath, { force: true });
 
-  const commit = (await $`git -C ${gitCheckoutDir} rev-parse FETCH_HEAD`).stdout.trim();
+  const commit = runGit(['-C', checkoutDir, 'rev-parse', 'FETCH_HEAD']).trim();
   return commit;
 }
 

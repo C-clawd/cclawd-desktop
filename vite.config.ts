@@ -24,7 +24,13 @@ export default defineConfig({
           build: {
             outDir: 'dist-electron/main',
             rollupOptions: {
-              external: ['electron-store', 'electron-updater', 'ws'],
+              external: (id) => {
+                if (['electron-store', 'electron-updater', 'ws'].includes(id)) {
+                  return true;
+                }
+
+                return id.startsWith('@node-llama-cpp/') || id.startsWith('@reflink/');
+              },
             },
           },
         },
