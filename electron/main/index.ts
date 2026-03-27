@@ -43,6 +43,7 @@ import { deviceOAuthManager } from '../utils/device-oauth';
 import { browserOAuthManager } from '../utils/browser-oauth';
 import { whatsAppLoginManager } from '../utils/whatsapp-login';
 import { syncAllProviderAuthToRuntime } from '../services/providers/provider-runtime-sync';
+import { ensureSetupRealPersonAuthConfig } from '../utils/real-person-auth';
 
 const WINDOWS_APP_USER_MODEL_ID = 'app.Cclawd.desktop';
 
@@ -337,6 +338,14 @@ async function initialize(): Promise<void> {
   void ensureAllBundledPluginsInstalled().catch((error) => {
     logger.warn('Failed to install/upgrade bundled plugins:', error);
   });
+
+  // Ensure the cclawd-guard plugin config is present in openclaw.json as soon
+  // as the app starts, instead of waiting for the first successful auth flow.
+  try {
+    await ensureSetupRealPersonAuthConfig();
+  } catch (error) {
+    logger.warn('Failed to ensure cclawd-guard config in openclaw.json:', error);
+  }
 
   // Bridge gateway and host-side events before any auto-start logic runs, so
   // renderer subscribers observe the full startup lifecycle.
