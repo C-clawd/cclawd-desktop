@@ -86,6 +86,7 @@ export type GatewayLifecycleState = 'stopped' | 'starting' | 'running' | 'error'
 export interface RestartDeferralContext {
   state: GatewayLifecycleState;
   startLock: boolean;
+  wasConnected: boolean;
 }
 
 /**
@@ -99,6 +100,7 @@ export function shouldDeferRestart(context: RestartDeferralContext): boolean {
 export interface DeferredRestartActionContext extends RestartDeferralContext {
   hasPendingRestart: boolean;
   shouldReconnect: boolean;
+  deferredWhileDisconnected: boolean;
 }
 
 export type DeferredRestartAction = 'none' | 'wait' | 'drop' | 'execute';
@@ -116,5 +118,6 @@ export function getDeferredRestartAction(context: DeferredRestartActionContext):
   if (!context.hasPendingRestart) return 'none';
   if (shouldDeferRestart(context)) return 'wait';
   if (!context.shouldReconnect) return 'drop';
+  if (context.deferredWhileDisconnected && context.state === 'running') return 'drop';
   return 'execute';
 }

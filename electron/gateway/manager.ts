@@ -131,6 +131,7 @@ export class GatewayManager extends EventEmitter {
           {
             state: this.status.state,
             startLock: this.startLock,
+            wasConnected: Boolean(this.status.connectedAt),
             shouldReconnect: this.shouldReconnect,
           },
           () => {
@@ -296,6 +297,7 @@ export class GatewayManager extends EventEmitter {
         {
           state: this.status.state,
           startLock: this.startLock,
+          wasConnected: Boolean(this.status.connectedAt),
           shouldReconnect: this.shouldReconnect,
         },
         () => {
@@ -384,10 +386,12 @@ export class GatewayManager extends EventEmitter {
     if (this.restartController.isRestartDeferred({
       state: this.status.state,
       startLock: this.startLock,
+      wasConnected: Boolean(this.status.connectedAt),
     })) {
       this.restartController.markDeferredRestart('restart', {
         state: this.status.state,
         startLock: this.startLock,
+        wasConnected: Boolean(this.status.connectedAt),
       });
       return;
     }
@@ -446,6 +450,7 @@ export class GatewayManager extends EventEmitter {
         {
           state: this.status.state,
           startLock: this.startLock,
+          wasConnected: Boolean(this.status.connectedAt),
           shouldReconnect: this.shouldReconnect,
         },
         () => {
@@ -490,10 +495,12 @@ export class GatewayManager extends EventEmitter {
     if (this.restartController.isRestartDeferred({
       state: this.status.state,
       startLock: this.startLock,
+      wasConnected: Boolean(this.status.connectedAt),
     })) {
       this.restartController.markDeferredRestart('reload', {
         state: this.status.state,
         startLock: this.startLock,
+        wasConnected: Boolean(this.status.connectedAt),
       });
       return;
     }

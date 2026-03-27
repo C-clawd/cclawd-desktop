@@ -8,6 +8,7 @@ import {
 type RestartDeferralState = {
   state: GatewayLifecycleState;
   startLock: boolean;
+  wasConnected: boolean;
 };
 
 type DeferredRestartContext = RestartDeferralState & {
@@ -16,6 +17,7 @@ type DeferredRestartContext = RestartDeferralState & {
 
 export class GatewayRestartController {
   private deferredRestartPending = false;
+  private deferredRestartWhileDisconnected = false;
   private restartDebounceTimer: NodeJS.Timeout | null = null;
 
   isRestartDeferred(context: RestartDeferralState): boolean {
@@ -27,10 +29,12 @@ export class GatewayRestartController {
       logger.info(
         `Deferring Gateway restart (${reason}) until startup/reconnect settles (state=${context.state}, startLock=${context.startLock})`,
       );
+      this.deferredRestartWhileDisconnected = !context.wasConnected;
     } else {
       logger.debug(
         `Gateway restart already deferred; keeping pending request (${reason}, state=${context.state}, startLock=${context.startLock})`,
       );
+      this.deferredRestartWhileDisconnected = this.deferredRestartWhileDisconnected && !context.wasConnected;
     }
     this.deferredRestartPending = true;
   }
@@ -44,7 +48,9 @@ export class GatewayRestartController {
       hasPendingRestart: this.deferredRestartPending,
       state: context.state,
       startLock: context.startLock,
+      wasConnected: context.wasConnected,
       shouldReconnect: context.shouldReconnect,
+      deferredWhileDisconnected: this.deferredRestartWhileDisconnected,
     });
 
     if (action === 'none') return;
@@ -56,6 +62,7 @@ export class GatewayRestartController {
     }
 
     this.deferredRestartPending = false;
+    this.deferredRestartWhileDisconnected = false;
     if (action === 'drop') {
       logger.info(
         `Dropping deferred Gateway restart (${trigger}) because lifecycle already recovered (state=${context.state}, shouldReconnect=${context.shouldReconnect})`,
@@ -87,5 +94,6 @@ export class GatewayRestartController {
 
   resetDeferredRestart(): void {
     this.deferredRestartPending = false;
+    this.deferredRestartWhileDisconnected = false;
   }
 }
