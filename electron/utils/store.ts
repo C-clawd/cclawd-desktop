@@ -114,7 +114,7 @@ function createDefaultSettings(): AppSettings {
     devModeUnlocked: false,
 
     // Security
-    periodicAuthEnabled: true,
+    periodicAuthEnabled: false,
     periodicAuthIntervalMs: defaultPeriodicAuthIntervalMs,
     periodicAuthLastVerifiedAt: 0,
     periodicAuthLocked: false,
@@ -141,6 +141,12 @@ async function sanitizePeriodicAuthSettingsOnLoad(store: {
   // persisted from old builds or local debugging.
   if (app.isPackaged && intervalMs < 60 * 60 * 1000) {
     store.set('periodicAuthIntervalMs', 24 * 60 * 60 * 1000);
+  }
+
+  // FORCE OVERRIDE for existing users: Since we are disabling this by default,
+  // we ensure old configs that had it enabled are reset to disabled to prevent blocking.
+  if (store.get('periodicAuthEnabled') === true) {
+    store.set('periodicAuthEnabled', false);
   }
 
   // If never verified, lock state should not trap users in a modal loop.

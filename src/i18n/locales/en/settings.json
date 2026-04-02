@@ -269,6 +269,12 @@
     "installMessage": "Install the \"openclaw\" command?",
     "installDetail": "This will create ~/.local/bin/openclaw. Ensure ~/.local/bin is on your PATH if you want to run it globally."
   },
+  "security": {
+    "title": "Security",
+    "description": "Security and privacy settings",
+    "periodicAuth": "Periodic Facial Authentication",
+    "periodicAuthDesc": "Pop up a QR code every 24 hours for facial authentication"
+  },
   "about": {
     "title": "About",
     "appName": "Cclawd",

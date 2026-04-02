@@ -71,6 +71,7 @@ interface SettingsState {
   setAutoDownloadUpdate: (value: boolean) => void;
   setSidebarCollapsed: (value: boolean) => void;
   setDevModeUnlocked: (value: boolean) => void;
+  setPeriodicAuthEnabled: (value: boolean) => void;
   markSetupComplete: () => void;
   resetSettings: () => void;
 }
@@ -94,7 +95,7 @@ const defaultSettings = {
   autoDownloadUpdate: false,
   sidebarCollapsed: false,
   devModeUnlocked: false,
-  periodicAuthEnabled: true,
+  periodicAuthEnabled: false,
   periodicAuthIntervalMs: import.meta.env.DEV ? 10_000 : 24 * 60 * 60 * 1000,
   periodicAuthLastVerifiedAt: 0,
   periodicAuthLocked: false,
@@ -190,6 +191,13 @@ export const useSettingsStore = create<SettingsState>()(
         void hostApiFetch('/api/settings/devModeUnlocked', {
           method: 'PUT',
           body: JSON.stringify({ value: devModeUnlocked }),
+        }).catch(() => { });
+      },
+      setPeriodicAuthEnabled: (periodicAuthEnabled) => {
+        set({ periodicAuthEnabled });
+        void hostApiFetch('/api/settings/periodicAuthEnabled', {
+          method: 'PUT',
+          body: JSON.stringify({ value: periodicAuthEnabled }),
         }).catch(() => { });
       },
       markSetupComplete: () => set({ setupComplete: true }),

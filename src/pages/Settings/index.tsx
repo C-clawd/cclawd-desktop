@@ -70,6 +70,8 @@ export function Settings() {
     setAutoDownloadUpdate,
     devModeUnlocked,
     setDevModeUnlocked,
+    periodicAuthEnabled,
+    setPeriodicAuthEnabled,
     telemetryEnabled,
     setTelemetryEnabled,
   } = useSettingsStore();
@@ -600,6 +602,29 @@ export function Settings() {
             </div>
           </div>
 
+
+          {/* Security */}
+          <div>
+            <h2 className="text-3xl font-serif text-foreground mb-6 font-normal tracking-tight" style={{ fontFamily: 'Georgia, Cambria, "Times New Roman", Times, serif' }}>
+              {t('security.title')}
+            </h2>
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label className="text-[15px] font-medium text-foreground">{t('security.periodicAuth')}</Label>
+                  <p className="text-[13px] text-muted-foreground mt-1">
+                    {t('security.periodicAuthDesc')}
+                  </p>
+                </div>
+                <Switch
+                  checked={periodicAuthEnabled}
+                  onCheckedChange={setPeriodicAuthEnabled}
+                />
+              </div>
+            </div>
+          </div>
+
+          <Separator className="bg-black/5 dark:bg-white/5" />
 
           {/* Developer */}
           {devModeUnlocked && (
