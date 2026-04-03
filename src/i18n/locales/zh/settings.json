@@ -209,7 +209,9 @@
     "devMode": "开发者模式",
     "devModeDesc": "显示开发者工具和快捷方式",
     "telemetry": "匿名使用数据",
-    "telemetryDesc": "允许提供匿名的基础使用数据，用于改进 Cclawd"
+    "telemetryDesc": "允许提供匿名的基础使用数据，用于改进 Cclawd",
+    "realPersonAuth": "实名认证",
+    "realPersonAuthDesc": "启用初始化向导实名认证步骤和每24小时一次的实名认证（修改后需重新初始化生效）"
   },
   "developer": {
     "title": "开发者",
@@ -268,12 +270,6 @@
     "installTitle": "安装 OpenClaw 命令",
     "installMessage": "安装 \"openclaw\" 命令？",
     "installDetail": "这将创建 ~/.local/bin/openclaw。确保 ~/.local/bin 在您的 PATH 中。"
-  },
-  "security": {
-    "title": "安全",
-    "description": "安全与隐私设置",
-    "periodicAuth": "人脸认证扫描",
-    "periodicAuthDesc": "每24小时弹出一个二维码进行人脸认证"
   },
   "about": {
     "title": "关于",

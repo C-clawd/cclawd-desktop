@@ -51,6 +51,9 @@ interface SettingsState {
   setupComplete: boolean;
   initialized: boolean;
 
+  // Feature Flags
+  realPersonAuthEnabled: boolean;
+
   // Actions
   init: () => Promise<void>;
   setTheme: (theme: Theme) => void;
@@ -71,9 +74,9 @@ interface SettingsState {
   setAutoDownloadUpdate: (value: boolean) => void;
   setSidebarCollapsed: (value: boolean) => void;
   setDevModeUnlocked: (value: boolean) => void;
-  setPeriodicAuthEnabled: (value: boolean) => void;
   markSetupComplete: () => void;
   resetSettings: () => void;
+  setRealPersonAuthEnabled: (value: boolean) => void;
 }
 
 const defaultSettings = {
@@ -102,6 +105,7 @@ const defaultSettings = {
   trialStartAt: 0,
   setupComplete: false,
   initialized: false,
+  realPersonAuthEnabled: false,
 };
 
 export const useSettingsStore = create<SettingsState>()(
@@ -198,6 +202,18 @@ export const useSettingsStore = create<SettingsState>()(
         void hostApiFetch('/api/settings/periodicAuthEnabled', {
           method: 'PUT',
           body: JSON.stringify({ value: periodicAuthEnabled }),
+        }).catch(() => { });
+      },
+      setRealPersonAuthEnabled: (realPersonAuthEnabled) => {
+        // 实名认证和24小时周期性认证使用同一个开关
+        set({ realPersonAuthEnabled, periodicAuthEnabled: realPersonAuthEnabled });
+        void hostApiFetch('/api/settings/realPersonAuthEnabled', {
+          method: 'PUT',
+          body: JSON.stringify({ value: realPersonAuthEnabled }),
+        }).catch(() => { });
+        void hostApiFetch('/api/settings/periodicAuthEnabled', {
+          method: 'PUT',
+          body: JSON.stringify({ value: realPersonAuthEnabled }),
         }).catch(() => { });
       },
       markSetupComplete: () => set({ setupComplete: true }),

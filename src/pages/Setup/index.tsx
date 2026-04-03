@@ -50,38 +50,48 @@ const STEP = {
   COMPLETE: 5,
 } as const;
 
-const getSteps = (t: TFunction): SetupStep[] => [
-  {
-    id: 'welcome',
-    title: t('steps.welcome.title'),
-    description: t('steps.welcome.description'),
-  },
-  {
-    id: 'realPerson',
-    title: t('steps.realPerson.title'),
-    description: t('steps.realPerson.description'),
-  },
-  {
-    id: 'runtime',
-    title: t('steps.runtime.title'),
-    description: t('steps.runtime.description'),
-  },
-  {
-    id: 'provider',
-    title: t('steps.provider.title'),
-    description: t('steps.provider.description'),
-  },
-  {
-    id: 'installing',
-    title: t('steps.installing.title'),
-    description: t('steps.installing.description'),
-  },
-  {
-    id: 'complete',
-    title: t('steps.complete.title'),
-    description: t('steps.complete.description'),
-  },
-];
+const getSteps = (t: TFunction, enableRealPerson: boolean): SetupStep[] => {
+  const steps: SetupStep[] = [
+    {
+      id: 'welcome',
+      title: t('steps.welcome.title'),
+      description: t('steps.welcome.description'),
+    },
+  ];
+
+  if (enableRealPerson) {
+    steps.push({
+      id: 'realPerson',
+      title: t('steps.realPerson.title'),
+      description: t('steps.realPerson.description'),
+    });
+  }
+
+  steps.push(
+    {
+      id: 'runtime',
+      title: t('steps.runtime.title'),
+      description: t('steps.runtime.description'),
+    },
+    {
+      id: 'provider',
+      title: t('steps.provider.title'),
+      description: t('steps.provider.description'),
+    },
+    {
+      id: 'installing',
+      title: t('steps.installing.title'),
+      description: t('steps.installing.description'),
+    },
+    {
+      id: 'complete',
+      title: t('steps.complete.title'),
+      description: t('steps.complete.description'),
+    },
+  );
+
+  return steps;
+};
 
 // Default skills to auto-install (no additional API keys required)
 interface DefaultSkill {
@@ -153,35 +163,38 @@ export function Setup() {
   const [runtimeChecksPassed, setRuntimeChecksPassed] = useState(false);
   const [realPersonConfigured, setRealPersonConfigured] = useState(false);
 
-  const steps = getSteps(t);
+  // Feature flags
+  const realPersonAuthEnabled = useSettingsStore((state) => state.realPersonAuthEnabled);
+
+  const steps = useMemo(() => getSteps(t, realPersonAuthEnabled), [t, realPersonAuthEnabled]);
   const safeStepIndex = Number.isInteger(currentStep)
     ? Math.min(Math.max(currentStep, STEP.WELCOME), steps.length - 1)
     : STEP.WELCOME;
-  const step = steps[safeStepIndex] ?? steps[STEP.WELCOME];
-  const isFirstStep = safeStepIndex === STEP.WELCOME;
+  const step = steps[safeStepIndex] ?? steps[0];
+  const isFirstStep = step.id === 'welcome';
   const isLastStep = safeStepIndex === steps.length - 1;
 
   const markSetupComplete = useSettingsStore((state) => state.markSetupComplete);
 
   // Derive canProceed based on current step - computed directly to avoid useEffect
   const canProceed = useMemo(() => {
-    switch (safeStepIndex) {
-      case STEP.WELCOME:
+    switch (step.id) {
+      case 'welcome':
         return true;
-      case STEP.REAL_PERSON:
+      case 'realPerson':
         return realPersonConfigured;
-      case STEP.RUNTIME:
+      case 'runtime':
         return runtimeChecksPassed;
-      case STEP.PROVIDER:
+      case 'provider':
         return providerConfigured;
-      case STEP.INSTALLING:
+      case 'installing':
         return false; // Cannot manually proceed, auto-proceeds when done
-      case STEP.COMPLETE:
+      case 'complete':
         return true;
       default:
         return true;
     }
-  }, [safeStepIndex, providerConfigured, realPersonConfigured, runtimeChecksPassed]);
+  }, [step.id, providerConfigured, realPersonConfigured, runtimeChecksPassed]);
 
   const handleNext = async () => {
     if (isLastStep) {
@@ -266,10 +279,10 @@ export function Setup() {
 
 
             {/* Step-specific content */}
-            <div className={cn("rounded-xl bg-card text-card-foreground border shadow-sm", safeStepIndex === STEP.WELCOME ? "" : "p-6")} style={{borderColor:'#DDE3F1', boxShadow:' 0px 2px 4px 0px rgba(19,28,41,0.05)'}}>
-              {safeStepIndex === STEP.WELCOME && <WelcomeContent onNext={handleNext} />}
-              {safeStepIndex === STEP.RUNTIME && <RuntimeContent onStatusChange={setRuntimeChecksPassed} />}
-              {safeStepIndex === STEP.PROVIDER && (
+            <div className={cn("rounded-xl bg-card text-card-foreground border shadow-sm", step.id === 'welcome' ? "" : "p-6")} style={{borderColor:'#DDE3F1', boxShadow:' 0px 2px 4px 0px rgba(19,28,41,0.05)'}}>
+              {step.id === 'welcome' && <WelcomeContent onNext={handleNext} />}
+              {step.id === 'runtime' && <RuntimeContent onStatusChange={setRuntimeChecksPassed} />}
+              {step.id === 'provider' && (
                 <ProviderContent
                   providers={providers}
                   selectedProvider={selectedProvider}
@@ -279,17 +292,17 @@ export function Setup() {
                   onConfiguredChange={setProviderConfigured}
                 />
               )}
-              {safeStepIndex === STEP.REAL_PERSON && (
+              {step.id === 'realPerson' && (
                 <RealPersonAuthContent onConfiguredChange={setRealPersonConfigured} />
               )}
-              {safeStepIndex === STEP.INSTALLING && (
+              {step.id === 'installing' && (
                 <InstallingContent
                   skills={getDefaultSkills(t)}
                   onComplete={handleInstallationComplete}
                   onSkip={() => setCurrentStep((i) => i + 1)}
                 />
               )}
-              {safeStepIndex === STEP.COMPLETE && (
+              {step.id === 'complete' && (
                 <CompleteContent
                   selectedProvider={selectedProvider}
                   installedSkills={installedSkills}
@@ -297,7 +310,7 @@ export function Setup() {
               )}
 
               {/* Navigation - hidden during welcome and installation steps */}
-              {safeStepIndex !== STEP.WELCOME && safeStepIndex !== STEP.INSTALLING && (
+              {step.id !== 'welcome' && step.id !== 'installing' && (
                 <div className="flex justify-between mt-8">
                   <div>
                     {!isFirstStep && (

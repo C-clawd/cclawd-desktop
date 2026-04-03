@@ -209,7 +209,9 @@
     "devMode": "Developer Mode",
     "devModeDesc": "Show developer tools and shortcuts",
     "telemetry": "Anonymous Usage Data",
-    "telemetryDesc": "Allow providing anonymous basic usage data to improve Cclawd"
+    "telemetryDesc": "Allow providing anonymous basic usage data to improve Cclawd",
+    "realPersonAuth": "Real-Person Authentication",
+    "realPersonAuthDesc": "Enable real-person authentication in setup wizard and every 24 hours (requires re-initialization after change)"
   },
   "developer": {
     "title": "Developer",
@@ -268,12 +270,6 @@
     "installTitle": "Install OpenClaw Command",
     "installMessage": "Install the \"openclaw\" command?",
     "installDetail": "This will create ~/.local/bin/openclaw. Ensure ~/.local/bin is on your PATH if you want to run it globally."
-  },
-  "security": {
-    "title": "Security",
-    "description": "Security and privacy settings",
-    "periodicAuth": "Periodic Facial Authentication",
-    "periodicAuthDesc": "Pop up a QR code every 24 hours for facial authentication"
   },
   "about": {
     "title": "About",
