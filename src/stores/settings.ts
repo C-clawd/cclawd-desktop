@@ -98,14 +98,14 @@ const defaultSettings = {
   autoDownloadUpdate: false,
   sidebarCollapsed: false,
   devModeUnlocked: false,
-  periodicAuthEnabled: false,
+  periodicAuthEnabled: true,
   periodicAuthIntervalMs: import.meta.env.DEV ? 10_000 : 24 * 60 * 60 * 1000,
   periodicAuthLastVerifiedAt: 0,
   periodicAuthLocked: false,
   trialStartAt: 0,
   setupComplete: false,
   initialized: false,
-  realPersonAuthEnabled: false,
+  realPersonAuthEnabled: true,
 };
 
 export const useSettingsStore = create<SettingsState>()(
