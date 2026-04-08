@@ -169,7 +169,7 @@ function patchPluginEntryIds(targetDir: string): void {
 const PLUGIN_NPM_NAMES: Record<string, string> = {
   dingtalk: '@soimy/dingtalk',
   wecom: '@wecom/wecom-openclaw-plugin',
-  'feishu-openclaw-plugin': '@larksuite/openclaw-lark',
+  feishu: '@openclaw/feishu',
   qqbot: '@sliverp/qqbot',
   'openclaw-weixin': '@tencent-weixin/openclaw-weixin',
 };
@@ -441,8 +441,8 @@ export function ensureWeComPluginInstalled(): { installed: boolean; warning?: st
 
 export function ensureFeishuPluginInstalled(): { installed: boolean; warning?: string } {
   return ensurePluginInstalled(
-    'feishu-openclaw-plugin',
-    buildCandidateSources('feishu-openclaw-plugin'),
+    'feishu',
+    buildCandidateSources('feishu'),
     'Feishu',
   );
 }

@@ -46,7 +46,7 @@ export interface GatewayLaunchContext {
 const CHANNEL_PLUGIN_MAP: Record<string, { dirName: string; npmName: string }> = {
   dingtalk: { dirName: 'dingtalk', npmName: '@soimy/dingtalk' },
   wecom: { dirName: 'wecom', npmName: '@wecom/wecom-openclaw-plugin' },
-  feishu: { dirName: 'feishu-openclaw-plugin', npmName: '@larksuite/openclaw-lark' },
+  feishu: { dirName: 'feishu', npmName: '@openclaw/feishu' },
   qqbot: { dirName: 'qqbot', npmName: '@sliverp/qqbot' },
   'openclaw-weixin': { dirName: 'openclaw-weixin', npmName: '@tencent-weixin/openclaw-weixin' },
 };

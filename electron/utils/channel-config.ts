@@ -23,7 +23,7 @@ const OPENCLAW_DIR = join(homedir(), '.openclaw');
 const CONFIG_FILE = join(OPENCLAW_DIR, 'openclaw.json');
 const WECOM_PLUGIN_ID = 'wecom';
 const WECHAT_PLUGIN_ID = OPENCLAW_WECHAT_CHANNEL_TYPE;
-const FEISHU_PLUGIN_ID_CANDIDATES = ['openclaw-lark', 'feishu-openclaw-plugin'] as const;
+const FEISHU_PLUGIN_ID_CANDIDATES = ['feishu'] as const;
 const DEFAULT_ACCOUNT_ID = 'default';
 const CHANNEL_TOP_LEVEL_KEYS_TO_KEEP = new Set(['accounts', 'defaultAccount', 'enabled']);
 const WECHAT_STATE_DIR = join(OPENCLAW_DIR, WECHAT_PLUGIN_ID);
@@ -78,7 +78,7 @@ async function resolveFeishuPluginId(): Promise<string> {
             // ignore and try next candidate
         }
     }
-    // Fallback to the modern id when extension manifests are not available yet.
+    // Fallback to the canonical id when extension manifests are not available yet.
     return FEISHU_PLUGIN_ID_CANDIDATES[0];
 }
 
@@ -277,9 +277,8 @@ async function ensurePluginAllowlist(currentConfig: OpenClawConfig, channelType:
             const allow: string[] = Array.isArray(currentConfig.plugins.allow)
                 ? (currentConfig.plugins.allow as string[])
                 : [];
-            // Keep only one active feishu plugin id to avoid doctor validation conflicts.
             const normalizedAllow = allow.filter(
-                (pluginId) => pluginId !== 'feishu' && !FEISHU_PLUGIN_ID_CANDIDATES.includes(pluginId as typeof FEISHU_PLUGIN_ID_CANDIDATES[number])
+                (pluginId) => !FEISHU_PLUGIN_ID_CANDIDATES.includes(pluginId as typeof FEISHU_PLUGIN_ID_CANDIDATES[number])
             );
             if (!normalizedAllow.includes(feishuPluginId)) {
                 currentConfig.plugins.allow = [...normalizedAllow, feishuPluginId];
@@ -291,7 +290,6 @@ async function ensurePluginAllowlist(currentConfig: OpenClawConfig, channelType:
                 currentConfig.plugins.entries = {};
             }
             // Remove conflicting feishu entries; keep only the resolved plugin id.
-            delete currentConfig.plugins.entries['feishu'];
             for (const candidateId of FEISHU_PLUGIN_ID_CANDIDATES) {
                 if (candidateId !== feishuPluginId) {
                     delete currentConfig.plugins.entries[candidateId];

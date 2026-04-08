@@ -131,7 +131,7 @@ async function discoverAgentIds(): Promise<string[]> {
 // ── OpenClaw Config Helpers ──────────────────────────────────────
 
 const OPENCLAW_CONFIG_PATH = join(homedir(), '.openclaw', 'openclaw.json');
-const FEISHU_PLUGIN_ID_CANDIDATES = ['openclaw-lark', 'feishu-openclaw-plugin'] as const;
+const FEISHU_PLUGIN_ID_CANDIDATES = ['feishu'] as const;
 const VALID_COMPACTION_MODES = new Set(['default', 'safeguard']);
 const CCLAWD_MFA_AUTH_PLUGIN_ID = 'cclawd-guard';
 
@@ -1188,8 +1188,6 @@ export async function sanitizeOpenClawConfig(): Promise<void> {
 
     // ── plugins.entries.feishu cleanup ──────────────────────────────
     // Normalize feishu plugin ids dynamically based on installed manifest.
-    // Different environments may report either "openclaw-lark" or
-    // "feishu-openclaw-plugin" as the runtime plugin id.
     if (typeof plugins === 'object' && !Array.isArray(plugins)) {
       const pluginsObj = plugins as Record<string, unknown>;
       const pEntries = (
@@ -1266,31 +1264,6 @@ export async function sanitizeOpenClawConfig(): Promise<void> {
         modified = true;
       }
 
-      // ── Remove bare 'feishu' when canonical feishu plugin is present ──
-      // The Gateway binary automatically adds bare 'feishu' to plugins.allow
-      // because the official plugin registers the 'feishu' channel.
-      // However, there's no plugin with id='feishu', so Gateway validation
-      // fails with "plugin not found: feishu".  Remove it from allow[] and
-      // disable the entries.feishu entry to prevent Gateway from re-adding it.
-      const allowArr2 = Array.isArray(pluginsObj.allow) ? pluginsObj.allow as string[] : [];
-      const hasCanonicalFeishu = allowArr2.includes(canonicalFeishuId) || !!pEntries[canonicalFeishuId];
-      if (hasCanonicalFeishu) {
-        // Remove bare 'feishu' from plugins.allow
-        const bareFeishuIdx = allowArr2.indexOf('feishu');
-        if (bareFeishuIdx !== -1) {
-          allowArr2.splice(bareFeishuIdx, 1);
-          console.log('[sanitize] Removed bare "feishu" from plugins.allow (feishu plugin is configured)');
-          modified = true;
-        }
-        // Disable bare 'feishu' in plugins.entries so Gateway won't re-add it
-        if (pEntries.feishu) {
-          if (pEntries.feishu.enabled !== false) {
-            pEntries.feishu.enabled = false;
-            console.log('[sanitize] Disabled bare plugins.entries.feishu (feishu plugin is configured)');
-            modified = true;
-          }
-        }
-      }
     }
 
     // ── channels default-account migration ─────────────────────────
