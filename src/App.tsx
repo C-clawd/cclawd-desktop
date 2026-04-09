@@ -18,6 +18,7 @@ import { Cron } from './pages/Cron';
 import { Settings } from './pages/Settings';
 import { Setup } from './pages/Setup';
 import { Trial } from './pages/Trial';
+import { Audit } from './pages/Audit';
 import { useSettingsStore } from './stores/settings';
 import { useGatewayStore } from './stores/gateway';
 import { useProviderStore } from './stores/providers';
@@ -189,6 +190,7 @@ function App() {
                 <Route path="/channels" element={<Channels />} />
                 <Route path="/skills" element={<Skills />} />
                 <Route path="/cron" element={<Cron />} />
+                <Route path="/audit" element={<Audit />} />
                 <Route path="/trial" element={<Trial />} />
                 <Route path="/settings/*" element={<Settings />} />
               </Route>
