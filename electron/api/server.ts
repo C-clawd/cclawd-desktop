@@ -14,6 +14,7 @@ import { handleSkillRoutes } from './routes/skills';
 import { handleFileRoutes } from './routes/files';
 import { handleSessionRoutes } from './routes/sessions';
 import { handleCronRoutes } from './routes/cron';
+import { handleAuditRoutes } from './routes/audit';
 import { sendJson } from './route-utils';
 import { isTrialExpired, shouldBlockExpiredTrialRequest } from '../../shared/trial';
 import { ensureTrialStartAt } from '../utils/trial';
@@ -36,6 +37,7 @@ const routeHandlers: RouteHandler[] = [
   handleFileRoutes,
   handleSessionRoutes,
   handleCronRoutes,
+  handleAuditRoutes,
   handleLogRoutes,
   handleUsageRoutes,
 ];

@@ -1,113 +1,93 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
-  ShieldAlert,
-  ShieldCheck,
   Activity,
+  Filter,
   RefreshCw,
   Search,
-  Filter,
+  ShieldAlert,
+  ShieldCheck,
   X,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
+import { hostApiFetch } from '@/lib/host-api';
 import { cn } from '@/lib/utils';
 
 type WindowKey = '24h' | '7d' | '30d';
-type RiskLevel = 'low' | 'medium' | 'high' | 'critical';
+type RiskLevel = 'low' | 'medium' | 'high' | 'critical' | 'safe';
 type ActionType = 'allow' | 'block';
 type SourceType = 'behavior' | 'content' | 'event-stream' | 'static';
 
+type AuditOverview = {
+  totalEvents: number;
+  blockedEvents: number;
+  highRiskEvents: number;
+  blockRate: number;
+};
+
+type TimelinePoint = {
+  bucket: string;
+  total: number;
+};
+
+type TopListItem = {
+  name: string;
+  count: number;
+};
+
 type AuditRow = {
   id: string;
-  time: string;
+  createdAt: string;
   source: SourceType;
   riskLevel: RiskLevel;
   action: ActionType;
   riskType: string;
+  ruleId: string;
   summary: string;
   sessionKey: string;
   runId: string;
 };
 
-const MOCK_ROWS: AuditRow[] = [
-  {
-    id: 'evt-001',
-    time: '13:01:24',
-    source: 'event-stream',
-    riskLevel: 'high',
-    action: 'block',
-    riskType: 'DATA_EXFILTRATION',
-    summary: '检测到可疑外传指令，已阻断',
-    sessionKey: 's-9f1',
-    runId: 'r-201',
-  },
-  {
-    id: 'evt-002',
-    time: '12:58:09',
-    source: 'behavior',
-    riskLevel: 'critical',
-    action: 'block',
-    riskType: 'COMMAND_EXECUTION',
-    summary: '检测到高危命令执行模式',
-    sessionKey: 's-7ac',
-    runId: 'r-198',
-  },
-  {
-    id: 'evt-003',
-    time: '12:41:33',
-    source: 'content',
-    riskLevel: 'medium',
-    action: 'allow',
-    riskType: 'PROMPT_INJECTION',
-    summary: '疑似提示注入，建议复核',
-    sessionKey: 's-5be',
-    runId: 'r-193',
-  },
-  {
-    id: 'evt-004',
-    time: '12:16:10',
-    source: 'static',
-    riskLevel: 'high',
-    action: 'block',
-    riskType: 'SECRET_LEAK',
-    summary: '代码扫描命中疑似密钥',
-    sessionKey: 's-2d9',
-    runId: 'r-188',
-  },
-  {
-    id: 'evt-005',
-    time: '11:52:47',
-    source: 'content',
-    riskLevel: 'low',
-    action: 'allow',
-    riskType: 'PII_EXPOSURE',
-    summary: '发现低置信度敏感字段',
-    sessionKey: 's-31c',
-    runId: 'r-180',
-  },
-];
+type ApiResponse<T> = {
+  success: boolean;
+  data: T;
+  error?: string;
+};
+
+type AuditEventsData = {
+  total: number;
+  items: AuditRow[];
+};
 
 function riskBadgeClass(level: RiskLevel): string {
   if (level === 'critical') return 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20';
   if (level === 'high') return 'bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/20';
   if (level === 'medium') return 'bg-yellow-500/10 text-yellow-700 dark:text-yellow-400 border-yellow-500/20';
+  if (level === 'safe') return 'bg-slate-500/10 text-slate-700 dark:text-slate-300 border-slate-500/20';
   return 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20';
 }
 
 function sourceLabel(source: SourceType): string {
-  if (source === 'behavior') return '行为检测';
-  if (source === 'content') return '内容检测';
-  if (source === 'event-stream') return '事件流';
-  return '静态扫描';
+  const labels: Record<SourceType, string> = {
+    behavior: '行为检测',
+    content: '内容检测',
+    'event-stream': '事件流',
+    static: '静态扫描',
+  };
+  return labels[source] ?? source;
 }
 
 function riskLevelLabel(level: RiskLevel): string {
-  if (level === 'critical') return '严重';
-  if (level === 'high') return '高';
-  if (level === 'medium') return '中';
-  return '低';
+  const labels: Record<RiskLevel, string> = {
+    low: '低',
+    medium: '中',
+    high: '高',
+    critical: '严重',
+    safe: '安全',
+  };
+  return labels[level] ?? level;
 }
 
 function actionLabel(action: ActionType): string {
@@ -119,10 +99,35 @@ function riskTypeLabel(type: string): string {
     DATA_EXFILTRATION: '数据外传',
     PROMPT_INJECTION: '提示注入',
     COMMAND_EXECUTION: '命令执行',
+    CONTENT_SCAN: '内容扫描',
+    STATIC_SCAN: '静态扫描',
+    EVENT_STREAM_RULE: '事件流规则',
     SECRET_LEAK: '密钥泄露',
     PII_EXPOSURE: '隐私暴露',
+    UNKNOWN: '未知',
   };
   return labels[type] ?? type;
+}
+
+function formatTime(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return new Intl.DateTimeFormat('zh-CN', {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  }).format(d);
+}
+
+function formatPercent(decimal: number): string {
+  const value = Number.isFinite(decimal) ? decimal : 0;
+  return `${(value * 100).toFixed(1)}%`;
+}
+
+function formatNumber(value: number): string {
+  return new Intl.NumberFormat('zh-CN').format(value || 0);
 }
 
 export function Audit() {
@@ -131,23 +136,91 @@ export function Audit() {
   const [source, setSource] = useState<'all' | SourceType>('all');
   const [riskLevel, setRiskLevel] = useState<'all' | RiskLevel>('all');
   const [action, setAction] = useState<'all' | ActionType>('all');
+  const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<AuditRow | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  const filteredRows = useMemo(() => {
-    return MOCK_ROWS.filter((row) => {
-      if (source !== 'all' && row.source !== source) return false;
-      if (riskLevel !== 'all' && row.riskLevel !== riskLevel) return false;
-      if (action !== 'all' && row.action !== action) return false;
-      if (!search.trim()) return true;
-      const q = search.toLowerCase();
-      return (
-        row.riskType.toLowerCase().includes(q)
-        || row.summary.toLowerCase().includes(q)
-        || row.sessionKey.toLowerCase().includes(q)
-        || row.runId.toLowerCase().includes(q)
-      );
-    });
-  }, [search, source, riskLevel, action]);
+  const [overview, setOverview] = useState<AuditOverview>({
+    totalEvents: 0,
+    blockedEvents: 0,
+    highRiskEvents: 0,
+    blockRate: 0,
+  });
+  const [timeline, setTimeline] = useState<TimelinePoint[]>([]);
+  const [topRiskTypes, setTopRiskTypes] = useState<TopListItem[]>([]);
+  const [topRules, setTopRules] = useState<TopListItem[]>([]);
+  const [events, setEvents] = useState<AuditEventsData>({ total: 0, items: [] });
+
+  const pageSize = 20;
+  const totalPages = Math.max(1, Math.ceil(events.total / pageSize));
+  const safePage = Math.min(page, totalPages);
+
+  const maxTimelineTotal = useMemo(
+    () => Math.max(1, ...timeline.map((point) => point.total)),
+    [timeline],
+  );
+
+  const loadData = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const query = new URLSearchParams({
+        window: windowKey,
+        page: String(safePage),
+        pageSize: String(pageSize),
+      });
+      if (source !== 'all') query.set('source', source);
+      if (riskLevel !== 'all') query.set('riskLevel', riskLevel);
+      if (action !== 'all') query.set('action', action);
+      if (search.trim()) query.set('keyword', search.trim());
+
+      const [overviewRes, timelineRes, topRes, eventsRes] = await Promise.all([
+        hostApiFetch<ApiResponse<AuditOverview>>(`/api/audit/overview?window=${windowKey}`),
+        hostApiFetch<ApiResponse<{ points: TimelinePoint[] }>>(`/api/audit/timeline?window=${windowKey}&granularity=day`),
+        hostApiFetch<ApiResponse<{ riskTypes: TopListItem[]; rules: TopListItem[] }>>(`/api/audit/top-risks?window=${windowKey}&limit=10`),
+        hostApiFetch<ApiResponse<AuditEventsData>>(`/api/audit/events?${query.toString()}`),
+      ]);
+
+      const failures = [
+        { name: 'overview', resp: overviewRes as ApiResponse<unknown> },
+        { name: 'timeline', resp: timelineRes as ApiResponse<unknown> },
+        { name: 'top-risks', resp: topRes as ApiResponse<unknown> },
+        { name: 'events', resp: eventsRes as ApiResponse<unknown> },
+      ].filter((item) => !item.resp?.success);
+
+      if (failures.length > 0) {
+        const details = failures
+          .map((item) => `${item.name}: ${item.resp?.error || 'unknown error'}`)
+          .join('; ');
+        throw new Error(`审计接口返回失败 (${details})`);
+      }
+
+      setOverview(overviewRes.data);
+      setTimeline(timelineRes.data.points ?? []);
+      setTopRiskTypes(topRes.data.riskTypes ?? []);
+      setTopRules(topRes.data.rules ?? []);
+      setEvents(eventsRes.data);
+    } catch (fetchError) {
+      setError(fetchError instanceof Error ? fetchError.message : String(fetchError));
+      setOverview({ totalEvents: 0, blockedEvents: 0, highRiskEvents: 0, blockRate: 0 });
+      setTimeline([]);
+      setTopRiskTypes([]);
+      setTopRules([]);
+      setEvents({ total: 0, items: [] });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    setPage(1);
+  }, [windowKey, source, riskLevel, action, search]);
+
+  useEffect(() => {
+    void loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [windowKey, source, riskLevel, action, search, safePage]);
 
   return (
     <div className="flex flex-col -m-6 dark:bg-background h-[calc(100vh-2.5rem)] overflow-hidden">
@@ -161,7 +234,7 @@ export function Audit() {
               审计
             </h1>
             <p className="text-[17px] text-foreground/70 font-medium">
-              安全事件、拦截趋势与审计明细（当前为页面预览数据）
+              安全事件、拦截趋势与审计明细
             </p>
           </div>
           <div className="flex items-center gap-2 md:mt-2">
@@ -173,7 +246,7 @@ export function Audit() {
                   'h-9 rounded-full px-4 text-[13px]',
                   windowKey === key
                     ? 'bg-black/10 dark:bg-white/10'
-                    : 'border-black/10 dark:border-white/10 bg-transparent'
+                    : 'border-black/10 dark:border-white/10 bg-transparent',
                 )}
                 onClick={() => setWindowKey(key)}
               >
@@ -183,55 +256,43 @@ export function Audit() {
             <Button
               variant="outline"
               className="h-9 rounded-full px-4 text-[13px] border-black/10 dark:border-white/10 bg-transparent"
+              onClick={() => void loadData()}
+              disabled={loading}
             >
-              <RefreshCw className="h-3.5 w-3.5 mr-2" />
+              <RefreshCw className={cn('h-3.5 w-3.5 mr-2', loading && 'animate-spin')} />
               刷新
             </Button>
           </div>
         </div>
 
         <div className="flex-1 overflow-y-auto pr-2 pb-10 min-h-0 -mr-2 space-y-6">
+          {error && (
+            <div className="rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-600 dark:text-red-400">
+              数据加载失败：{error}
+            </div>
+          )}
+
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <MetricCard title="总检测量" value="1,248" icon={<Activity className="h-5 w-5 text-blue-600" />} />
-            <MetricCard title="拦截量" value="382" icon={<ShieldCheck className="h-5 w-5 text-emerald-600" />} />
-            <MetricCard title="高危事件" value="97" icon={<ShieldAlert className="h-5 w-5 text-orange-600" />} />
-            <MetricCard title="拦截率" value="30.6%" icon={<ShieldCheck className="h-5 w-5 text-indigo-600" />} />
+            <MetricCard title="总检测量" value={formatNumber(overview.totalEvents)} icon={<Activity className="h-5 w-5 text-blue-600" />} />
+            <MetricCard title="拦截量" value={formatNumber(overview.blockedEvents)} icon={<ShieldCheck className="h-5 w-5 text-emerald-600" />} />
+            <MetricCard title="高危事件" value={formatNumber(overview.highRiskEvents)} icon={<ShieldAlert className="h-5 w-5 text-orange-600" />} />
+            <MetricCard title="拦截率" value={formatPercent(overview.blockRate)} icon={<ShieldCheck className="h-5 w-5 text-indigo-600" />} />
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             <div className="lg:col-span-2 rounded-2xl border border-black/10 dark:border-white/10 p-5">
               <h2 className="text-xl font-semibold mb-4">风险趋势</h2>
-              <div className="h-52 rounded-xl bg-black/5 dark:bg-white/5 border border-dashed border-black/10 dark:border-white/10 flex items-center justify-center text-sm text-muted-foreground">
-                趋势图占位（折线/柱状）
-              </div>
+              <TimelineBars points={timeline} maxValue={maxTimelineTotal} />
             </div>
             <div className="rounded-2xl border border-black/10 dark:border-white/10 p-5">
               <h2 className="text-xl font-semibold mb-4">来源占比</h2>
-              <div className="h-52 rounded-xl bg-black/5 dark:bg-white/5 border border-dashed border-black/10 dark:border-white/10 flex items-center justify-center text-sm text-muted-foreground">
-                环图占位
-              </div>
+              <SourceSummary rows={events.items} />
             </div>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <TopList
-              title="风险类型 Top10"
-              items={[
-                ['数据外传', 43],
-                ['提示注入', 28],
-                ['命令执行', 17],
-                ['密钥泄露', 11],
-              ]}
-            />
-            <TopList
-              title="规则命中 Top10"
-              items={[
-                ['PI-01', 37],
-                ['SE-02', 19],
-                ['RCE-01', 12],
-                ['DE-01', 9],
-              ]}
-            />
+            <TopList title="风险类型 Top10" items={topRiskTypes.map((item) => [riskTypeLabel(item.name), item.count])} />
+            <TopList title="规则命中 Top10" items={topRules.map((item) => [item.name, item.count])} />
           </div>
 
           <div className="rounded-2xl border border-black/10 dark:border-white/10 p-4">
@@ -241,7 +302,7 @@ export function Audit() {
                 <Input
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  placeholder="搜索 riskType / 摘要 / sessionKey / runId"
+                  placeholder="搜索 风险类型 / 摘要 / sessionKey / runId"
                   className="pl-9 h-10 border-black/10 dark:border-white/10"
                 />
               </div>
@@ -296,9 +357,9 @@ export function Audit() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredRows.map((row) => (
+                  {events.items.map((row) => (
                     <tr key={row.id} className="border-t border-black/10 dark:border-white/10">
-                      <td className="px-4 py-3">{row.time}</td>
+                      <td className="px-4 py-3 whitespace-nowrap">{formatTime(row.createdAt)}</td>
                       <td className="px-4 py-3">
                         <span className="text-xs">{sourceLabel(row.source)}</span>
                       </td>
@@ -311,8 +372,8 @@ export function Audit() {
                         </Badge>
                       </td>
                       <td className="px-4 py-3 text-xs">{riskTypeLabel(row.riskType)}</td>
-                      <td className="px-4 py-3 max-w-[260px] truncate">{row.summary}</td>
-                      <td className="px-4 py-3 font-mono text-xs">{row.sessionKey} / {row.runId}</td>
+                      <td className="px-4 py-3 max-w-[320px] truncate">{row.summary}</td>
+                      <td className="px-4 py-3 font-mono text-xs">{row.sessionKey || '-'} / {row.runId || '-'}</td>
                       <td className="px-4 py-3">
                         <Button variant="outline" size="sm" onClick={() => setSelected(row)}>
                           查看详情
@@ -323,11 +384,37 @@ export function Audit() {
                 </tbody>
               </table>
             </div>
-            {filteredRows.length === 0 && (
+            {events.items.length === 0 && (
               <div className="py-10 text-center text-muted-foreground text-sm">
-                没有匹配的审计记录
+                {loading ? '加载中...' : '没有匹配的审计记录'}
               </div>
             )}
+          </div>
+
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-[13px] text-muted-foreground">
+              共 {formatNumber(events.total)} 条，当前第 {safePage}/{totalPages} 页
+            </p>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage((prev) => Math.max(1, prev - 1))}
+                disabled={safePage <= 1 || loading}
+                className="rounded-full px-4"
+              >
+                上一页
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}
+                disabled={safePage >= totalPages || loading}
+                className="rounded-full px-4"
+              >
+                下一页
+              </Button>
+            </div>
           </div>
         </div>
       </div>
@@ -340,9 +427,7 @@ export function Audit() {
           <div className="px-6 py-5 border-b border-black/10 dark:border-white/10 flex items-start justify-between">
             <div>
               <h3 className="text-xl font-semibold">审计详情</h3>
-              <p className="text-sm text-muted-foreground mt-1">
-                {selected?.id}
-              </p>
+              <p className="text-sm text-muted-foreground mt-1">{selected?.id}</p>
             </div>
             <Button variant="ghost" size="icon" onClick={() => setSelected(null)}>
               <X className="h-4 w-4" />
@@ -350,27 +435,24 @@ export function Audit() {
           </div>
           {selected && (
             <div className="p-6 space-y-4 overflow-y-auto">
-              <InfoLine label="时间" value={selected.time} />
+              <InfoLine label="时间" value={formatTime(selected.createdAt)} />
               <InfoLine label="来源" value={sourceLabel(selected.source)} />
               <InfoLine label="风险等级" value={riskLevelLabel(selected.riskLevel)} />
               <InfoLine label="动作" value={actionLabel(selected.action)} />
               <InfoLine label="风险类型" value={riskTypeLabel(selected.riskType)} />
-              <InfoLine label="Session" value={selected.sessionKey} mono />
-              <InfoLine label="Run" value={selected.runId} mono />
+              <InfoLine label="规则 ID" value={selected.ruleId || '-'} mono />
+              <InfoLine label="Session" value={selected.sessionKey || '-'} mono />
+              <InfoLine label="Run" value={selected.runId || '-'} mono />
               <div>
                 <p className="text-xs text-muted-foreground mb-2">摘要</p>
                 <div className="rounded-xl border border-black/10 dark:border-white/10 p-3 text-sm">
-                  {selected.summary}
+                  {selected.summary || '-'}
                 </div>
               </div>
               <div>
-                <p className="text-xs text-muted-foreground mb-2">原始数据（预览占位）</p>
+                <p className="text-xs text-muted-foreground mb-2">原始数据</p>
                 <pre className="rounded-xl border border-black/10 dark:border-white/10 p-3 text-xs overflow-auto bg-black/5 dark:bg-white/5">
-{`{
-  "request": { "...": "..." },
-  "findings": [ { "riskType": "${selected.riskType}" } ],
-  "meta": { "previewOnly": true }
-}`}
+{JSON.stringify(selected, null, 2)}
                 </pre>
               </div>
             </div>
@@ -393,11 +475,82 @@ function MetricCard({ title, value, icon }: { title: string; value: string; icon
   );
 }
 
+function TimelineBars({ points, maxValue }: { points: TimelinePoint[]; maxValue: number }) {
+  if (points.length === 0) {
+    return (
+      <div className="h-52 rounded-xl bg-black/5 dark:bg-white/5 border border-dashed border-black/10 dark:border-white/10 flex items-center justify-center text-sm text-muted-foreground">
+        暂无趋势数据
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {points.slice(-7).map((point) => (
+        <div key={point.bucket} className="space-y-1">
+          <div className="flex items-center justify-between text-xs text-muted-foreground">
+            <span>{point.bucket}</span>
+            <span>{point.total}</span>
+          </div>
+          <div className="h-2 rounded-full bg-black/5 dark:bg-white/5 overflow-hidden">
+            <div
+              className="h-full bg-blue-500 rounded-full"
+              style={{ width: `${Math.max((point.total / maxValue) * 100, 3)}%` }}
+            />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function SourceSummary({ rows }: { rows: AuditRow[] }) {
+  const summary = useMemo(() => {
+    const counts: Record<string, number> = {};
+    rows.forEach((row) => {
+      counts[row.source] = (counts[row.source] || 0) + 1;
+    });
+    const total = rows.length || 1;
+    return (Object.entries(counts) as Array<[SourceType, number]>)
+      .sort((a, b) => b[1] - a[1])
+      .map(([key, count]) => ({ key, count, pct: (count / total) * 100 }));
+  }, [rows]);
+
+  if (summary.length === 0) {
+    return (
+      <div className="h-52 rounded-xl bg-black/5 dark:bg-white/5 border border-dashed border-black/10 dark:border-white/10 flex items-center justify-center text-sm text-muted-foreground">
+        暂无来源数据
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {summary.map((item) => (
+        <div key={item.key} className="space-y-1">
+          <div className="flex items-center justify-between text-xs">
+            <span>{sourceLabel(item.key)}</span>
+            <span>{item.count} ({item.pct.toFixed(1)}%)</span>
+          </div>
+          <div className="h-2 rounded-full bg-black/5 dark:bg-white/5 overflow-hidden">
+            <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${item.pct}%` }} />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function TopList({ title, items }: { title: string; items: Array<[string, number]> }) {
   return (
     <div className="rounded-2xl border border-black/10 dark:border-white/10 p-5">
       <h2 className="text-xl font-semibold mb-4">{title}</h2>
       <div className="space-y-2">
+        {items.length === 0 && (
+          <div className="rounded-lg px-3 py-3 bg-black/5 dark:bg-white/5 text-sm text-muted-foreground">
+            暂无数据
+          </div>
+        )}
         {items.map(([name, value]) => (
           <div key={name} className="flex items-center justify-between rounded-lg px-3 py-2 bg-black/5 dark:bg-white/5">
             <span className="font-mono text-xs">{name}</span>
