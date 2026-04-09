@@ -1,0 +1,156 @@
+import type { IncomingMessage, ServerResponse } from 'http';
+import { createHash } from 'node:crypto';
+import os from 'node:os';
+import { proxyAwareFetch } from '../../utils/proxy-fetch';
+import type { HostApiContext } from '../context';
+import { sendJson } from '../route-utils';
+
+type GuardRegisterResponse = {
+  success?: boolean;
+  agent?: {
+    id?: string;
+    api_key?: string;
+  };
+};
+
+const DEFAULT_GUARD_BASE_URL = 'http://127.0.0.1:53666/cclawd-guard-core';
+const GUARD_BASE_URL = (process.env.CCLAWD_GUARD_BASE_URL || DEFAULT_GUARD_BASE_URL).replace(/\/$/, '');
+
+let cachedGuardAgentId = '';
+let cachedGuardApiKey = '';
+let cachedMachineId = '';
+
+async function parseGuardJson<T>(response: Response): Promise<T | null> {
+  const contentType = response.headers.get('content-type') || '';
+  if (!contentType.includes('application/json')) {
+    return null;
+  }
+  try {
+    return (await response.json()) as T;
+  } catch {
+    return null;
+  }
+}
+
+async function ensureGuardAuth(): Promise<{ agentId: string; apiKey: string }> {
+  if (cachedGuardAgentId && cachedGuardApiKey) {
+    return { agentId: cachedGuardAgentId, apiKey: cachedGuardApiKey };
+  }
+
+  const registerResponse = await proxyAwareFetch(`${GUARD_BASE_URL}/api/v1/agents/register`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      name: 'cclawd-desktop',
+      description: 'Desktop audit dashboard access',
+    }),
+  });
+
+  const payload = await parseGuardJson<GuardRegisterResponse>(registerResponse);
+  const agentId = payload?.agent?.id ?? '';
+  const apiKey = payload?.agent?.api_key ?? '';
+
+  if (!registerResponse.ok || !payload?.success || !agentId || !apiKey) {
+    throw new Error(`Failed to register guard agent: HTTP ${registerResponse.status}`);
+  }
+
+  cachedGuardAgentId = agentId;
+  cachedGuardApiKey = apiKey;
+  return { agentId, apiKey };
+}
+
+function getCurrentMachineId(): string {
+  if (cachedMachineId) return cachedMachineId;
+
+  const hostname = os.hostname();
+  const interfaces = os.networkInterfaces();
+  let mac = '';
+
+  for (const iface of Object.values(interfaces)) {
+    if (!iface) continue;
+    for (const info of iface) {
+      if (!info.internal && info.mac && info.mac !== '00:00:00:00:00:00') {
+        mac = info.mac;
+        break;
+      }
+    }
+    if (mac) break;
+  }
+
+  const input = `${hostname}:${mac || 'unknown'}`;
+  cachedMachineId = createHash('sha256').update(input).digest('hex').slice(0, 16);
+  return cachedMachineId;
+}
+
+function withDefaultMachineId(upstreamPathWithQuery: string): string {
+  const requestUrl = new URL(upstreamPathWithQuery, GUARD_BASE_URL);
+  if (!requestUrl.searchParams.get('machineId')) {
+    requestUrl.searchParams.set('machineId', getCurrentMachineId());
+  }
+  return `${requestUrl.pathname}${requestUrl.search}`;
+}
+
+async function proxyGuardGet(
+  req: IncomingMessage,
+  res: ServerResponse,
+  upstreamPathWithQuery: string,
+): Promise<void> {
+  const auth = await ensureGuardAuth();
+  const upstream = withDefaultMachineId(upstreamPathWithQuery);
+  const response = await proxyAwareFetch(`${GUARD_BASE_URL}${upstream}`, {
+    method: 'GET',
+    headers: {
+      Authorization: `Bearer ${auth.apiKey}`,
+      Accept: 'application/json',
+    },
+  });
+
+  const body = await parseGuardJson<unknown>(response);
+  if (!response.ok) {
+    sendJson(res, response.status, {
+      success: false,
+      error: body ?? `Guard API request failed: ${response.status}`,
+    });
+    return;
+  }
+
+  sendJson(res, 200, body ?? { success: false, error: 'Invalid Guard API response' });
+}
+
+export async function handleAuditRoutes(
+  req: IncomingMessage,
+  res: ServerResponse,
+  url: URL,
+  _ctx: HostApiContext,
+): Promise<boolean> {
+  if (req.method !== 'GET') {
+    return false;
+  }
+
+  try {
+    if (url.pathname === '/api/audit/overview') {
+      await proxyGuardGet(req, res, `/api/v1/audit/overview${url.search}`);
+      return true;
+    }
+
+    if (url.pathname === '/api/audit/timeline') {
+      await proxyGuardGet(req, res, `/api/v1/audit/timeline${url.search}`);
+      return true;
+    }
+
+    if (url.pathname === '/api/audit/top-risks') {
+      await proxyGuardGet(req, res, `/api/v1/audit/top-risks${url.search}`);
+      return true;
+    }
+
+    if (url.pathname === '/api/audit/events') {
+      await proxyGuardGet(req, res, `/api/v1/audit/events${url.search}`);
+      return true;
+    }
+  } catch (error) {
+    sendJson(res, 502, { success: false, error: String(error) });
+    return true;
+  }
+
+  return false;
+}
