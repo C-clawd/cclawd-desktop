@@ -20,7 +20,7 @@ import { cn } from '@/lib/utils';
 
 type WindowKey = '24h' | '7d' | '30d';
 type RiskLevel = 'low' | 'medium' | 'high' | 'critical' | 'safe';
-type ActionType = 'allow' | 'block';
+type ActionType = 'allow' | 'alert' | 'block';
 type SourceType = 'behavior' | 'content' | 'event-stream' | 'static';
 
 type AuditOverview = {
@@ -61,6 +61,14 @@ type AuditRow = {
       toolCallId?: string;
       recentUserMessages?: string[];
     };
+    evidence?: {
+      sourceType?: string;
+      ruleId?: string;
+      reason?: string;
+      confidence?: string;
+      matchedText?: string;
+      riskContent?: string;
+    };
   };
 };
 
@@ -97,7 +105,9 @@ function riskLevelLabel(level: RiskLevel): string {
 }
 
 function actionLabel(action: ActionType): string {
-  return action === 'block' ? '\u62e6\u622a' : '\u653e\u884c';
+  if (action === 'block') return '\u62e6\u622a';
+  if (action === 'alert') return '\u9884\u8b66';
+  return '\u653e\u884c';
 }
 
 function riskTypeLabel(type: string): string {
@@ -172,6 +182,51 @@ function contextValue(value?: string): string {
   return value;
 }
 
+function evidenceValue(value?: string): string {
+  if (value === undefined || value === null) return '\u672a\u91c7\u96c6';
+  if (value.trim().length === 0 || value === '-') return '\u4e3a\u7a7a';
+  return value;
+}
+
+function evidenceSourceLabel(sourceType?: string): string {
+  const value = (sourceType || '').trim().toLowerCase();
+  if (!value) return '\u672a\u91c7\u96c6';
+  const map: Record<string, string> = {
+    content: '\u5185\u5bb9\u626b\u63cf',
+    behavior: '\u884c\u4e3a\u68c0\u6d4b',
+    'event-stream': '\u4e8b\u4ef6\u6d41\u68c0\u6d4b',
+    static: '\u9759\u6001\u626b\u63cf',
+  };
+  return map[value] ?? sourceType ?? '\u672a\u91c7\u96c6';
+}
+
+function confidenceLabel(confidence?: string): string {
+  const value = (confidence || '').trim().toLowerCase();
+  if (!value) return '\u672a\u91c7\u96c6';
+  const map: Record<string, string> = {
+    low: '\u4f4e',
+    medium: '\u4e2d',
+    high: '\u9ad8',
+    critical: '\u4e25\u91cd',
+  };
+  return map[value] ?? confidence ?? '\u672a\u91c7\u96c6';
+}
+
+function reasonLabel(reason?: string): string {
+  const value = (reason || '').trim();
+  if (!value) return '\u672a\u91c7\u96c6';
+  const map: Record<string, string> = {
+    'Blocked by event stream rule: suspicious exfiltration or secret exposure signal': '\u4e8b\u4ef6\u6d41\u89c4\u5219\u62e6\u622a\uff1a\u68c0\u6d4b\u5230\u53ef\u7591\u6570\u636e\u5916\u4f20\u6216\u5bc6\u94a5\u66b4\u9732\u4fe1\u53f7',
+    'Blocked by event stream rule: destructive command pattern in blocking hook payload': '\u4e8b\u4ef6\u6d41\u89c4\u5219\u62e6\u622a\uff1a\u963b\u65ad Hook \u8d1f\u8f7d\u4e2d\u51fa\u73b0\u7834\u574f\u6027\u547d\u4ee4\u6a21\u5f0f',
+    'Blocked by event stream rule: suspicious instruction hijack in blocking hook payload': '\u4e8b\u4ef6\u6d41\u89c4\u5219\u62e6\u622a\uff1a\u963b\u65ad Hook \u8d1f\u8f7d\u4e2d\u51fa\u73b0\u53ef\u7591\u6307\u4ee4\u529d\u6301\u4fe1\u53f7',
+    'Email address leakage': '\u68c0\u6d4b\u5230\u90ae\u7bb1\u5730\u5740\u6cc4\u9732',
+    'Social Security Number pattern': '\u68c0\u6d4b\u5230\u793e\u4fdd\u53f7\u7b49\u654f\u611f\u53f7\u7801\u6a21\u5f0f',
+    'Document marked as confidential': '\u68c0\u6d4b\u5230\u6587\u6863\u4e2d\u5b58\u5728\u4fdd\u5bc6\u6807\u8bb0',
+    'Behavior assessment event': '\u884c\u4e3a\u98ce\u9669\u8bc4\u4f30\u4e8b\u4ef6',
+  };
+  return map[value] ?? value;
+}
+
 export function Audit() {
   const [windowKey, setWindowKey] = useState<WindowKey>('7d');
   const [search, setSearch] = useState('');
@@ -180,7 +235,6 @@ export function Audit() {
   const [action, setAction] = useState<'all' | ActionType>('all');
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<AuditRow | null>(null);
-  const [expandedText, setExpandedText] = useState<{ title: string; content: string } | null>(null);
   const [rawExpanded, setRawExpanded] = useState(false);
   const [copied, setCopied] = useState<'none' | 'instruction' | 'raw'>('none');
   const [loading, setLoading] = useState(false);
@@ -349,7 +403,7 @@ export function Audit() {
                 ]}
               />
               <SelectLike value={riskLevel} onChange={setRiskLevel} options={[['all', '\u98ce\u9669: \u5168\u90e8'], ['low', '\u4f4e'], ['medium', '\u4e2d'], ['high', '\u9ad8'], ['critical', '\u4e25\u91cd']]} />
-              <SelectLike value={action} onChange={setAction} options={[['all', '\u52a8\u4f5c: \u5168\u90e8'], ['allow', '\u653e\u884c'], ['block', '\u62e6\u622a']]} />
+              <SelectLike value={action} onChange={setAction} options={[['all', '\u52a8\u4f5c: \u5168\u90e8'], ['allow', '\u653e\u884c'], ['alert', '\u9884\u8b66'], ['block', '\u62e6\u622a']]} />
             </div>
           </div>
 
@@ -374,7 +428,14 @@ export function Audit() {
                       <td className="whitespace-nowrap px-4 py-3">{formatTime(row.createdAt)}</td>
                       <td className="px-4 py-3 text-xs">{sourceLabel(row.source)}</td>
                       <td className="px-4 py-3"><Badge className={cn('border', riskBadgeClass(row.riskLevel))}>{riskLevelLabel(row.riskLevel)}</Badge></td>
-                      <td className="px-4 py-3"><Badge variant={row.action === 'block' ? 'destructive' : 'secondary'}>{actionLabel(row.action)}</Badge></td>
+                      <td className="px-4 py-3">
+                        <Badge
+                          variant={row.action === 'block' ? 'destructive' : 'secondary'}
+                          className={row.action === 'alert' ? 'border-amber-500/20 bg-amber-500/15 text-amber-700' : undefined}
+                        >
+                          {actionLabel(row.action)}
+                        </Badge>
+                      </td>
                       <td className="px-4 py-3 text-xs">{riskTypeLabel(row.riskType)}</td>
                       <td className="max-w-[320px] truncate px-4 py-3">{row.summary}</td>
                       <td className="px-4 py-3 font-mono text-xs">{row.sessionKey || '-'} / {row.runId || '-'}</td>
@@ -416,6 +477,18 @@ export function Audit() {
                 <p className="mt-2 text-xs text-muted-foreground">{selected.summary || '\u65e0\u6458\u8981'}</p>
               </div>
 
+              <div>
+                <p className="mb-2 text-xs text-muted-foreground">{'\u5224\u5b9a\u8bc1\u636e'}</p>
+                <div className="space-y-3 rounded-xl border border-black/10 p-3 dark:border-white/10">
+                  <InfoLine label={'\u8bc1\u636e\u6765\u6e90'} value={evidenceSourceLabel(selected.detail?.evidence?.sourceType)} mono />
+                  <InfoLine label={'\u89c4\u5219 ID'} value={evidenceValue(selected.detail?.evidence?.ruleId || selected.ruleId)} mono />
+                  <InfoLine label={'\u5224\u5b9a\u539f\u56e0'} value={reasonLabel(selected.detail?.evidence?.reason)} />
+                  <InfoLine label={'\u7f6e\u4fe1\u5ea6'} value={confidenceLabel(selected.detail?.evidence?.confidence)} mono />
+                  <InfoLine label={'\u547d\u4e2d\u7247\u6bb5'} value={evidenceValue(selected.detail?.evidence?.matchedText)} />
+                  <InfoLine label={'\u98ce\u9669\u5185\u5bb9'} value={evidenceValue(selected.detail?.evidence?.riskContent)} />
+                </div>
+              </div>
+
               <InfoLine label={'\u65f6\u95f4'} value={formatTime(selected.createdAt)} />
               <InfoLine label={'\u6765\u6e90'} value={sourceLabel(selected.source)} />
               <InfoLine label={'\u89c4\u5219 ID'} value={selected.ruleId || '-'} mono />
@@ -428,7 +501,6 @@ export function Audit() {
                   <ContextTextBlock
                     label={'\u7528\u6237\u6307\u4ee4'}
                     value={normalizeInstruction(selected.detail?.context?.userInstruction)}
-                    onOpenDetail={(content) => setExpandedText({ title: '\u7528\u6237\u6307\u4ee4', content })}
                   />
                   <div className="flex justify-end">
                     <Button
@@ -489,12 +561,6 @@ export function Audit() {
         </SheetContent>
       </Sheet>
 
-      <TextDetailDialog
-        open={!!expandedText}
-        title={expandedText?.title || '\u7528\u6237\u6307\u4ee4'}
-        content={expandedText?.content || ''}
-        onClose={() => setExpandedText(null)}
-      />
     </div>
   );
 }
@@ -585,42 +651,14 @@ function InfoLine({ label, value, mono }: { label: string; value: string; mono?:
   );
 }
 
-function ContextTextBlock({ label, value, onOpenDetail }: { label: string; value: string; onOpenDetail: (content: string) => void; }) {
-  const hasDetail = value.trim().length > 0 && value !== '-' && value !== '\u672a\u91c7\u96c6';
+function ContextTextBlock({ label, value }: { label: string; value: string; }) {
   return (
     <div className="min-w-0">
       <div className="mb-1 flex items-center justify-between gap-3">
         <p className="text-xs text-muted-foreground">{label}</p>
-        {hasDetail && <Button variant="outline" size="sm" className="h-7 rounded-full px-3 text-[11px]" onClick={() => onOpenDetail(value)}>{'\u8be6\u60c5'}</Button>}
       </div>
       <div className="overflow-hidden rounded-lg bg-black/5 p-2 dark:bg-white/5">
         <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-all text-sm">{value}</pre>
-      </div>
-    </div>
-  );
-}
-
-function TextDetailDialog({ open, title, content, onClose }: { open: boolean; title: string; content: string; onClose: () => void; }) {
-  useEffect(() => {
-    if (!open) return;
-    const handleKeyDown = (event: KeyboardEvent) => { if (event.key === 'Escape') onClose(); };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [open, onClose]);
-
-  if (!open) return null;
-
-  return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 px-4" role="dialog" aria-modal="true" aria-labelledby="audit-text-detail-title" onClick={onClose}>
-      <div className="w-full max-w-3xl rounded-2xl border border-black/10 bg-background shadow-2xl dark:border-white/10" onClick={(event) => event.stopPropagation()}>
-        <div className="flex items-start justify-between gap-4 border-b border-black/10 px-6 py-5 dark:border-white/10">
-          <div>
-            <h3 id="audit-text-detail-title" className="text-xl font-semibold">{title}</h3>
-            <p className="mt-1 text-sm text-muted-foreground">{'\u5b8c\u6574\u5185\u5bb9'}</p>
-          </div>
-          <Button type="button" variant="ghost" size="icon" aria-label={'\u5173\u95ed\u8be6\u60c5\u5f39\u7a97'} onClick={onClose}><X className="h-4 w-4" /></Button>
-        </div>
-        <div className="max-h-[70vh] overflow-y-auto p-6"><pre className="whitespace-pre-wrap break-all rounded-xl bg-black/5 p-4 text-sm dark:bg-white/5">{content}</pre></div>
       </div>
     </div>
   );
