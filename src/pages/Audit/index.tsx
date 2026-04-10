@@ -21,7 +21,7 @@ import { cn } from '@/lib/utils';
 type WindowKey = '24h' | '7d' | '30d';
 type RiskLevel = 'low' | 'medium' | 'high' | 'critical' | 'safe';
 type ActionType = 'allow' | 'alert' | 'block';
-type SourceType = 'behavior' | 'content' | 'event-stream' | 'static';
+type SourceType = 'behavior' | 'content' | 'event-stream' | 'static' | 'skill-doc' | 'skill-script' | 'skill-runtime';
 
 type AuditOverview = {
   totalEvents: number;
@@ -59,6 +59,8 @@ type AuditRow = {
       hookType?: string;
       stepSeq?: string;
       toolCallId?: string;
+      skillName?: string;
+      filePath?: string;
       recentUserMessages?: string[];
     };
     evidence?: {
@@ -89,6 +91,9 @@ function sourceLabel(source: SourceType): string {
     content: '\u5185\u5bb9\u68c0\u6d4b',
     'event-stream': '\u4e8b\u4ef6\u6d41',
     static: '\u9759\u6001\u626b\u63cf',
+    'skill-doc': '\u6280\u80fd\u6587\u6863\u626b\u63cf',
+    'skill-script': '\u6280\u80fd\u811a\u672c\u626b\u63cf',
+    'skill-runtime': '\u6280\u80fd\u8fd0\u884c\u65f6\u68c0\u6d4b',
   };
   return labels[source] ?? source;
 }
@@ -196,6 +201,9 @@ function evidenceSourceLabel(sourceType?: string): string {
     behavior: '\u884c\u4e3a\u68c0\u6d4b',
     'event-stream': '\u4e8b\u4ef6\u6d41\u68c0\u6d4b',
     static: '\u9759\u6001\u626b\u63cf',
+    'skill-doc': '\u6280\u80fd\u6587\u6863\u626b\u63cf',
+    'skill-script': '\u6280\u80fd\u811a\u672c\u626b\u63cf',
+    'skill-runtime': '\u6280\u80fd\u8fd0\u884c\u65f6\u68c0\u6d4b',
   };
   return map[value] ?? sourceType ?? '\u672a\u91c7\u96c6';
 }
@@ -400,6 +408,9 @@ export function Audit() {
                   ['content', '\u5185\u5bb9\u68c0\u6d4b'],
                   ['event-stream', '\u4e8b\u4ef6\u6d41'],
                   ['static', '\u9759\u6001\u626b\u63cf'],
+                  ['skill-doc', '\u6280\u80fd\u6587\u6863'],
+                  ['skill-script', '\u6280\u80fd\u811a\u672c'],
+                  ['skill-runtime', '\u6280\u80fd\u8fd0\u884c\u65f6'],
                 ]}
               />
               <SelectLike value={riskLevel} onChange={setRiskLevel} options={[['all', '\u98ce\u9669: \u5168\u90e8'], ['low', '\u4f4e'], ['medium', '\u4e2d'], ['high', '\u9ad8'], ['critical', '\u4e25\u91cd']]} />
@@ -518,6 +529,8 @@ export function Audit() {
                   </div>
                   <InfoLine label="Step Seq" value={contextValue(selected.detail?.context?.stepSeq)} mono />
                   <InfoLine label="Tool Call ID" value={contextValue(selected.detail?.context?.toolCallId)} mono />
+                  <InfoLine label={'\u6280\u80fd\u540d\u79f0'} value={contextValue(selected.detail?.context?.skillName)} mono />
+                  <InfoLine label={'\u6587\u4ef6\u8def\u5f84'} value={contextValue(selected.detail?.context?.filePath)} mono />
                   <InfoLine label={'\u89e6\u53d1\u5de5\u5177'} value={contextValue(selected.detail?.context?.triggerTool)} mono />
                   <InfoLine label="Hook Type" value={contextValue(selected.detail?.context?.hookType)} mono />
                   <InfoLine label={'\u5de5\u5177\u53c2\u6570\u6458\u8981'} value={contextValue(selected.detail?.context?.triggerParams)} mono />
