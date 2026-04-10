@@ -1,6 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   Activity,
+  ChevronDown,
+  ChevronUp,
+  Copy,
   Filter,
   RefreshCw,
   Search,
@@ -54,6 +57,8 @@ type AuditRow = {
       triggerTool?: string;
       triggerParams?: string;
       hookType?: string;
+      stepSeq?: string;
+      toolCallId?: string;
       recentUserMessages?: string[];
     };
   };
@@ -62,7 +67,7 @@ type AuditRow = {
 type ApiResponse<T> = {
   success: boolean;
   data: T;
-  error?: string;
+  error?: string | Record<string, unknown>;
 };
 
 type AuditEventsData = {
@@ -70,52 +75,52 @@ type AuditEventsData = {
   items: AuditRow[];
 };
 
-function riskBadgeClass(level: RiskLevel): string {
-  if (level === 'critical') return 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20';
-  if (level === 'high') return 'bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/20';
-  if (level === 'medium') return 'bg-yellow-500/10 text-yellow-700 dark:text-yellow-400 border-yellow-500/20';
-  if (level === 'safe') return 'bg-slate-500/10 text-slate-700 dark:text-slate-300 border-slate-500/20';
-  return 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20';
-}
-
 function sourceLabel(source: SourceType): string {
   const labels: Record<SourceType, string> = {
-    behavior: '行为检测',
-    content: '内容检测',
-    'event-stream': '事件流',
-    static: '静态扫描',
+    behavior: '\u884c\u4e3a\u68c0\u6d4b',
+    content: '\u5185\u5bb9\u68c0\u6d4b',
+    'event-stream': '\u4e8b\u4ef6\u6d41',
+    static: '\u9759\u6001\u626b\u63cf',
   };
   return labels[source] ?? source;
 }
 
 function riskLevelLabel(level: RiskLevel): string {
   const labels: Record<RiskLevel, string> = {
-    low: '低',
-    medium: '中',
-    high: '高',
-    critical: '严重',
-    safe: '安全',
+    low: '\u4f4e',
+    medium: '\u4e2d',
+    high: '\u9ad8',
+    critical: '\u4e25\u91cd',
+    safe: '\u5b89\u5168',
   };
   return labels[level] ?? level;
 }
 
 function actionLabel(action: ActionType): string {
-  return action === 'block' ? '拦截' : '放行';
+  return action === 'block' ? '\u62e6\u622a' : '\u653e\u884c';
 }
 
 function riskTypeLabel(type: string): string {
   const labels: Record<string, string> = {
-    DATA_EXFILTRATION: '数据外传',
-    PROMPT_INJECTION: '提示注入',
-    COMMAND_EXECUTION: '命令执行',
-    CONTENT_SCAN: '内容扫描',
-    STATIC_SCAN: '静态扫描',
-    EVENT_STREAM_RULE: '事件流规则',
-    SECRET_LEAK: '密钥泄露',
-    PII_EXPOSURE: '隐私暴露',
-    UNKNOWN: '未知',
+    DATA_EXFILTRATION: '\u6570\u636e\u5916\u4f20',
+    PROMPT_INJECTION: '\u63d0\u793a\u6ce8\u5165',
+    COMMAND_EXECUTION: '\u547d\u4ee4\u6267\u884c',
+    CONTENT_SCAN: '\u5185\u5bb9\u626b\u63cf',
+    STATIC_SCAN: '\u9759\u6001\u626b\u63cf',
+    EVENT_STREAM_RULE: '\u4e8b\u4ef6\u6d41\u89c4\u5219',
+    SECRET_LEAK: '\u5bc6\u94a5\u6cc4\u9732',
+    PII_EXPOSURE: '\u9690\u79c1\u66b4\u9732',
+    UNKNOWN: '\u672a\u77e5',
   };
   return labels[type] ?? type;
+}
+
+function riskBadgeClass(level: RiskLevel): string {
+  if (level === 'critical') return 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20';
+  if (level === 'high') return 'bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/20';
+  if (level === 'medium') return 'bg-yellow-500/10 text-yellow-700 dark:text-yellow-400 border-yellow-500/20';
+  if (level === 'safe') return 'bg-slate-500/10 text-slate-700 dark:text-slate-300 border-slate-500/20';
+  return 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20';
 }
 
 function formatTime(iso: string): string {
@@ -139,6 +144,34 @@ function formatNumber(value: number): string {
   return new Intl.NumberFormat('zh-CN').format(value || 0);
 }
 
+function formatApiError(error: unknown): string {
+  if (typeof error === 'string') return error;
+  if (error && typeof error === 'object') {
+    try {
+      return JSON.stringify(error);
+    } catch {
+      return '[object]';
+    }
+  }
+  return 'unknown error';
+}
+
+function normalizeInstruction(value?: string): string {
+  if (!value || value.trim().length === 0 || value === '-') return '\u672a\u91c7\u96c6';
+  return value
+    .replace(/```json\s*/g, '')
+    .replace(/```/g, '')
+    .replace(/\\n/g, '\n')
+    .replace(/\\"/g, '"')
+    .trim();
+}
+
+function contextValue(value?: string): string {
+  if (value === undefined || value === null) return '\u672a\u91c7\u96c6';
+  if (value.trim().length === 0 || value === '-') return '\u4e3a\u7a7a';
+  return value;
+}
+
 export function Audit() {
   const [windowKey, setWindowKey] = useState<WindowKey>('7d');
   const [search, setSearch] = useState('');
@@ -148,6 +181,8 @@ export function Audit() {
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<AuditRow | null>(null);
   const [expandedText, setExpandedText] = useState<{ title: string; content: string } | null>(null);
+  const [rawExpanded, setRawExpanded] = useState(false);
+  const [copied, setCopied] = useState<'none' | 'instruction' | 'raw'>('none');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -201,9 +236,9 @@ export function Audit() {
 
       if (failures.length > 0) {
         const details = failures
-          .map((item) => `${item.name}: ${item.resp?.error || 'unknown error'}`)
+          .map((item) => `${item.name}: ${formatApiError(item.resp?.error)}`)
           .join('; ');
-        throw new Error(`审计接口返回失败 (${details})`);
+        throw new Error(`\u5ba1\u8ba1\u63a5\u53e3\u8fd4\u56de\u5931\u8d25 (${details})`);
       }
 
       setOverview(overviewRes.data);
@@ -228,283 +263,235 @@ export function Audit() {
   }, [windowKey, source, riskLevel, action, search]);
 
   useEffect(() => {
+    setRawExpanded(false);
+    setCopied('none');
+  }, [selected?.id]);
+
+  useEffect(() => {
     void loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [windowKey, source, riskLevel, action, search, safePage]);
 
   return (
-    <div className="flex flex-col -m-6 dark:bg-background h-[calc(100vh-2.5rem)] overflow-hidden">
-      <div className="w-full max-w-6xl mx-auto flex flex-col h-full p-10 pt-16">
-        <div className="flex flex-col md:flex-row md:items-start justify-between mb-8 shrink-0 gap-4">
+    <div className="flex flex-col -m-6 h-[calc(100vh-2.5rem)] overflow-hidden dark:bg-background">
+      <div className="mx-auto flex h-full w-full max-w-6xl flex-col p-10 pt-16">
+        <div className="mb-8 flex shrink-0 flex-col justify-between gap-4 md:flex-row md:items-start">
           <div>
-            <h1
-              className="text-5xl md:text-6xl font-serif text-foreground mb-3 font-normal tracking-tight"
-              style={{ fontFamily: 'Georgia, Cambria, "Times New Roman", Times, serif' }}
-            >
-              审计
+            <h1 className="mb-3 text-5xl font-normal tracking-tight text-foreground md:text-6xl" style={{ fontFamily: 'Georgia, Cambria, "Times New Roman", Times, serif' }}>
+              {'\u5ba1\u8ba1'}
             </h1>
-            <p className="text-[17px] text-foreground/70 font-medium">
-              安全事件、拦截趋势与审计明细
-            </p>
+            <p className="text-[17px] font-medium text-foreground/70">{'\u5b89\u5168\u4e8b\u4ef6\u3001\u62e6\u622a\u8d8b\u52bf\u4e0e\u5ba1\u8ba1\u660e\u7ec6'}</p>
           </div>
           <div className="flex items-center gap-2 md:mt-2">
             {(['24h', '7d', '30d'] as WindowKey[]).map((key) => (
               <Button
                 key={key}
                 variant={windowKey === key ? 'secondary' : 'outline'}
-                className={cn(
-                  'h-9 rounded-full px-4 text-[13px]',
-                  windowKey === key
-                    ? 'bg-black/10 dark:bg-white/10'
-                    : 'border-black/10 dark:border-white/10 bg-transparent',
-                )}
+                className={cn('h-9 rounded-full px-4 text-[13px]', windowKey === key ? 'bg-black/10 dark:bg-white/10' : 'border-black/10 bg-transparent dark:border-white/10')}
                 onClick={() => setWindowKey(key)}
               >
                 {key}
               </Button>
             ))}
-            <Button
-              variant="outline"
-              className="h-9 rounded-full px-4 text-[13px] border-black/10 dark:border-white/10 bg-transparent"
-              onClick={() => void loadData()}
-              disabled={loading}
-            >
-              <RefreshCw className={cn('h-3.5 w-3.5 mr-2', loading && 'animate-spin')} />
-              刷新
+            <Button variant="outline" className="h-9 rounded-full border-black/10 bg-transparent px-4 text-[13px] dark:border-white/10" onClick={() => void loadData()} disabled={loading}>
+              <RefreshCw className={cn('mr-2 h-3.5 w-3.5', loading && 'animate-spin')} />
+              {'\u5237\u65b0'}
             </Button>
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto pr-2 pb-10 min-h-0 -mr-2 space-y-6">
+        <div className="-mr-2 min-h-0 flex-1 space-y-6 overflow-y-auto pb-10 pr-2">
           {error && (
             <div className="rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-600 dark:text-red-400">
-              数据加载失败：{error}
+              {'\u6570\u636e\u52a0\u8f7d\u5931\u8d25\uff1a'}{error}
             </div>
           )}
 
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <MetricCard title="总检测量" value={formatNumber(overview.totalEvents)} icon={<Activity className="h-5 w-5 text-blue-600" />} />
-            <MetricCard title="拦截量" value={formatNumber(overview.blockedEvents)} icon={<ShieldCheck className="h-5 w-5 text-emerald-600" />} />
-            <MetricCard title="高危事件" value={formatNumber(overview.highRiskEvents)} icon={<ShieldAlert className="h-5 w-5 text-orange-600" />} />
-            <MetricCard title="拦截率" value={formatPercent(overview.blockRate)} icon={<ShieldCheck className="h-5 w-5 text-indigo-600" />} />
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+            <MetricCard title={'\u603b\u68c0\u6d4b\u91cf'} value={formatNumber(overview.totalEvents)} icon={<Activity className="h-5 w-5 text-blue-600" />} />
+            <MetricCard title={'\u62e6\u622a\u91cf'} value={formatNumber(overview.blockedEvents)} icon={<ShieldCheck className="h-5 w-5 text-emerald-600" />} />
+            <MetricCard title={'\u9ad8\u5371\u4e8b\u4ef6'} value={formatNumber(overview.highRiskEvents)} icon={<ShieldAlert className="h-5 w-5 text-orange-600" />} />
+            <MetricCard title={'\u62e6\u622a\u7387'} value={formatPercent(overview.blockRate)} icon={<ShieldCheck className="h-5 w-5 text-indigo-600" />} />
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            <div className="lg:col-span-2 rounded-2xl border border-black/10 dark:border-white/10 p-5">
-              <h2 className="text-xl font-semibold mb-4">风险趋势</h2>
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+            <div className="rounded-2xl border border-black/10 p-5 dark:border-white/10 lg:col-span-2">
+              <h2 className="mb-4 text-xl font-semibold">{'\u98ce\u9669\u8d8b\u52bf'}</h2>
               <TimelineBars points={timeline} maxValue={maxTimelineTotal} />
             </div>
-            <div className="rounded-2xl border border-black/10 dark:border-white/10 p-5">
-              <h2 className="text-xl font-semibold mb-4">来源占比</h2>
+            <div className="rounded-2xl border border-black/10 p-5 dark:border-white/10">
+              <h2 className="mb-4 text-xl font-semibold">{'\u6765\u6e90\u5360\u6bd4'}</h2>
               <SourceSummary rows={events.items} />
             </div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <TopList title="风险类型 Top10" items={topRiskTypes.map((item) => [riskTypeLabel(item.name), item.count])} />
-            <TopList title="规则命中 Top10" items={topRules.map((item) => [item.name, item.count])} />
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <TopList title={'\u98ce\u9669\u7c7b\u578b Top10'} items={topRiskTypes.map((item) => [riskTypeLabel(item.name), item.count])} />
+            <TopList title={'\u89c4\u5219\u547d\u4e2d Top10'} items={topRules.map((item) => [item.name, item.count])} />
           </div>
 
-          <div className="rounded-2xl border border-black/10 dark:border-white/10 p-4">
-            <div className="flex flex-col lg:flex-row gap-3">
+          <div className="rounded-2xl border border-black/10 p-4 dark:border-white/10">
+            <div className="flex flex-col gap-3 lg:flex-row">
               <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="搜索 风险类型 / 摘要 / sessionKey / runId"
-                  className="pl-9 h-10 border-black/10 dark:border-white/10"
-                />
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={'\u641c\u7d22 \u98ce\u9669\u7c7b\u578b / \u6458\u8981 / sessionKey / runId'} className="h-10 border-black/10 pl-9 dark:border-white/10" />
               </div>
               <SelectLike
                 icon={<Filter className="h-4 w-4" />}
                 value={source}
                 onChange={setSource}
                 options={[
-                  ['all', '来源: 全部'],
-                  ['behavior', '行为检测'],
-                  ['content', '内容检测'],
-                  ['event-stream', '事件流'],
-                  ['static', '静态扫描'],
+                  ['all', '\u6765\u6e90: \u5168\u90e8'],
+                  ['behavior', '\u884c\u4e3a\u68c0\u6d4b'],
+                  ['content', '\u5185\u5bb9\u68c0\u6d4b'],
+                  ['event-stream', '\u4e8b\u4ef6\u6d41'],
+                  ['static', '\u9759\u6001\u626b\u63cf'],
                 ]}
               />
-              <SelectLike
-                value={riskLevel}
-                onChange={setRiskLevel}
-                options={[
-                  ['all', '风险: 全部'],
-                  ['low', '低'],
-                  ['medium', '中'],
-                  ['high', '高'],
-                  ['critical', '严重'],
-                ]}
-              />
-              <SelectLike
-                value={action}
-                onChange={setAction}
-                options={[
-                  ['all', '动作: 全部'],
-                  ['allow', '放行'],
-                  ['block', '拦截'],
-                ]}
-              />
+              <SelectLike value={riskLevel} onChange={setRiskLevel} options={[['all', '\u98ce\u9669: \u5168\u90e8'], ['low', '\u4f4e'], ['medium', '\u4e2d'], ['high', '\u9ad8'], ['critical', '\u4e25\u91cd']]} />
+              <SelectLike value={action} onChange={setAction} options={[['all', '\u52a8\u4f5c: \u5168\u90e8'], ['allow', '\u653e\u884c'], ['block', '\u62e6\u622a']]} />
             </div>
           </div>
 
-          <div className="rounded-2xl border border-black/10 dark:border-white/10 overflow-hidden">
+          <div className="overflow-hidden rounded-2xl border border-black/10 dark:border-white/10">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead className="bg-black/5 dark:bg-white/5">
                   <tr className="text-left">
-                    <th className="px-4 py-3 font-semibold">时间</th>
-                    <th className="px-4 py-3 font-semibold">来源</th>
-                    <th className="px-4 py-3 font-semibold">风险</th>
-                    <th className="px-4 py-3 font-semibold">动作</th>
-                    <th className="px-4 py-3 font-semibold">类型</th>
-                    <th className="px-4 py-3 font-semibold">摘要</th>
-                    <th className="px-4 py-3 font-semibold">会话</th>
-                    <th className="px-4 py-3 font-semibold">操作</th>
+                    <th className="px-4 py-3 font-semibold">{'\u65f6\u95f4'}</th>
+                    <th className="px-4 py-3 font-semibold">{'\u6765\u6e90'}</th>
+                    <th className="px-4 py-3 font-semibold">{'\u98ce\u9669'}</th>
+                    <th className="px-4 py-3 font-semibold">{'\u52a8\u4f5c'}</th>
+                    <th className="px-4 py-3 font-semibold">{'\u7c7b\u578b'}</th>
+                    <th className="px-4 py-3 font-semibold">{'\u6458\u8981'}</th>
+                    <th className="px-4 py-3 font-semibold">{'\u4f1a\u8bdd'}</th>
+                    <th className="px-4 py-3 font-semibold">{'\u64cd\u4f5c'}</th>
                   </tr>
                 </thead>
                 <tbody>
                   {events.items.map((row) => (
                     <tr key={row.id} className="border-t border-black/10 dark:border-white/10">
-                      <td className="px-4 py-3 whitespace-nowrap">{formatTime(row.createdAt)}</td>
-                      <td className="px-4 py-3">
-                        <span className="text-xs">{sourceLabel(row.source)}</span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <Badge className={cn('border', riskBadgeClass(row.riskLevel))}>{riskLevelLabel(row.riskLevel)}</Badge>
-                      </td>
-                      <td className="px-4 py-3">
-                        <Badge variant={row.action === 'block' ? 'destructive' : 'secondary'}>
-                          {actionLabel(row.action)}
-                        </Badge>
-                      </td>
+                      <td className="whitespace-nowrap px-4 py-3">{formatTime(row.createdAt)}</td>
+                      <td className="px-4 py-3 text-xs">{sourceLabel(row.source)}</td>
+                      <td className="px-4 py-3"><Badge className={cn('border', riskBadgeClass(row.riskLevel))}>{riskLevelLabel(row.riskLevel)}</Badge></td>
+                      <td className="px-4 py-3"><Badge variant={row.action === 'block' ? 'destructive' : 'secondary'}>{actionLabel(row.action)}</Badge></td>
                       <td className="px-4 py-3 text-xs">{riskTypeLabel(row.riskType)}</td>
-                      <td className="px-4 py-3 max-w-[320px] truncate">{row.summary}</td>
+                      <td className="max-w-[320px] truncate px-4 py-3">{row.summary}</td>
                       <td className="px-4 py-3 font-mono text-xs">{row.sessionKey || '-'} / {row.runId || '-'}</td>
-                      <td className="px-4 py-3">
-                        <Button variant="outline" size="sm" onClick={() => setSelected(row)}>
-                          查看详情
-                        </Button>
-                      </td>
+                      <td className="px-4 py-3"><Button variant="outline" size="sm" onClick={() => setSelected(row)}>{'\u67e5\u770b\u8be6\u60c5'}</Button></td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
             {events.items.length === 0 && (
-              <div className="py-10 text-center text-muted-foreground text-sm">
-                {loading ? '加载中...' : '没有匹配的审计记录'}
-              </div>
+              <div className="py-10 text-center text-sm text-muted-foreground">{loading ? '\u52a0\u8f7d\u4e2d...' : '\u6ca1\u6709\u5339\u914d\u7684\u5ba1\u8ba1\u8bb0\u5f55'}</div>
             )}
           </div>
 
           <div className="flex items-center justify-between gap-3">
-            <p className="text-[13px] text-muted-foreground">
-              共 {formatNumber(events.total)} 条，当前第 {safePage}/{totalPages} 页
-            </p>
+            <p className="text-[13px] text-muted-foreground">{`\u5171 ${formatNumber(events.total)} \u6761\uff0c\u5f53\u524d\u7b2c ${safePage}/${totalPages} \u9875`}</p>
             <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setPage((prev) => Math.max(1, prev - 1))}
-                disabled={safePage <= 1 || loading}
-                className="rounded-full px-4"
-              >
-                上一页
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}
-                disabled={safePage >= totalPages || loading}
-                className="rounded-full px-4"
-              >
-                下一页
-              </Button>
+              <Button variant="outline" size="sm" onClick={() => setPage((prev) => Math.max(1, prev - 1))} disabled={safePage <= 1 || loading} className="rounded-full px-4">{'\u4e0a\u4e00\u9875'}</Button>
+              <Button variant="outline" size="sm" onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))} disabled={safePage >= totalPages || loading} className="rounded-full px-4">{'\u4e0b\u4e00\u9875'}</Button>
             </div>
           </div>
         </div>
       </div>
 
       <Sheet open={!!selected} onOpenChange={(open) => !open && setSelected(null)}>
-        <SheetContent
-          side="right"
-          className="w-full sm:max-w-[520px] p-0 flex flex-col border-l border-black/10 dark:border-white/10"
-        >
-          <div className="px-6 py-5 border-b border-black/10 dark:border-white/10 flex items-start justify-between">
+        <SheetContent side="right" className="flex w-full flex-col border-l border-black/10 p-0 dark:border-white/10 sm:max-w-[540px]">
+          <div className="flex items-start justify-between border-b border-black/10 px-6 py-5 dark:border-white/10">
             <div>
-              <h3 className="text-xl font-semibold">审计详情</h3>
-              <p className="text-sm text-muted-foreground mt-1">{selected?.id}</p>
+              <h3 className="text-xl font-semibold">{'\u5ba1\u8ba1\u8be6\u60c5'}</h3>
+              <p className="mt-1 text-sm text-muted-foreground">{selected?.id}</p>
             </div>
-            <Button variant="ghost" size="icon" onClick={() => setSelected(null)}>
-              <X className="h-4 w-4" />
-            </Button>
+            <Button variant="ghost" size="icon" onClick={() => setSelected(null)}><X className="h-4 w-4" /></Button>
           </div>
           {selected && (
-            <div className="p-6 space-y-4 overflow-y-auto">
-              <InfoLine label="时间" value={formatTime(selected.createdAt)} />
-              <InfoLine label="来源" value={sourceLabel(selected.source)} />
-              <InfoLine label="风险等级" value={riskLevelLabel(selected.riskLevel)} />
-              <InfoLine label="动作" value={actionLabel(selected.action)} />
-              <InfoLine label="风险类型" value={riskTypeLabel(selected.riskType)} />
-              <InfoLine label="规则 ID" value={selected.ruleId || '-'} mono />
+            <div className="space-y-4 overflow-y-auto p-6">
+              <div className="rounded-xl border border-black/10 bg-black/5 p-3 dark:border-white/10 dark:bg-white/5">
+                <p className="text-xs text-muted-foreground">{'\u98ce\u9669\u7ed3\u8bba'}</p>
+                <p className="mt-1 text-sm">{`${riskTypeLabel(selected.riskType)} / ${riskLevelLabel(selected.riskLevel)} / ${actionLabel(selected.action)}`}</p>
+                <p className="mt-2 text-xs text-muted-foreground">{selected.summary || '\u65e0\u6458\u8981'}</p>
+              </div>
+
+              <InfoLine label={'\u65f6\u95f4'} value={formatTime(selected.createdAt)} />
+              <InfoLine label={'\u6765\u6e90'} value={sourceLabel(selected.source)} />
+              <InfoLine label={'\u89c4\u5219 ID'} value={selected.ruleId || '-'} mono />
               <InfoLine label="Session" value={selected.sessionKey || '-'} mono />
               <InfoLine label="Run" value={selected.runId || '-'} mono />
+
               <div>
-                <p className="text-xs text-muted-foreground mb-2">触发上下文</p>
-                <div className="rounded-xl border border-black/10 dark:border-white/10 p-3 space-y-3">
-                  <PreviewBlock
-                    label="用户指令"
-                    value={selected.detail?.context?.userInstruction || '-'}
+                <p className="mb-2 text-xs text-muted-foreground">{'\u89e6\u53d1\u94fe\u8def'}</p>
+                <div className="space-y-3 rounded-xl border border-black/10 p-3 dark:border-white/10">
+                  <ContextTextBlock
+                    label={'\u7528\u6237\u6307\u4ee4'}
+                    value={normalizeInstruction(selected.detail?.context?.userInstruction)}
+                    onOpenDetail={(content) => setExpandedText({ title: '\u7528\u6237\u6307\u4ee4', content })}
                   />
-                  <InfoLine label="触发工具" value={selected.detail?.context?.triggerTool || '-'} mono />
-                  <InfoLine label="Hook 类型" value={selected.detail?.context?.hookType || '-'} mono />
-                  <ExpandableInfoAction3
-                    value={selected.detail?.context?.userInstruction || '-'}
-                    onOpenDetail={(content) => setExpandedText({ title: '鐢ㄦ埛鎸囦护', content })}
+                  <div className="flex justify-end">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 rounded-full px-3 text-[11px]"
+                      onClick={async () => {
+                        await navigator.clipboard.writeText(normalizeInstruction(selected.detail?.context?.userInstruction));
+                        setCopied('instruction');
+                      }}
+                    >
+                      <Copy className="mr-1 h-3 w-3" />
+                      {copied === 'instruction' ? '\u5df2\u590d\u5236' : '\u590d\u5236\u6307\u4ee4'}
+                    </Button>
+                  </div>
+                  <InfoLine label="Step Seq" value={contextValue(selected.detail?.context?.stepSeq)} mono />
+                  <InfoLine label="Tool Call ID" value={contextValue(selected.detail?.context?.toolCallId)} mono />
+                  <InfoLine label={'\u89e6\u53d1\u5de5\u5177'} value={contextValue(selected.detail?.context?.triggerTool)} mono />
+                  <InfoLine label="Hook Type" value={contextValue(selected.detail?.context?.hookType)} mono />
+                  <InfoLine label={'\u5de5\u5177\u53c2\u6570\u6458\u8981'} value={contextValue(selected.detail?.context?.triggerParams)} mono />
+                  <InfoLine
+                    label={'\u6700\u8fd1\u7528\u6237\u6d88\u606f'}
+                    value={selected.detail?.context?.recentUserMessages?.length ? selected.detail.context.recentUserMessages.join('\n\n') : '\u672a\u91c7\u96c6'}
                   />
-                  <div>
-                    <p className="text-xs text-muted-foreground mb-1">工具参数摘要</p>
-                    <pre className="text-xs whitespace-pre-wrap break-all rounded-lg bg-black/5 dark:bg-white/5 p-2">
-{selected.detail?.context?.triggerParams || '-'}
-                    </pre>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground mb-1">最近用户消息</p>
-                    <div className="space-y-1">
-                      {(selected.detail?.context?.recentUserMessages?.length
-                        ? selected.detail.context.recentUserMessages
-                        : ['-']).map((msg, idx) => (
-                        <div key={`${idx}-${msg}`} className="text-xs rounded-lg bg-black/5 dark:bg-white/5 p-2 break-all">
-                          {msg}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
                 </div>
               </div>
+
               <div>
-                <p className="text-xs text-muted-foreground mb-2">摘要</p>
-                <div className="rounded-xl border border-black/10 dark:border-white/10 p-3 text-sm">
-                  {selected.summary || '-'}
+                <div className="mb-2 flex items-center justify-between">
+                  <p className="text-xs text-muted-foreground">{'\u539f\u59cb\u6570\u636e'}</p>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 rounded-full px-3 text-[11px]"
+                      onClick={async () => {
+                        await navigator.clipboard.writeText(JSON.stringify(selected, null, 2));
+                        setCopied('raw');
+                      }}
+                    >
+                      <Copy className="mr-1 h-3 w-3" />
+                      {copied === 'raw' ? '\u5df2\u590d\u5236' : '\u590d\u5236'}
+                    </Button>
+                    <Button variant="ghost" size="sm" className="h-7 rounded-full px-3 text-[11px]" onClick={() => setRawExpanded((v) => !v)}>
+                      {rawExpanded ? <ChevronUp className="mr-1 h-3 w-3" /> : <ChevronDown className="mr-1 h-3 w-3" />}
+                      {rawExpanded ? '\u6536\u8d77' : '\u5c55\u5f00'}
+                    </Button>
+                  </div>
                 </div>
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground mb-2">原始数据</p>
-                <pre className="rounded-xl border border-black/10 dark:border-white/10 p-3 text-xs overflow-auto bg-black/5 dark:bg-white/5">
-{JSON.stringify(selected, null, 2)}
-                </pre>
+                {rawExpanded && (
+                  <pre className="max-h-[45vh] overflow-auto whitespace-pre-wrap break-all rounded-xl border border-black/10 bg-black/5 p-3 text-xs dark:border-white/10 dark:bg-white/5">
+                    {JSON.stringify(selected, null, 2)}
+                  </pre>
+                )}
               </div>
             </div>
           )}
         </SheetContent>
       </Sheet>
-      <TextDetailDialog3
+
+      <TextDetailDialog
         open={!!expandedText}
-        title={'\u7528\u6237\u6307\u4ee4'}
+        title={expandedText?.title || '\u7528\u6237\u6307\u4ee4'}
         content={expandedText?.content || ''}
         onClose={() => setExpandedText(null)}
       />
@@ -512,41 +499,28 @@ export function Audit() {
   );
 }
 
-function MetricCard({ title, value, icon }: { title: string; value: string; icon: React.ReactNode }) {
+function MetricCard({ title, value, icon }: { title: string; value: string; icon: ReactNode }) {
   return (
-    <div className="p-4 rounded-2xl bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10">
+    <div className="rounded-2xl border border-black/10 bg-black/5 p-4 dark:border-white/10 dark:bg-white/5">
       <div className="flex items-center justify-between">
         <p className="text-[13px] text-muted-foreground">{title}</p>
         <div>{icon}</div>
       </div>
-      <p className="text-2xl font-semibold mt-2">{value}</p>
+      <p className="mt-2 text-2xl font-semibold">{value}</p>
     </div>
   );
 }
 
 function TimelineBars({ points, maxValue }: { points: TimelinePoint[]; maxValue: number }) {
   if (points.length === 0) {
-    return (
-      <div className="h-52 rounded-xl bg-black/5 dark:bg-white/5 border border-dashed border-black/10 dark:border-white/10 flex items-center justify-center text-sm text-muted-foreground">
-        暂无趋势数据
-      </div>
-    );
+    return <div className="flex h-52 items-center justify-center rounded-xl border border-dashed border-black/10 bg-black/5 text-sm text-muted-foreground dark:border-white/10 dark:bg-white/5">{'\u6682\u65e0\u8d8b\u52bf\u6570\u636e'}</div>;
   }
-
   return (
     <div className="space-y-3">
       {points.slice(-7).map((point) => (
         <div key={point.bucket} className="space-y-1">
-          <div className="flex items-center justify-between text-xs text-muted-foreground">
-            <span>{point.bucket}</span>
-            <span>{point.total}</span>
-          </div>
-          <div className="h-2 rounded-full bg-black/5 dark:bg-white/5 overflow-hidden">
-            <div
-              className="h-full bg-blue-500 rounded-full"
-              style={{ width: `${Math.max((point.total / maxValue) * 100, 3)}%` }}
-            />
-          </div>
+          <div className="flex items-center justify-between text-xs text-muted-foreground"><span>{point.bucket}</span><span>{point.total}</span></div>
+          <div className="h-2 overflow-hidden rounded-full bg-black/5 dark:bg-white/5"><div className="h-full rounded-full bg-blue-500" style={{ width: `${Math.max((point.total / maxValue) * 100, 3)}%` }} /></div>
         </div>
       ))}
     </div>
@@ -556,34 +530,21 @@ function TimelineBars({ points, maxValue }: { points: TimelinePoint[]; maxValue:
 function SourceSummary({ rows }: { rows: AuditRow[] }) {
   const summary = useMemo(() => {
     const counts: Record<string, number> = {};
-    rows.forEach((row) => {
-      counts[row.source] = (counts[row.source] || 0) + 1;
-    });
+    rows.forEach((row) => { counts[row.source] = (counts[row.source] || 0) + 1; });
     const total = rows.length || 1;
-    return (Object.entries(counts) as Array<[SourceType, number]>)
-      .sort((a, b) => b[1] - a[1])
-      .map(([key, count]) => ({ key, count, pct: (count / total) * 100 }));
+    return (Object.entries(counts) as Array<[SourceType, number]>).sort((a, b) => b[1] - a[1]).map(([key, count]) => ({ key, count, pct: (count / total) * 100 }));
   }, [rows]);
 
   if (summary.length === 0) {
-    return (
-      <div className="h-52 rounded-xl bg-black/5 dark:bg-white/5 border border-dashed border-black/10 dark:border-white/10 flex items-center justify-center text-sm text-muted-foreground">
-        暂无来源数据
-      </div>
-    );
+    return <div className="flex h-52 items-center justify-center rounded-xl border border-dashed border-black/10 bg-black/5 text-sm text-muted-foreground dark:border-white/10 dark:bg-white/5">{'\u6682\u65e0\u6765\u6e90\u6570\u636e'}</div>;
   }
 
   return (
     <div className="space-y-3">
       {summary.map((item) => (
         <div key={item.key} className="space-y-1">
-          <div className="flex items-center justify-between text-xs">
-            <span>{sourceLabel(item.key)}</span>
-            <span>{item.count} ({item.pct.toFixed(1)}%)</span>
-          </div>
-          <div className="h-2 rounded-full bg-black/5 dark:bg-white/5 overflow-hidden">
-            <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${item.pct}%` }} />
-          </div>
+          <div className="flex items-center justify-between text-xs"><span>{sourceLabel(item.key)}</span><span>{item.count} ({item.pct.toFixed(1)}%)</span></div>
+          <div className="h-2 overflow-hidden rounded-full bg-black/5 dark:bg-white/5"><div className="h-full rounded-full bg-emerald-500" style={{ width: `${item.pct}%` }} /></div>
         </div>
       ))}
     </div>
@@ -592,47 +553,24 @@ function SourceSummary({ rows }: { rows: AuditRow[] }) {
 
 function TopList({ title, items }: { title: string; items: Array<[string, number]> }) {
   return (
-    <div className="rounded-2xl border border-black/10 dark:border-white/10 p-5">
-      <h2 className="text-xl font-semibold mb-4">{title}</h2>
+    <div className="rounded-2xl border border-black/10 p-5 dark:border-white/10">
+      <h2 className="mb-4 text-xl font-semibold">{title}</h2>
       <div className="space-y-2">
-        {items.length === 0 && (
-          <div className="rounded-lg px-3 py-3 bg-black/5 dark:bg-white/5 text-sm text-muted-foreground">
-            暂无数据
-          </div>
-        )}
+        {items.length === 0 && <div className="rounded-lg bg-black/5 px-3 py-3 text-sm text-muted-foreground dark:bg-white/5">{'\u6682\u65e0\u6570\u636e'}</div>}
         {items.map(([name, value]) => (
-          <div key={name} className="flex items-center justify-between rounded-lg px-3 py-2 bg-black/5 dark:bg-white/5">
-            <span className="font-mono text-xs">{name}</span>
-            <span className="font-semibold">{value}</span>
-          </div>
+          <div key={name} className="flex items-center justify-between rounded-lg bg-black/5 px-3 py-2 dark:bg-white/5"><span className="font-mono text-xs">{name}</span><span className="font-semibold">{value}</span></div>
         ))}
       </div>
     </div>
   );
 }
 
-function SelectLike<T extends string>({
-  value,
-  onChange,
-  options,
-  icon,
-}: {
-  value: T;
-  onChange: (value: T) => void;
-  options: Array<[T, string]>;
-  icon?: React.ReactNode;
-}) {
+function SelectLike<T extends string>({ value, onChange, options, icon }: { value: T; onChange: (value: T) => void; options: Array<[T, string]>; icon?: ReactNode; }) {
   return (
     <div className="flex items-center gap-2">
       {icon}
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value as T)}
-        className="h-10 rounded-lg border border-black/10 dark:border-white/10 bg-background px-3 text-sm"
-      >
-        {options.map(([v, label]) => (
-          <option key={v} value={v}>{label}</option>
-        ))}
+      <select value={value} onChange={(e) => onChange(e.target.value as T)} className="h-10 rounded-lg border border-black/10 bg-background px-3 text-sm dark:border-white/10">
+        {options.map(([v, label]) => (<option key={v} value={v}>{label}</option>))}
       </select>
     </div>
   );
@@ -641,260 +579,48 @@ function SelectLike<T extends string>({
 function InfoLine({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
   return (
     <div className="min-w-0">
-      <p className="text-xs text-muted-foreground mb-1">{label}</p>
+      <p className="mb-1 text-xs text-muted-foreground">{label}</p>
       <p className={cn('min-w-0 whitespace-pre-wrap break-all text-sm', mono && 'font-mono')}>{value}</p>
     </div>
   );
 }
 
-function PreviewBlock({ label, value }: { label: string; value: string }) {
+function ContextTextBlock({ label, value, onOpenDetail }: { label: string; value: string; onOpenDetail: (content: string) => void; }) {
+  const hasDetail = value.trim().length > 0 && value !== '-' && value !== '\u672a\u91c7\u96c6';
   return (
     <div className="min-w-0">
-      <p className="mb-1 text-xs text-muted-foreground">{label}</p>
-      <div className="min-w-0 overflow-hidden rounded-lg bg-black/5 p-2 dark:bg-white/5">
-        <pre className="max-h-40 overflow-hidden whitespace-pre-wrap break-all text-sm">
-          {value}
-        </pre>
+      <div className="mb-1 flex items-center justify-between gap-3">
+        <p className="text-xs text-muted-foreground">{label}</p>
+        {hasDetail && <Button variant="outline" size="sm" className="h-7 rounded-full px-3 text-[11px]" onClick={() => onOpenDetail(value)}>{'\u8be6\u60c5'}</Button>}
+      </div>
+      <div className="overflow-hidden rounded-lg bg-black/5 p-2 dark:bg-white/5">
+        <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-all text-sm">{value}</pre>
       </div>
     </div>
   );
 }
 
-function ExpandableInfoAction({
-  value,
-  onOpenDetail,
-}: {
-  value: string;
-  onOpenDetail: (content: string) => void;
-}) {
-  const hasDetail = value.trim().length > 0 && value !== '-';
+function TextDetailDialog({ open, title, content, onClose }: { open: boolean; title: string; content: string; onClose: () => void; }) {
+  useEffect(() => {
+    if (!open) return;
+    const handleKeyDown = (event: KeyboardEvent) => { if (event.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [open, onClose]);
 
-  if (!hasDetail) {
-    return null;
-  }
-
-  return (
-    <div className="flex justify-end">
-      <Button
-        variant="outline"
-        size="sm"
-        className="h-7 rounded-full px-3 text-[11px]"
-        onClick={() => onOpenDetail(value)}
-      >
-        璇︽儏
-      </Button>
-    </div>
-  );
-}
-
-function TextDetailDialog({
-  open,
-  title,
-  content,
-  onClose,
-}: {
-  open: boolean;
-  title: string;
-  content: string;
-  onClose: () => void;
-}) {
   if (!open) return null;
 
   return (
-    <div
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 px-4"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="audit-text-detail-title"
-      onClick={onClose}
-    >
-      <div
-        className="w-full max-w-3xl rounded-2xl border border-black/10 bg-background shadow-2xl dark:border-white/10"
-        onClick={(event) => event.stopPropagation()}
-      >
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 px-4" role="dialog" aria-modal="true" aria-labelledby="audit-text-detail-title" onClick={onClose}>
+      <div className="w-full max-w-3xl rounded-2xl border border-black/10 bg-background shadow-2xl dark:border-white/10" onClick={(event) => event.stopPropagation()}>
         <div className="flex items-start justify-between gap-4 border-b border-black/10 px-6 py-5 dark:border-white/10">
           <div>
-            <h3 id="audit-text-detail-title" className="text-xl font-semibold">
-              {title}
-            </h3>
-            <p className="mt-1 text-sm text-muted-foreground">瀹屾暣鍐呭</p>
-          </div>
-          <Button variant="ghost" size="icon" onClick={onClose}>
-            <X className="h-4 w-4" />
-          </Button>
-        </div>
-        <div className="max-h-[70vh] overflow-y-auto p-6">
-          <pre className="whitespace-pre-wrap break-all rounded-xl bg-black/5 p-4 text-sm dark:bg-white/5">
-            {content}
-          </pre>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-void ExpandableInfoAction;
-void TextDetailDialog;
-
-function ExpandableInfoAction2({
-  value,
-  onOpenDetail,
-}: {
-  value: string;
-  onOpenDetail: (content: string) => void;
-}) {
-  const hasDetail = value.trim().length > 0 && value !== '-';
-
-  if (!hasDetail) {
-    return null;
-  }
-
-  return (
-    <div className="flex justify-end">
-      <Button
-        variant="outline"
-        size="sm"
-        className="h-7 rounded-full px-3 text-[11px]"
-        onClick={() => onOpenDetail(value)}
-      >
-        {'\u8be6\u60c5'}
-      </Button>
-    </div>
-  );
-}
-
-function TextDetailDialog2({
-  open,
-  title,
-  content,
-  onClose,
-}: {
-  open: boolean;
-  title: string;
-  content: string;
-  onClose: () => void;
-}) {
-  if (!open) return null;
-
-  return (
-    <div
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 px-4"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="audit-text-detail-title-2"
-      onClick={onClose}
-    >
-      <div
-        className="w-full max-w-3xl rounded-2xl border border-black/10 bg-background shadow-2xl dark:border-white/10"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div className="flex items-start justify-between gap-4 border-b border-black/10 px-6 py-5 dark:border-white/10">
-          <div>
-            <h3 id="audit-text-detail-title-2" className="text-xl font-semibold">
-              {title}
-            </h3>
+            <h3 id="audit-text-detail-title" className="text-xl font-semibold">{title}</h3>
             <p className="mt-1 text-sm text-muted-foreground">{'\u5b8c\u6574\u5185\u5bb9'}</p>
           </div>
-          <Button variant="ghost" size="icon" onClick={onClose}>
-            <X className="h-4 w-4" />
-          </Button>
+          <Button type="button" variant="ghost" size="icon" aria-label={'\u5173\u95ed\u8be6\u60c5\u5f39\u7a97'} onClick={onClose}><X className="h-4 w-4" /></Button>
         </div>
-        <div className="max-h-[70vh] overflow-y-auto p-6">
-          <pre className="whitespace-pre-wrap break-all rounded-xl bg-black/5 p-4 text-sm dark:bg-white/5">
-            {content}
-          </pre>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function ExpandableInfoAction3({
-  value,
-  onOpenDetail,
-}: {
-  value: string;
-  onOpenDetail: (content: string) => void;
-}) {
-  const hasDetail = value.trim().length > 0 && value !== '-';
-
-  if (!hasDetail) {
-    return null;
-  }
-
-  return (
-    <div className="flex justify-end">
-      <button
-        type="button"
-        className="inline-flex h-7 items-center justify-center rounded-full border border-input bg-background px-3 text-[11px] font-medium transition-colors hover:bg-accent hover:text-accent-foreground"
-        onClick={(event) => {
-          event.preventDefault();
-          event.stopPropagation();
-          onOpenDetail(value);
-        }}
-      >
-        {'\u8be6\u60c5'}
-      </button>
-    </div>
-  );
-}
-
-function TextDetailDialog3({
-  open,
-  title,
-  content,
-  onClose,
-}: {
-  open: boolean;
-  title: string;
-  content: string;
-  onClose: () => void;
-}) {
-  if (!open) return null;
-
-  const handleClose = (event?: React.SyntheticEvent | Event) => {
-    event?.preventDefault?.();
-    event?.stopPropagation?.();
-    onClose();
-  };
-
-  return (
-    <div
-      className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 px-4"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="audit-text-detail-title-3"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) {
-          handleClose(event);
-        }
-      }}
-    >
-      <div
-        className="w-full max-w-3xl rounded-2xl border border-black/10 bg-background shadow-2xl dark:border-white/10"
-        onMouseDown={(event) => event.stopPropagation()}
-      >
-        <div className="flex items-start justify-between gap-4 border-b border-black/10 px-6 py-5 dark:border-white/10">
-          <div>
-            <h3 id="audit-text-detail-title-3" className="text-xl font-semibold">
-              {title || '\u7528\u6237\u6307\u4ee4'}
-            </h3>
-            <p className="mt-1 text-sm text-muted-foreground">{'\u5b8c\u6574\u5185\u5bb9'}</p>
-          </div>
-          <button
-            type="button"
-            aria-label="Close detail dialog"
-            className="inline-flex h-9 w-9 items-center justify-center rounded-md transition-colors hover:bg-accent hover:text-accent-foreground"
-            onClick={handleClose}
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-        <div className="max-h-[70vh] overflow-y-auto p-6">
-          <pre className="whitespace-pre-wrap break-all rounded-xl bg-black/5 p-4 text-sm dark:bg-white/5">
-            {content}
-          </pre>
-        </div>
+        <div className="max-h-[70vh] overflow-y-auto p-6"><pre className="whitespace-pre-wrap break-all rounded-xl bg-black/5 p-4 text-sm dark:bg-white/5">{content}</pre></div>
       </div>
     </div>
   );
