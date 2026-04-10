@@ -5,7 +5,7 @@
  *
  * All file I/O uses async fs/promises to avoid blocking the main thread.
  */
-import { readFile, writeFile, access, cp, mkdir } from 'fs/promises';
+import { readFile, access, cp, mkdir } from 'fs/promises';
 import { existsSync } from 'fs';
 import { constants } from 'fs';
 import { join } from 'path';
@@ -13,6 +13,7 @@ import { homedir } from 'os';
 import { getOpenClawDir, getResourcesDir } from './paths';
 import { logger } from './logger';
 import { withConfigLock } from './config-mutex';
+import { readJsonFileAllowMissing, writeJsonFileAtomic } from './openclaw-config-io';
 
 const OPENCLAW_CONFIG_PATH = join(homedir(), '.openclaw', 'openclaw.json');
 
@@ -64,15 +65,11 @@ async function fileExists(p: string): Promise<boolean> {
  * Read the current OpenClaw config
  */
 async function readConfig(): Promise<OpenClawConfig> {
-    if (!(await fileExists(OPENCLAW_CONFIG_PATH))) {
-        return {};
-    }
     try {
-        const raw = await readFile(OPENCLAW_CONFIG_PATH, 'utf-8');
-        return JSON.parse(raw);
+        return (await readJsonFileAllowMissing<OpenClawConfig>(OPENCLAW_CONFIG_PATH)) ?? {};
     } catch (err) {
         console.error('Failed to read openclaw config:', err);
-        return {};
+        throw err;
     }
 }
 
@@ -80,8 +77,7 @@ async function readConfig(): Promise<OpenClawConfig> {
  * Write the OpenClaw config
  */
 async function writeConfig(config: OpenClawConfig): Promise<void> {
-    const json = JSON.stringify(config, null, 2);
-    await writeFile(OPENCLAW_CONFIG_PATH, json, 'utf-8');
+    await writeJsonFileAtomic(OPENCLAW_CONFIG_PATH, config);
 }
 
 async function setSkillsEnabled(skillKeys: string[], enabled: boolean): Promise<void> {

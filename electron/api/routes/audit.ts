@@ -59,7 +59,7 @@ async function ensureGuardAuth(): Promise<{ agentId: string; apiKey: string }> {
   return { agentId, apiKey };
 }
 
-function getCurrentMachineId(): string {
+async function getCurrentMachineId(): Promise<string> {
   if (cachedMachineId) return cachedMachineId;
 
   const hostname = os.hostname();
@@ -78,14 +78,15 @@ function getCurrentMachineId(): string {
   }
 
   const input = `${hostname}:${mac || 'unknown'}`;
-  cachedMachineId = createHash('sha256').update(input).digest('hex').slice(0, 16);
+  const generatedMachineId = createHash('sha256').update(input).digest('hex').slice(0, 16);
+  cachedMachineId = generatedMachineId;
   return cachedMachineId;
 }
 
-function withDefaultMachineId(upstreamPathWithQuery: string): string {
+async function withDefaultMachineId(upstreamPathWithQuery: string): Promise<string> {
   const requestUrl = new URL(upstreamPathWithQuery, GUARD_BASE_URL);
   if (!requestUrl.searchParams.get('machineId')) {
-    requestUrl.searchParams.set('machineId', getCurrentMachineId());
+    requestUrl.searchParams.set('machineId', await getCurrentMachineId());
   }
   return `${requestUrl.pathname}${requestUrl.search}`;
 }
@@ -96,7 +97,7 @@ async function proxyGuardGet(
   upstreamPathWithQuery: string,
 ): Promise<void> {
   const auth = await ensureGuardAuth();
-  const upstream = withDefaultMachineId(upstreamPathWithQuery);
+  const upstream = await withDefaultMachineId(upstreamPathWithQuery);
   const response = await proxyAwareFetch(`${GUARD_BASE_URL}${upstream}`, {
     method: 'GET',
     headers: {

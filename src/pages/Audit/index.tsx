@@ -48,6 +48,15 @@ type AuditRow = {
   summary: string;
   sessionKey: string;
   runId: string;
+  detail?: {
+    context?: {
+      userInstruction?: string;
+      triggerTool?: string;
+      triggerParams?: string;
+      hookType?: string;
+      recentUserMessages?: string[];
+    };
+  };
 };
 
 type ApiResponse<T> = {
@@ -443,6 +452,32 @@ export function Audit() {
               <InfoLine label="规则 ID" value={selected.ruleId || '-'} mono />
               <InfoLine label="Session" value={selected.sessionKey || '-'} mono />
               <InfoLine label="Run" value={selected.runId || '-'} mono />
+              <div>
+                <p className="text-xs text-muted-foreground mb-2">触发上下文</p>
+                <div className="rounded-xl border border-black/10 dark:border-white/10 p-3 space-y-3">
+                  <InfoLine label="用户指令" value={selected.detail?.context?.userInstruction || '-'} />
+                  <InfoLine label="触发工具" value={selected.detail?.context?.triggerTool || '-'} mono />
+                  <InfoLine label="Hook 类型" value={selected.detail?.context?.hookType || '-'} mono />
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">工具参数摘要</p>
+                    <pre className="text-xs whitespace-pre-wrap break-all rounded-lg bg-black/5 dark:bg-white/5 p-2">
+{selected.detail?.context?.triggerParams || '-'}
+                    </pre>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">最近用户消息</p>
+                    <div className="space-y-1">
+                      {(selected.detail?.context?.recentUserMessages?.length
+                        ? selected.detail.context.recentUserMessages
+                        : ['-']).map((msg, idx) => (
+                        <div key={`${idx}-${msg}`} className="text-xs rounded-lg bg-black/5 dark:bg-white/5 p-2 break-all">
+                          {msg}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
               <div>
                 <p className="text-xs text-muted-foreground mb-2">摘要</p>
                 <div className="rounded-xl border border-black/10 dark:border-white/10 p-3 text-sm">
