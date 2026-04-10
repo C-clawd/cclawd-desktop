@@ -147,6 +147,7 @@ export function Audit() {
   const [action, setAction] = useState<'all' | ActionType>('all');
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<AuditRow | null>(null);
+  const [expandedText, setExpandedText] = useState<{ title: string; content: string } | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -455,9 +456,16 @@ export function Audit() {
               <div>
                 <p className="text-xs text-muted-foreground mb-2">触发上下文</p>
                 <div className="rounded-xl border border-black/10 dark:border-white/10 p-3 space-y-3">
-                  <InfoLine label="用户指令" value={selected.detail?.context?.userInstruction || '-'} />
+                  <PreviewBlock
+                    label="用户指令"
+                    value={selected.detail?.context?.userInstruction || '-'}
+                  />
                   <InfoLine label="触发工具" value={selected.detail?.context?.triggerTool || '-'} mono />
                   <InfoLine label="Hook 类型" value={selected.detail?.context?.hookType || '-'} mono />
+                  <ExpandableInfoAction3
+                    value={selected.detail?.context?.userInstruction || '-'}
+                    onOpenDetail={(content) => setExpandedText({ title: '鐢ㄦ埛鎸囦护', content })}
+                  />
                   <div>
                     <p className="text-xs text-muted-foreground mb-1">工具参数摘要</p>
                     <pre className="text-xs whitespace-pre-wrap break-all rounded-lg bg-black/5 dark:bg-white/5 p-2">
@@ -494,6 +502,12 @@ export function Audit() {
           )}
         </SheetContent>
       </Sheet>
+      <TextDetailDialog3
+        open={!!expandedText}
+        title={'\u7528\u6237\u6307\u4ee4'}
+        content={expandedText?.content || ''}
+        onClose={() => setExpandedText(null)}
+      />
     </div>
   );
 }
@@ -626,9 +640,262 @@ function SelectLike<T extends string>({
 
 function InfoLine({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
   return (
-    <div>
+    <div className="min-w-0">
       <p className="text-xs text-muted-foreground mb-1">{label}</p>
-      <p className={cn('text-sm', mono && 'font-mono')}>{value}</p>
+      <p className={cn('min-w-0 whitespace-pre-wrap break-all text-sm', mono && 'font-mono')}>{value}</p>
+    </div>
+  );
+}
+
+function PreviewBlock({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0">
+      <p className="mb-1 text-xs text-muted-foreground">{label}</p>
+      <div className="min-w-0 overflow-hidden rounded-lg bg-black/5 p-2 dark:bg-white/5">
+        <pre className="max-h-40 overflow-hidden whitespace-pre-wrap break-all text-sm">
+          {value}
+        </pre>
+      </div>
+    </div>
+  );
+}
+
+function ExpandableInfoAction({
+  value,
+  onOpenDetail,
+}: {
+  value: string;
+  onOpenDetail: (content: string) => void;
+}) {
+  const hasDetail = value.trim().length > 0 && value !== '-';
+
+  if (!hasDetail) {
+    return null;
+  }
+
+  return (
+    <div className="flex justify-end">
+      <Button
+        variant="outline"
+        size="sm"
+        className="h-7 rounded-full px-3 text-[11px]"
+        onClick={() => onOpenDetail(value)}
+      >
+        璇︽儏
+      </Button>
+    </div>
+  );
+}
+
+function TextDetailDialog({
+  open,
+  title,
+  content,
+  onClose,
+}: {
+  open: boolean;
+  title: string;
+  content: string;
+  onClose: () => void;
+}) {
+  if (!open) return null;
+
+  return (
+    <div
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 px-4"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="audit-text-detail-title"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-3xl rounded-2xl border border-black/10 bg-background shadow-2xl dark:border-white/10"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="flex items-start justify-between gap-4 border-b border-black/10 px-6 py-5 dark:border-white/10">
+          <div>
+            <h3 id="audit-text-detail-title" className="text-xl font-semibold">
+              {title}
+            </h3>
+            <p className="mt-1 text-sm text-muted-foreground">瀹屾暣鍐呭</p>
+          </div>
+          <Button variant="ghost" size="icon" onClick={onClose}>
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+        <div className="max-h-[70vh] overflow-y-auto p-6">
+          <pre className="whitespace-pre-wrap break-all rounded-xl bg-black/5 p-4 text-sm dark:bg-white/5">
+            {content}
+          </pre>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+void ExpandableInfoAction;
+void TextDetailDialog;
+
+function ExpandableInfoAction2({
+  value,
+  onOpenDetail,
+}: {
+  value: string;
+  onOpenDetail: (content: string) => void;
+}) {
+  const hasDetail = value.trim().length > 0 && value !== '-';
+
+  if (!hasDetail) {
+    return null;
+  }
+
+  return (
+    <div className="flex justify-end">
+      <Button
+        variant="outline"
+        size="sm"
+        className="h-7 rounded-full px-3 text-[11px]"
+        onClick={() => onOpenDetail(value)}
+      >
+        {'\u8be6\u60c5'}
+      </Button>
+    </div>
+  );
+}
+
+function TextDetailDialog2({
+  open,
+  title,
+  content,
+  onClose,
+}: {
+  open: boolean;
+  title: string;
+  content: string;
+  onClose: () => void;
+}) {
+  if (!open) return null;
+
+  return (
+    <div
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 px-4"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="audit-text-detail-title-2"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-3xl rounded-2xl border border-black/10 bg-background shadow-2xl dark:border-white/10"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="flex items-start justify-between gap-4 border-b border-black/10 px-6 py-5 dark:border-white/10">
+          <div>
+            <h3 id="audit-text-detail-title-2" className="text-xl font-semibold">
+              {title}
+            </h3>
+            <p className="mt-1 text-sm text-muted-foreground">{'\u5b8c\u6574\u5185\u5bb9'}</p>
+          </div>
+          <Button variant="ghost" size="icon" onClick={onClose}>
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+        <div className="max-h-[70vh] overflow-y-auto p-6">
+          <pre className="whitespace-pre-wrap break-all rounded-xl bg-black/5 p-4 text-sm dark:bg-white/5">
+            {content}
+          </pre>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ExpandableInfoAction3({
+  value,
+  onOpenDetail,
+}: {
+  value: string;
+  onOpenDetail: (content: string) => void;
+}) {
+  const hasDetail = value.trim().length > 0 && value !== '-';
+
+  if (!hasDetail) {
+    return null;
+  }
+
+  return (
+    <div className="flex justify-end">
+      <button
+        type="button"
+        className="inline-flex h-7 items-center justify-center rounded-full border border-input bg-background px-3 text-[11px] font-medium transition-colors hover:bg-accent hover:text-accent-foreground"
+        onClick={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          onOpenDetail(value);
+        }}
+      >
+        {'\u8be6\u60c5'}
+      </button>
+    </div>
+  );
+}
+
+function TextDetailDialog3({
+  open,
+  title,
+  content,
+  onClose,
+}: {
+  open: boolean;
+  title: string;
+  content: string;
+  onClose: () => void;
+}) {
+  if (!open) return null;
+
+  const handleClose = (event?: React.SyntheticEvent | Event) => {
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+    onClose();
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 px-4"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="audit-text-detail-title-3"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) {
+          handleClose(event);
+        }
+      }}
+    >
+      <div
+        className="w-full max-w-3xl rounded-2xl border border-black/10 bg-background shadow-2xl dark:border-white/10"
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <div className="flex items-start justify-between gap-4 border-b border-black/10 px-6 py-5 dark:border-white/10">
+          <div>
+            <h3 id="audit-text-detail-title-3" className="text-xl font-semibold">
+              {title || '\u7528\u6237\u6307\u4ee4'}
+            </h3>
+            <p className="mt-1 text-sm text-muted-foreground">{'\u5b8c\u6574\u5185\u5bb9'}</p>
+          </div>
+          <button
+            type="button"
+            aria-label="Close detail dialog"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-md transition-colors hover:bg-accent hover:text-accent-foreground"
+            onClick={handleClose}
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="max-h-[70vh] overflow-y-auto p-6">
+          <pre className="whitespace-pre-wrap break-all rounded-xl bg-black/5 p-4 text-sm dark:bg-white/5">
+            {content}
+          </pre>
+        </div>
+      </div>
     </div>
   );
 }
