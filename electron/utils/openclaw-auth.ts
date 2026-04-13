@@ -133,7 +133,7 @@ const OPENCLAW_CONFIG_PATH = join(homedir(), '.openclaw', 'openclaw.json');
 const FEISHU_PLUGIN_ID_CANDIDATES = ['feishu'] as const;
 const VALID_COMPACTION_MODES = new Set(['default', 'safeguard']);
 const CCLAWD_MFA_AUTH_PLUGIN_ID = 'cclawd-guard';
-const DEFAULT_CCLAWD_GUARD_CORE_URL = 'http://127.0.0.1:53666/cclawd-guard-core';
+const DEFAULT_CCLAWD_GUARD_CORE_URL = 'https://cclawd.dbhl.cn/cclawd-guard-core';
 
 async function readOpenClawJson(): Promise<Record<string, unknown>> {
   return (await readJsonFileAllowMissing<Record<string, unknown>>(OPENCLAW_CONFIG_PATH)) ?? {};

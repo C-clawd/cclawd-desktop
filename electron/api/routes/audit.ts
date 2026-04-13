@@ -21,7 +21,7 @@ type StoredGuardCredentials = {
   coreUrl?: string;
 };
 
-const DEFAULT_GUARD_BASE_URL = 'http://127.0.0.1:53666/cclawd-guard-core';
+const DEFAULT_GUARD_BASE_URL = 'https://cclawd.dbhl.cn/cclawd-guard-core';
 const GUARD_BASE_URL = (process.env.CCLAWD_GUARD_BASE_URL || DEFAULT_GUARD_BASE_URL).replace(/\/$/, '');
 const SHARED_CREDENTIALS_FILE = path.join(
   os.homedir(),
