@@ -1,6 +1,8 @@
 import type { IncomingMessage, ServerResponse } from 'http';
 import { createHash } from 'node:crypto';
 import os from 'node:os';
+import fs from 'node:fs';
+import path from 'node:path';
 import { proxyAwareFetch } from '../../utils/proxy-fetch';
 import type { HostApiContext } from '../context';
 import { sendJson } from '../route-utils';
@@ -13,8 +15,21 @@ type GuardRegisterResponse = {
   };
 };
 
+type StoredGuardCredentials = {
+  apiKey?: string;
+  agentId?: string;
+  coreUrl?: string;
+};
+
 const DEFAULT_GUARD_BASE_URL = 'http://127.0.0.1:53666/cclawd-guard-core';
 const GUARD_BASE_URL = (process.env.CCLAWD_GUARD_BASE_URL || DEFAULT_GUARD_BASE_URL).replace(/\/$/, '');
+const SHARED_CREDENTIALS_FILE = path.join(
+  os.homedir(),
+  '.openclaw',
+  'credentials',
+  'cclawd-guard',
+  'credentials.json',
+);
 
 let cachedGuardAgentId = '';
 let cachedGuardApiKey = '';
@@ -32,9 +47,52 @@ async function parseGuardJson<T>(response: Response): Promise<T | null> {
   }
 }
 
+function loadSharedGuardCredentials(): { agentId: string; apiKey: string } | null {
+  try {
+    if (!fs.existsSync(SHARED_CREDENTIALS_FILE)) {
+      return null;
+    }
+    const parsed = JSON.parse(fs.readFileSync(SHARED_CREDENTIALS_FILE, 'utf-8')) as StoredGuardCredentials;
+    const agentId = typeof parsed.agentId === 'string' ? parsed.agentId.trim() : '';
+    const apiKey = typeof parsed.apiKey === 'string' ? parsed.apiKey.trim() : '';
+    const issuedCoreUrl = typeof parsed.coreUrl === 'string' ? parsed.coreUrl.replace(/\/$/, '') : '';
+    if (!agentId || !apiKey) {
+      return null;
+    }
+    if (issuedCoreUrl && issuedCoreUrl !== GUARD_BASE_URL) {
+      return null;
+    }
+    return { agentId, apiKey };
+  } catch {
+    return null;
+  }
+}
+
+async function isValidGuardApiKey(apiKey: string): Promise<boolean> {
+  try {
+    const response = await proxyAwareFetch(`${GUARD_BASE_URL}/api/v1/account`, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        Accept: 'application/json',
+      },
+    });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
 async function ensureGuardAuth(): Promise<{ agentId: string; apiKey: string }> {
   if (cachedGuardAgentId && cachedGuardApiKey) {
     return { agentId: cachedGuardAgentId, apiKey: cachedGuardApiKey };
+  }
+
+  const sharedCredentials = loadSharedGuardCredentials();
+  if (sharedCredentials && await isValidGuardApiKey(sharedCredentials.apiKey)) {
+    cachedGuardAgentId = sharedCredentials.agentId;
+    cachedGuardApiKey = sharedCredentials.apiKey;
+    return sharedCredentials;
   }
 
   const registerResponse = await proxyAwareFetch(`${GUARD_BASE_URL}/api/v1/agents/register`, {
@@ -98,13 +156,26 @@ async function proxyGuardGet(
 ): Promise<void> {
   const auth = await ensureGuardAuth();
   const upstream = await withDefaultMachineId(upstreamPathWithQuery);
-  const response = await proxyAwareFetch(`${GUARD_BASE_URL}${upstream}`, {
+  let response = await proxyAwareFetch(`${GUARD_BASE_URL}${upstream}`, {
     method: 'GET',
     headers: {
       Authorization: `Bearer ${auth.apiKey}`,
       Accept: 'application/json',
     },
   });
+
+  if (response.status === 401) {
+    cachedGuardAgentId = '';
+    cachedGuardApiKey = '';
+    const refreshed = await ensureGuardAuth();
+    response = await proxyAwareFetch(`${GUARD_BASE_URL}${upstream}`, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${refreshed.apiKey}`,
+        Accept: 'application/json',
+      },
+    });
+  }
 
   const body = await parseGuardJson<unknown>(response);
   if (!response.ok) {
