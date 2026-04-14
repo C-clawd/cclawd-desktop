@@ -8,7 +8,7 @@
  * equivalents could stall for 500 ms – 2 s+ per call, causing "Not
  * Responding" hangs.
  */
-import { access, mkdir, readFile, writeFile } from 'fs/promises';
+import { access, mkdir, readFile } from 'fs/promises';
 import { constants } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
@@ -24,6 +24,7 @@ import {
   isOpenClawOAuthPluginProviderKey,
 } from './provider-keys';
 import { withConfigLock } from './config-mutex';
+import { readJsonFileAllowMissing, writeJsonFileAtomic } from './openclaw-config-io';
 
 const AUTH_STORE_VERSION = 1;
 const AUTH_PROFILE_FILENAME = 'auth-profiles.json';
@@ -54,9 +55,7 @@ async function ensureDir(dir: string): Promise<void> {
 /** Read a JSON file, returning `null` on any error. */
 async function readJsonFile<T>(filePath: string): Promise<T | null> {
   try {
-    if (!(await fileExists(filePath))) return null;
-    const raw = await readFile(filePath, 'utf-8');
-    return JSON.parse(raw) as T;
+    return await readJsonFileAllowMissing<T>(filePath);
   } catch {
     return null;
   }
@@ -65,7 +64,7 @@ async function readJsonFile<T>(filePath: string): Promise<T | null> {
 /** Write a JSON file, creating parent directories if needed. */
 async function writeJsonFile(filePath: string, data: unknown): Promise<void> {
   await ensureDir(join(filePath, '..'));
-  await writeFile(filePath, JSON.stringify(data, null, 2), 'utf-8');
+  await writeJsonFileAtomic(filePath, data);
 }
 
 // ── Types ────────────────────────────────────────────────────────
@@ -134,9 +133,10 @@ const OPENCLAW_CONFIG_PATH = join(homedir(), '.openclaw', 'openclaw.json');
 const FEISHU_PLUGIN_ID_CANDIDATES = ['feishu'] as const;
 const VALID_COMPACTION_MODES = new Set(['default', 'safeguard']);
 const CCLAWD_MFA_AUTH_PLUGIN_ID = 'cclawd-guard';
+const DEFAULT_CCLAWD_GUARD_CORE_URL = 'https://cclawd.dbhl.cn/cclawd-guard-core';
 
 async function readOpenClawJson(): Promise<Record<string, unknown>> {
-  return (await readJsonFile<Record<string, unknown>>(OPENCLAW_CONFIG_PATH)) ?? {};
+  return (await readJsonFileAllowMissing<Record<string, unknown>>(OPENCLAW_CONFIG_PATH)) ?? {};
 }
 
 async function resolveInstalledFeishuPluginId(): Promise<string | null> {
@@ -226,6 +226,14 @@ export async function ensureRealPersonAuthPluginEnabled(): Promise<void> {
     if (existingEntry.enabled === undefined) {
       existingEntry.enabled = true;
     }
+    const pluginConfig = (
+      existingEntry.config && typeof existingEntry.config === 'object' && !Array.isArray(existingEntry.config)
+        ? { ...(existingEntry.config as Record<string, unknown>) }
+        : {}
+    ) as Record<string, unknown>;
+    const configuredCoreUrl = process.env.CCLAWD_GUARD_BASE_URL?.trim() || DEFAULT_CCLAWD_GUARD_CORE_URL;
+    pluginConfig.coreUrl = configuredCoreUrl.replace(/\/+$/, '');
+    existingEntry.config = pluginConfig;
     entries[CCLAWD_MFA_AUTH_PLUGIN_ID] = existingEntry;
     plugins.entries = entries;
 
