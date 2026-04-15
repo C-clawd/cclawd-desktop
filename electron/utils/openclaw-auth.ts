@@ -231,7 +231,9 @@ export async function ensureRealPersonAuthPluginEnabled(): Promise<void> {
         ? { ...(existingEntry.config as Record<string, unknown>) }
         : {}
     ) as Record<string, unknown>;
-    const configuredCoreUrl = process.env.CCLAWD_GUARD_BASE_URL?.trim() || DEFAULT_CCLAWD_GUARD_CORE_URL;
+    const envCoreUrl = process.env.CCLAWD_GUARD_BASE_URL?.trim() || '';
+    const existingCoreUrl = typeof pluginConfig.coreUrl === 'string' ? pluginConfig.coreUrl.trim() : '';
+    const configuredCoreUrl = envCoreUrl || existingCoreUrl || DEFAULT_CCLAWD_GUARD_CORE_URL;
     pluginConfig.coreUrl = configuredCoreUrl.replace(/\/+$/, '');
     existingEntry.config = pluginConfig;
     entries[CCLAWD_MFA_AUTH_PLUGIN_ID] = existingEntry;
