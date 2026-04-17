@@ -97,11 +97,35 @@ type OrgMeData = {
   hasSeat?: boolean;
 };
 
-const REL_LOGIN_REASON_CODES = new Set([
-  'org_user_inactive',
-  'org_auth_invalid',
-  'org_auth_missing',
-  'bind_403',
+const ORG_LOGIN_ERROR_CODES = {
+  MISSING_CREDENTIALS: 'ORG_LOGIN_MISSING_CREDENTIALS',
+  INVALID_CREDENTIALS: 'ORG_LOGIN_INVALID_CREDENTIALS',
+  FAILED: 'ORG_LOGIN_FAILED',
+} as const;
+
+type OrgLoginErrorCode = typeof ORG_LOGIN_ERROR_CODES[keyof typeof ORG_LOGIN_ERROR_CODES];
+
+const ENTITLEMENT_REASON_CODES = {
+  OK: 'ok',
+  TRANSIENT: 'transient',
+  SUBSCRIPTION_INACTIVE: 'subscription_inactive',
+  NO_AVAILABLE_SEATS: 'no_available_seats',
+  SEAT_NOT_ASSIGNED: 'seat_not_assigned',
+  ORG_USER_INACTIVE: 'org_user_inactive',
+  ORG_AUTH_INVALID: 'org_auth_invalid',
+  ORG_AUTH_MISSING: 'org_auth_missing',
+  BIND_402: 'bind_402',
+  BIND_403: 'bind_403',
+  UNKNOWN: 'unknown',
+} as const;
+
+type EntitlementReasonCode = typeof ENTITLEMENT_REASON_CODES[keyof typeof ENTITLEMENT_REASON_CODES];
+
+const REL_LOGIN_REASON_CODES = new Set<EntitlementReasonCode>([
+  ENTITLEMENT_REASON_CODES.ORG_USER_INACTIVE,
+  ENTITLEMENT_REASON_CODES.ORG_AUTH_INVALID,
+  ENTITLEMENT_REASON_CODES.ORG_AUTH_MISSING,
+  ENTITLEMENT_REASON_CODES.BIND_403,
 ]);
 
 type OrgAuthData = {
@@ -328,6 +352,71 @@ function parseGuardErrorMessage(payload: GuardApiResponse<unknown> | null, fallb
   return fallback;
 }
 
+function getOrgLoginMessageZh(code?: OrgLoginErrorCode, fallback?: string): string {
+  switch (code) {
+    case ORG_LOGIN_ERROR_CODES.MISSING_CREDENTIALS:
+      return '请输入邮箱和密码';
+    case ORG_LOGIN_ERROR_CODES.INVALID_CREDENTIALS:
+      return '邮箱或密码错误，请检查后重试';
+    case ORG_LOGIN_ERROR_CODES.FAILED:
+      return '登录失败，请稍后重试';
+    default:
+      return fallback || '登录失败，请稍后重试';
+  }
+}
+
+function getEntitlementMessageZh(reasonCode?: string, fallback?: string): string {
+  switch ((reasonCode || '').toLowerCase()) {
+    case ENTITLEMENT_REASON_CODES.ORG_AUTH_MISSING:
+      return '当前未登录企业账号，请登录后继续';
+    case ENTITLEMENT_REASON_CODES.ORG_AUTH_INVALID:
+      return '组织认证失败，请重新登录企业账号';
+    case ENTITLEMENT_REASON_CODES.ORG_USER_INACTIVE:
+      return '当前组织账号不可用，请联系管理员处理';
+    case ENTITLEMENT_REASON_CODES.SUBSCRIPTION_INACTIVE:
+      return '订阅已过期或未激活，请联系管理员续费后重试';
+    case ENTITLEMENT_REASON_CODES.SEAT_NOT_ASSIGNED:
+      return '当前账号未分配席位，请联系管理员分配后重试';
+    case ENTITLEMENT_REASON_CODES.NO_AVAILABLE_SEATS:
+      return '当前企业席位已用完，请联系管理员扩容席位';
+    case ENTITLEMENT_REASON_CODES.BIND_402:
+      return '当前账号无可用订阅或席位，暂无法使用企业能力';
+    case ENTITLEMENT_REASON_CODES.BIND_403:
+      return '当前组织账号不可用，请重新登录后重试';
+    default:
+      return fallback || '企业权限校验失败，请稍后重试';
+  }
+}
+
+function mapOrgLoginError(rawError: unknown): { code: OrgLoginErrorCode; message: string } {
+  const raw = String(rawError ?? '');
+  const lower = raw.toLowerCase();
+  if (lower.includes('email and password are required')) {
+    return {
+      code: ORG_LOGIN_ERROR_CODES.MISSING_CREDENTIALS,
+      message: getOrgLoginMessageZh(ORG_LOGIN_ERROR_CODES.MISSING_CREDENTIALS),
+    };
+  }
+  if (
+    lower.includes('invalid api key')
+    || lower.includes('api key 无效')
+    || lower.includes('invalid email or password')
+    || lower.includes('邮箱或密码错误')
+    || lower.includes('login failed: http 401')
+    || lower.includes('login failed: http 403')
+    || lower.includes('failed to login guard org account')
+  ) {
+    return {
+      code: ORG_LOGIN_ERROR_CODES.INVALID_CREDENTIALS,
+      message: getOrgLoginMessageZh(ORG_LOGIN_ERROR_CODES.INVALID_CREDENTIALS),
+    };
+  }
+  return {
+    code: ORG_LOGIN_ERROR_CODES.FAILED,
+    message: getOrgLoginMessageZh(ORG_LOGIN_ERROR_CODES.FAILED),
+  };
+}
+
 async function loginOrg(email: string, password: string): Promise<OrgAuthResult> {
   const response = await proxyAwareFetch(`${GUARD_BASE_URL}/api/v1/org/login`, {
     method: 'POST',
@@ -483,40 +572,109 @@ async function ensureGuardAuth(): Promise<{ agentId: string; apiKey: string }> {
   }
 }
 
-function classifyEntitlementError(rawError: unknown): { code: string; message: string } {
+function classifyEntitlementError(rawError: unknown): { code: EntitlementReasonCode; message: string } {
   const raw = String(rawError ?? '');
   const lower = raw.toLowerCase();
   if (lower.includes('subscription is inactive or expired')) {
-    return { code: 'subscription_inactive', message: '订阅已过期或未激活，请联系管理员续费后重试' };
+    return {
+      code: ENTITLEMENT_REASON_CODES.SUBSCRIPTION_INACTIVE,
+      message: getEntitlementMessageZh(ENTITLEMENT_REASON_CODES.SUBSCRIPTION_INACTIVE),
+    };
+  }
+  if (lower.includes('订阅未激活或已过期')) {
+    return {
+      code: ENTITLEMENT_REASON_CODES.SUBSCRIPTION_INACTIVE,
+      message: getEntitlementMessageZh(ENTITLEMENT_REASON_CODES.SUBSCRIPTION_INACTIVE),
+    };
   }
   if (lower.includes('no available seats')) {
-    return { code: 'no_available_seats', message: '当前企业席位已用完，请联系管理员扩容席位' };
+    return {
+      code: ENTITLEMENT_REASON_CODES.NO_AVAILABLE_SEATS,
+      message: getEntitlementMessageZh(ENTITLEMENT_REASON_CODES.NO_AVAILABLE_SEATS),
+    };
+  }
+  if (lower.includes('无可用席位')) {
+    return {
+      code: ENTITLEMENT_REASON_CODES.NO_AVAILABLE_SEATS,
+      message: getEntitlementMessageZh(ENTITLEMENT_REASON_CODES.NO_AVAILABLE_SEATS),
+    };
   }
   if (lower.includes('seat is not assigned')) {
-    return { code: 'seat_not_assigned', message: '当前账号未分配席位，请联系管理员分配后重试' };
+    return {
+      code: ENTITLEMENT_REASON_CODES.SEAT_NOT_ASSIGNED,
+      message: getEntitlementMessageZh(ENTITLEMENT_REASON_CODES.SEAT_NOT_ASSIGNED),
+    };
+  }
+  if (lower.includes('未分配席位')) {
+    return {
+      code: ENTITLEMENT_REASON_CODES.SEAT_NOT_ASSIGNED,
+      message: getEntitlementMessageZh(ENTITLEMENT_REASON_CODES.SEAT_NOT_ASSIGNED),
+    };
   }
   if (lower.includes('organization user is inactive')) {
-    return { code: 'org_user_inactive', message: '当前组织账号不可用，请联系管理员处理' };
+    return {
+      code: ENTITLEMENT_REASON_CODES.ORG_USER_INACTIVE,
+      message: getEntitlementMessageZh(ENTITLEMENT_REASON_CODES.ORG_USER_INACTIVE),
+    };
+  }
+  if (lower.includes('组织账号已停用') || lower.includes('组织账号不可用')) {
+    return {
+      code: ENTITLEMENT_REASON_CODES.ORG_USER_INACTIVE,
+      message: getEntitlementMessageZh(ENTITLEMENT_REASON_CODES.ORG_USER_INACTIVE),
+    };
   }
   if (lower.includes('invalid email or password')) {
-    return { code: 'org_auth_invalid', message: '组织认证失败，请检查账号状态或密码配置' };
+    return {
+      code: ENTITLEMENT_REASON_CODES.ORG_AUTH_INVALID,
+      message: getEntitlementMessageZh(ENTITLEMENT_REASON_CODES.ORG_AUTH_INVALID),
+    };
+  }
+  if (lower.includes('邮箱或密码错误')) {
+    return {
+      code: ENTITLEMENT_REASON_CODES.ORG_AUTH_INVALID,
+      message: getEntitlementMessageZh(ENTITLEMENT_REASON_CODES.ORG_AUTH_INVALID),
+    };
+  }
+  if (lower.includes('invalid api key')) {
+    return {
+      code: ENTITLEMENT_REASON_CODES.ORG_AUTH_INVALID,
+      message: getEntitlementMessageZh(ENTITLEMENT_REASON_CODES.ORG_AUTH_INVALID),
+    };
   }
   if (lower.includes('failed to login/register guard org account') || lower.includes('failed to login guard org account')) {
-    return { code: 'org_auth_invalid', message: '组织账号不可用或登录失败，请检查企业账号状态与密码' };
+    return {
+      code: ENTITLEMENT_REASON_CODES.ORG_AUTH_INVALID,
+      message: getEntitlementMessageZh(ENTITLEMENT_REASON_CODES.ORG_AUTH_INVALID),
+    };
   }
   if (lower.includes('login failed: http 401') || lower.includes('login failed: http 403')) {
-    return { code: 'org_auth_invalid', message: '组织账号认证失败，请检查账号状态或密码配置' };
+    return {
+      code: ENTITLEMENT_REASON_CODES.ORG_AUTH_INVALID,
+      message: getEntitlementMessageZh(ENTITLEMENT_REASON_CODES.ORG_AUTH_INVALID),
+    };
   }
   if (lower.includes('missing org auth config')) {
-    return { code: 'org_auth_missing', message: '审计鉴权配置缺失，请检查组织账号配置' };
+    return {
+      code: ENTITLEMENT_REASON_CODES.ORG_AUTH_MISSING,
+      message: getEntitlementMessageZh(ENTITLEMENT_REASON_CODES.ORG_AUTH_MISSING),
+    };
   }
   if (lower.includes('failed to bind guard agent: http 402')) {
-    return { code: 'bind_402', message: '当前账号无可用订阅或席位，暂无法使用企业能力' };
+    return {
+      code: ENTITLEMENT_REASON_CODES.BIND_402,
+      message: getEntitlementMessageZh(ENTITLEMENT_REASON_CODES.BIND_402),
+    };
   }
   if (lower.includes('failed to bind guard agent: http 403')) {
-    return { code: 'bind_403', message: '当前组织账号不可用，暂无法使用企业能力' };
+    return {
+      code: ENTITLEMENT_REASON_CODES.BIND_403,
+      message: getEntitlementMessageZh(ENTITLEMENT_REASON_CODES.BIND_403),
+    };
   }
-  return { code: 'unknown', message: '企业权限校验失败，请稍后重试' };
+  return {
+    code: ENTITLEMENT_REASON_CODES.UNKNOWN,
+    message: getEntitlementMessageZh(ENTITLEMENT_REASON_CODES.UNKNOWN),
+  };
 }
 
 async function checkGuardEntitlement(): Promise<{ allowed: boolean; reasonCode: string; message: string; requireRelogin: boolean }> {
@@ -553,36 +711,36 @@ async function checkGuardEntitlement(): Promise<{ allowed: boolean; reasonCode: 
     if (userStatus !== 'active') {
       return {
         allowed: false,
-        reasonCode: 'org_user_inactive',
-        message: '当前组织账号不可用，请联系管理员处理',
+        reasonCode: ENTITLEMENT_REASON_CODES.ORG_USER_INACTIVE,
+        message: getEntitlementMessageZh(ENTITLEMENT_REASON_CODES.ORG_USER_INACTIVE),
         requireRelogin: true,
       };
     }
     if (!subscriptionValid) {
       return {
         allowed: false,
-        reasonCode: 'subscription_inactive',
-        message: '订阅已过期或未激活，请联系管理员续费后重试',
+        reasonCode: ENTITLEMENT_REASON_CODES.SUBSCRIPTION_INACTIVE,
+        message: getEntitlementMessageZh(ENTITLEMENT_REASON_CODES.SUBSCRIPTION_INACTIVE),
         requireRelogin: false,
       };
     }
     if (!hasSeat) {
       return {
         allowed: false,
-        reasonCode: 'seat_not_assigned',
-        message: '当前账号未分配席位，请联系管理员分配后重试',
+        reasonCode: ENTITLEMENT_REASON_CODES.SEAT_NOT_ASSIGNED,
+        message: getEntitlementMessageZh(ENTITLEMENT_REASON_CODES.SEAT_NOT_ASSIGNED),
         requireRelogin: false,
       };
     }
 
     // Final bind-path validation to ensure machine authorization is also usable.
     await ensureGuardAuth();
-    return { allowed: true, reasonCode: 'ok', message: '', requireRelogin: false };
+    return { allowed: true, reasonCode: ENTITLEMENT_REASON_CODES.OK, message: '', requireRelogin: false };
   } catch (error) {
     const mapped = classifyEntitlementError(error);
     // Network/transient failures should not hard-lock the whole desktop.
-    if (mapped.code === 'unknown') {
-      return { allowed: true, reasonCode: 'transient', message: '', requireRelogin: false };
+    if (mapped.code === ENTITLEMENT_REASON_CODES.UNKNOWN) {
+      return { allowed: true, reasonCode: ENTITLEMENT_REASON_CODES.TRANSIENT, message: '', requireRelogin: false };
     }
     return {
       allowed: false,
@@ -657,17 +815,26 @@ export async function handleAuditRoutes(
 ): Promise<boolean> {
   try {
     if (url.pathname === '/api/audit/org-login' && req.method === 'POST') {
-      const body = await parseJsonBody<OrgLoginBody>(req);
-      const email = typeof body.email === 'string' ? body.email : '';
-      const password = typeof body.password === 'string' ? body.password : '';
-      const org = await performOrgLogin(email, password);
-      sendJson(res, 200, {
-        success: true,
-        data: {
-          orgId: org.orgId || '',
-          userId: org.userId || '',
-        },
-      });
+      try {
+        const body = await parseJsonBody<OrgLoginBody>(req);
+        const email = typeof body.email === 'string' ? body.email : '';
+        const password = typeof body.password === 'string' ? body.password : '';
+        const org = await performOrgLogin(email, password);
+        sendJson(res, 200, {
+          success: true,
+          data: {
+            orgId: org.orgId || '',
+            userId: org.userId || '',
+          },
+        });
+      } catch (error) {
+        const mapped = mapOrgLoginError(error);
+        sendJson(res, 200, {
+          success: false,
+          code: mapped.code,
+          error: mapped.message,
+        });
+      }
       return true;
     }
 

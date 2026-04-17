@@ -687,10 +687,6 @@ function RealPersonAuthContent({ onConfiguredChange }: RealPersonAuthContentProp
                 />
               </div>
 
-              <div className="rounded-xl bg-background/70 p-3 text-sm text-muted-foreground break-all">
-                {session.qrCodeUrl}
-              </div>
-
               {statusMessage && (
                 <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
                   {checking ? <Loader2 className="h-4 w-4 animate-spin text-blue-500" /> : null}
@@ -699,14 +695,6 @@ function RealPersonAuthContent({ onConfiguredChange }: RealPersonAuthContentProp
               )}
 
               <div className="flex flex-row gap-2 justify-end">
-                <Button
-                  variant="ghost"
-                  className="bg-blue-50 text-blue-600 hover:bg-blue-100 hover:text-blue-700"
-                  onClick={() => invokeIpc('shell:openExternal', session.qrCodeUrl)}
-                >
-                  <ExternalLink className="mr-2 h-4 w-4" />
-                  {t('realPerson.qr.open')}
-                </Button>
                 <Button
                   variant="ghost"
                   className="bg-blue-50 text-blue-600 hover:bg-blue-100 hover:text-blue-700"

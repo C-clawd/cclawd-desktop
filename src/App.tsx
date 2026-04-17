@@ -35,6 +35,12 @@ type GuardEntitlementResponse = {
   };
 };
 
+type OrgLoginResponse = {
+  success?: boolean;
+  code?: string;
+  error?: string;
+};
+
 
 /**
  * Error Boundary to catch and display React rendering errors
@@ -138,13 +144,22 @@ function App() {
     initProviders();
   }, [initProviders, initialized]);
 
-  // Redirect to setup wizard when appropriate.
+  // Redirect to setup wizard when appropriate (after org-login guard settles).
   useEffect(() => {
-    if (!initialized) return;
+    if (!initialized || !guardEntitlementChecked) return;
+    if (guardRequireRelogin && !guardEntitlementAllowed) return;
     if (!setupComplete && !location.pathname.startsWith('/setup')) {
       navigate('/setup');
     }
-  }, [initialized, location.pathname, navigate, setupComplete]);
+  }, [
+    guardEntitlementAllowed,
+    guardEntitlementChecked,
+    guardRequireRelogin,
+    initialized,
+    location.pathname,
+    navigate,
+    setupComplete,
+  ]);
 
   // Listen for navigation events from main process
   useEffect(() => {
@@ -176,7 +191,7 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (!initialized || !setupComplete) {
+    if (!initialized) {
       setGuardEntitlementChecked(false);
       setGuardEntitlementAllowed(true);
       setGuardEntitlementMessage('');
@@ -215,11 +230,11 @@ function App() {
       cancelled = true;
       window.clearInterval(timer);
     };
-  }, [initialized, setupComplete, guardEntitlementRefreshKey]);
+  }, [initialized, guardEntitlementRefreshKey]);
 
   const guardBlocked = useMemo(
-    () => initialized && setupComplete && guardEntitlementChecked && !guardEntitlementAllowed,
-    [initialized, setupComplete, guardEntitlementChecked, guardEntitlementAllowed],
+    () => initialized && guardEntitlementChecked && !guardEntitlementAllowed,
+    [initialized, guardEntitlementChecked, guardEntitlementAllowed],
   );
   const guardReloginBlocked = useMemo(
     () => guardBlocked && guardRequireRelogin,
@@ -359,7 +374,7 @@ function OrgLoginPage({ message, onLoginSuccess }: { message: string; onLoginSuc
     setErrorMessage('');
     setSubmitting(true);
     try {
-      const response = await hostApiFetch<{ success?: boolean; error?: string }>('/api/audit/org-login', {
+      const response = await hostApiFetch<OrgLoginResponse>('/api/audit/org-login', {
         method: 'POST',
         body: JSON.stringify({
           email: email.trim(),
@@ -367,7 +382,7 @@ function OrgLoginPage({ message, onLoginSuccess }: { message: string; onLoginSuc
         }),
       });
       if (!response?.success) {
-        throw new Error(response?.error || '登录失败，请检查账号和密码');
+        throw new Error(response?.error || '登录失败，请稍后重试');
       }
       const result = await onLoginSuccess();
       if (!result.ok) {
