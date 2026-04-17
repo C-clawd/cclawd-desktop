@@ -17,14 +17,12 @@ import { Skills } from './pages/Skills';
 import { Cron } from './pages/Cron';
 import { Settings } from './pages/Settings';
 import { Setup } from './pages/Setup';
-import { Trial } from './pages/Trial';
 import { Audit } from './pages/Audit';
 import { useSettingsStore } from './stores/settings';
 import { useGatewayStore } from './stores/gateway';
 import { useProviderStore } from './stores/providers';
 import { applyGatewayTransportPreference } from './lib/api-client';
 import { PeriodicRealPersonAuthGuard } from './components/security/PeriodicRealPersonAuthGuard';
-import { isTrialExpired } from '../shared/trial';
 import { hostApiFetch } from './lib/host-api';
 
 type GuardEntitlementResponse = {
@@ -109,10 +107,8 @@ function App() {
   const language = useSettingsStore((state) => state.language);
   const setupComplete = useSettingsStore((state) => state.setupComplete);
   const initialized = useSettingsStore((state) => state.initialized);
-  const trialStartAt = useSettingsStore((state) => state.trialStartAt);
   const initGateway = useGatewayStore((state) => state.init);
   const initProviders = useProviderStore((state) => state.init);
-  const trialExpired = initialized && isTrialExpired(trialStartAt);
   const [guardEntitlementChecked, setGuardEntitlementChecked] = useState(false);
   const [guardEntitlementAllowed, setGuardEntitlementAllowed] = useState(true);
   const [guardEntitlementMessage, setGuardEntitlementMessage] = useState('');
@@ -132,28 +128,23 @@ function App() {
 
   // Initialize Gateway connection on mount
   useEffect(() => {
-    if (!initialized || trialExpired) return;
+    if (!initialized) return;
     initGateway();
-  }, [initGateway, initialized, trialExpired]);
+  }, [initGateway, initialized]);
 
   // Initialize provider snapshot on mount
   useEffect(() => {
-    if (!initialized || trialExpired) return;
+    if (!initialized) return;
     initProviders();
-  }, [initProviders, initialized, trialExpired]);
+  }, [initProviders, initialized]);
 
-  // Redirect to setup wizard or trial lock screen when appropriate.
+  // Redirect to setup wizard when appropriate.
   useEffect(() => {
     if (!initialized) return;
-    if (trialExpired && location.pathname !== '/trial') {
-      navigate('/trial');
-      return;
-    }
-    if (trialExpired) return;
     if (!setupComplete && !location.pathname.startsWith('/setup')) {
       navigate('/setup');
     }
-  }, [initialized, location.pathname, navigate, setupComplete, trialExpired]);
+  }, [initialized, location.pathname, navigate, setupComplete]);
 
   // Listen for navigation events from main process
   useEffect(() => {
@@ -185,7 +176,7 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (!initialized || trialExpired || !setupComplete) {
+    if (!initialized || !setupComplete) {
       setGuardEntitlementChecked(false);
       setGuardEntitlementAllowed(true);
       setGuardEntitlementMessage('');
@@ -224,11 +215,11 @@ function App() {
       cancelled = true;
       window.clearInterval(timer);
     };
-  }, [initialized, setupComplete, trialExpired, guardEntitlementRefreshKey]);
+  }, [initialized, setupComplete, guardEntitlementRefreshKey]);
 
   const guardBlocked = useMemo(
-    () => initialized && setupComplete && !trialExpired && guardEntitlementChecked && !guardEntitlementAllowed,
-    [initialized, setupComplete, trialExpired, guardEntitlementChecked, guardEntitlementAllowed],
+    () => initialized && setupComplete && guardEntitlementChecked && !guardEntitlementAllowed,
+    [initialized, setupComplete, guardEntitlementChecked, guardEntitlementAllowed],
   );
   const guardReloginBlocked = useMemo(
     () => guardBlocked && guardRequireRelogin,
@@ -281,46 +272,38 @@ function App() {
   return (
     <ErrorBoundary>
       <TooltipProvider delayDuration={300}>
-        {trialExpired ? (
+        <>
           <Routes>
-            <Route path="/trial" element={<Trial />} />
-            <Route path="*" element={<Trial />} />
+            {/* Setup wizard (shown on first launch) */}
+            <Route path="/setup/*" element={<Setup />} />
+            <Route path="/org-login" element={<OrgLoginPage message={guardEntitlementMessage} onLoginSuccess={handleOrgLoginSuccess} />} />
+
+            {/* Main application routes */}
+            <Route element={<MainLayout />}>
+              {guardReloginBlocked ? (
+                <Route path="*" element={<GuardReloginLocked message={guardEntitlementMessage} onRelogin={handleRelogin} />} />
+              ) : guardBlocked ? (
+                <>
+                  <Route path="/settings/*" element={<Settings />} />
+                  <Route path="*" element={<GuardEntitlementLocked message={guardEntitlementMessage} />} />
+                </>
+              ) : (
+                <>
+                  <Route path="/settings/*" element={<Settings />} />
+                  <Route path="/" element={<Chat />} />
+                  <Route path="/models" element={<Models />} />
+                  <Route path="/agents" element={<Agents />} />
+                  <Route path="/channels" element={<Channels />} />
+                  <Route path="/skills" element={<Skills />} />
+                  <Route path="/cron" element={<Cron />} />
+                  <Route path="/audit" element={<Audit />} />
+                </>
+              )}
+            </Route>
           </Routes>
-        ) : (
-          <>
-            <Routes>
-              {/* Setup wizard (shown on first launch) */}
-              <Route path="/setup/*" element={<Setup />} />
-              <Route path="/org-login" element={<OrgLoginPage message={guardEntitlementMessage} onLoginSuccess={handleOrgLoginSuccess} />} />
 
-              {/* Main application routes */}
-              <Route element={<MainLayout />}>
-                {guardReloginBlocked ? (
-                  <Route path="*" element={<GuardReloginLocked message={guardEntitlementMessage} onRelogin={handleRelogin} />} />
-                ) : guardBlocked ? (
-                  <>
-                    <Route path="/settings/*" element={<Settings />} />
-                    <Route path="*" element={<GuardEntitlementLocked message={guardEntitlementMessage} />} />
-                  </>
-                ) : (
-                  <>
-                    <Route path="/settings/*" element={<Settings />} />
-                    <Route path="/" element={<Chat />} />
-                    <Route path="/models" element={<Models />} />
-                    <Route path="/agents" element={<Agents />} />
-                    <Route path="/channels" element={<Channels />} />
-                    <Route path="/skills" element={<Skills />} />
-                    <Route path="/cron" element={<Cron />} />
-                    <Route path="/audit" element={<Audit />} />
-                    <Route path="/trial" element={<Trial />} />
-                  </>
-                )}
-              </Route>
-            </Routes>
-
-            <PeriodicRealPersonAuthGuard />
-          </>
-        )}
+          <PeriodicRealPersonAuthGuard />
+        </>
 
         {/* Global toast notifications */}
         <Toaster
