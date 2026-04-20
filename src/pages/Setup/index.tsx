@@ -447,7 +447,7 @@ function RealPersonAuthContent({ onConfiguredChange }: RealPersonAuthContentProp
   const [starting, setStarting] = useState(false);
   const [resetting, setResetting] = useState(false);
   const [checking, setChecking] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState<'idle' | 'qr' | 'success'>('idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
@@ -668,12 +668,14 @@ function RealPersonAuthContent({ onConfiguredChange }: RealPersonAuthContentProp
         </div>
       </div>
 
-      {loading ? (
-        <div className="flex items-center justify-center gap-2 rounded-md border border-dashed py-8 text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" />
+      {loading && (
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <Loader2 className="h-3 w-3 animate-spin" />
           <span>{t('realPerson.loading')}</span>
         </div>
-      ) : status === 'success' ? (
+      )}
+
+      {status === 'success' ? (
         <div className="rounded-2xl border border-green-500/20 bg-green-500/5 p-6 text-center space-y-4">
           <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-green-500/15 text-success">
             <CheckCircle2 className="h-8 w-8" />
