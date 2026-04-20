@@ -186,6 +186,12 @@
             "default": "实人认证已通过。",
             "persisted": "实人认证已完成。"
         },
+        "reset": {
+            "button": "退出认证并重新认证",
+            "confirm": "退出后将删除 .openclaw/.env 中的 MFA_AUTH_API_KEY，并需要重新完成实人认证。确认继续吗？",
+            "success": "已退出实人认证，请重新认证。",
+            "failed": "退出实人认证失败"
+        },
         "loadFailed": "加载 .env 失败",
         "guide": {
             "title": "认证流程说明",

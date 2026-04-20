@@ -15,6 +15,7 @@ vi.mock('@electron/utils/openclaw-doctor', () => ({
 vi.mock('@electron/utils/real-person-auth', () => ({
   checkRealPersonAuth: vi.fn(),
   ensureSetupRealPersonAuthConfig: vi.fn(),
+  resetRealPersonAuth: vi.fn(),
   startRealPersonAuth: vi.fn(),
   startRealPersonAuthWithSavedApiKey: vi.fn(),
 }));

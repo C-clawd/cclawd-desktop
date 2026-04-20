@@ -44,6 +44,11 @@ export type RealPersonAuthCheckResult =
   | { status: 'success'; message: string }
   | { status: 'failed'; message: string; retCode?: number };
 
+export type RealPersonAuthResetResult = {
+  path: string;
+  removed: boolean;
+};
+
 async function createRealPersonAuthSession(apiKey: string): Promise<RealPersonAuthStartResult> {
   const trimmedApiKey = apiKey.trim();
   if (!trimmedApiKey) {
@@ -257,6 +262,16 @@ export async function startRealPersonAuthWithSavedApiKey(): Promise<RealPersonAu
     throw new Error('MFA_AUTH_API_KEY was not found in ~/.openclaw/.env');
   }
   return await createRealPersonAuthSession(savedApiKey);
+}
+
+export async function resetRealPersonAuth(): Promise<RealPersonAuthResetResult> {
+  const current = await readOpenClawEnv();
+  const nextEntries = current.entries.filter((entry) => entry.key !== MFA_AUTH_API_KEY);
+  await writeOpenClawEnv(nextEntries);
+  return {
+    path: current.path,
+    removed: nextEntries.length !== current.entries.length,
+  };
 }
 
 function upsertEnvEntry(entries: OpenClawEnvEntry[], key: string, value: string): OpenClawEnvEntry[] {

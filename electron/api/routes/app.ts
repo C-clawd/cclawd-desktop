@@ -7,6 +7,7 @@ import { readOpenClawEnv, writeOpenClawEnv, type OpenClawEnvEntry } from '../../
 import {
   checkRealPersonAuth,
   ensureSetupRealPersonAuthConfig,
+  resetRealPersonAuth,
   startRealPersonAuth,
   startRealPersonAuthWithSavedApiKey,
 } from '../../utils/real-person-auth';
@@ -106,6 +107,21 @@ export async function handleAppRoutes(
   if (url.pathname === '/api/app/real-person-auth/start-from-saved-key' && req.method === 'POST') {
     try {
       sendJson(res, 200, { success: true, ...(await startRealPersonAuthWithSavedApiKey()) });
+    } catch (error) {
+      sendJson(res, 500, { success: false, error: String(error) });
+    }
+    return true;
+  }
+
+  if (url.pathname === '/api/app/real-person-auth/reset' && req.method === 'POST') {
+    try {
+      const result = await resetRealPersonAuth();
+      await setSetting('periodicAuthLastVerifiedAt', 0);
+      await setSetting('periodicAuthLocked', false);
+      if (ctx.gatewayManager.getStatus().state === 'running') {
+        await ctx.gatewayManager.restart();
+      }
+      sendJson(res, 200, { success: true, ...result });
     } catch (error) {
       sendJson(res, 500, { success: false, error: String(error) });
     }

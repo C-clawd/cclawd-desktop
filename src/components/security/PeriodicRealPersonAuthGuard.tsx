@@ -197,6 +197,9 @@ export function PeriodicRealPersonAuthGuard() {
 
           if (response.status === 'success') {
             clearPollTimer();
+            await hostApiFetch('/api/app/periodic-auth/complete', { method: 'POST' }).catch((error) => {
+              console.warn('Failed to refresh periodic auth timer after periodic verification:', error);
+            });
             lockRequestedRef.current = false;
             setChecking(false);
             setOpen(false);

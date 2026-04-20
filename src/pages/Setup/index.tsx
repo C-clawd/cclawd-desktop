@@ -3,7 +3,7 @@
  * First-time setup experience for new users
  */
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Check,
@@ -151,6 +151,7 @@ function getProtocolBaseUrlPlaceholder(
 export function Setup() {
   const { t } = useTranslation(['setup', 'channels']);
   const navigate = useNavigate();
+  const location = useLocation();
   const [currentStep, setCurrentStep] = useState<number>(STEP.WELCOME);
 
   // Setup state
@@ -165,6 +166,7 @@ export function Setup() {
 
   // Feature flags
   const realPersonAuthEnabled = useSettingsStore((state) => state.realPersonAuthEnabled);
+  const initialStepAppliedRef = useRef(false);
 
   const steps = useMemo(() => getSteps(t, realPersonAuthEnabled), [t, realPersonAuthEnabled]);
   const safeStepIndex = Number.isInteger(currentStep)
@@ -224,6 +226,19 @@ export function Setup() {
       setCurrentStep((i) => i + 1);
     }, 1000);
   }, []);
+
+  useEffect(() => {
+    if (initialStepAppliedRef.current) return;
+    const stepQuery = new URLSearchParams(location.search).get('step');
+    if (!stepQuery) {
+      initialStepAppliedRef.current = true;
+      return;
+    }
+
+    const targetStepIndex = steps.findIndex((item) => item.id === stepQuery);
+    setCurrentStep(targetStepIndex >= 0 ? targetStepIndex : STEP.WELCOME);
+    initialStepAppliedRef.current = true;
+  }, [location.search, steps]);
 
 
   return (
@@ -416,6 +431,13 @@ type RealPersonAuthCheckResponse = {
   error?: string;
 };
 
+type RealPersonAuthResetResponse = {
+  success?: boolean;
+  path?: string;
+  removed?: boolean;
+  error?: string;
+};
+
 function RealPersonAuthContent({ onConfiguredChange }: RealPersonAuthContentProps) {
   const { t } = useTranslation('setup');
   const [envPath, setEnvPath] = useState('');
@@ -423,6 +445,7 @@ function RealPersonAuthContent({ onConfiguredChange }: RealPersonAuthContentProp
   const [idCard, setIdCard] = useState('');
   const [showIdCard, setShowIdCard] = useState(false);
   const [starting, setStarting] = useState(false);
+  const [resetting, setResetting] = useState(false);
   const [checking, setChecking] = useState(false);
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState<'idle' | 'qr' | 'success'>('idle');
@@ -503,6 +526,9 @@ function RealPersonAuthContent({ onConfiguredChange }: RealPersonAuthContentProp
             setChecking(false);
             setErrorMessage(null);
             setStatusMessage(response.message || t('realPerson.success.default'));
+            await hostApiFetch('/api/app/periodic-auth/complete', { method: 'POST' }).catch((error) => {
+              console.warn('Failed to refresh periodic auth timer after setup verification:', error);
+            });
             await useSettingsStore.getState().init();
             onConfiguredChange(true);
             toast.success(t('realPerson.saved'));
@@ -586,6 +612,42 @@ function RealPersonAuthContent({ onConfiguredChange }: RealPersonAuthContentProp
     await handleStart();
   };
 
+  const handleReset = async () => {
+    const confirmed = window.confirm(t('realPerson.reset.confirm'));
+    if (!confirmed) {
+      return;
+    }
+
+    clearPollTimer();
+    setResetting(true);
+    setChecking(false);
+    setStarting(false);
+    setSession(null);
+    setErrorMessage(null);
+    setStatusMessage(null);
+
+    try {
+      const response = await hostApiFetch<RealPersonAuthResetResponse>('/api/app/real-person-auth/reset', {
+        method: 'POST',
+      });
+      if (response?.success === false) {
+        throw new Error(response.error || 'Failed to reset verification');
+      }
+
+      await useSettingsStore.getState().init();
+      setStatus('idle');
+      onConfiguredChange(false);
+      toast.success(t('realPerson.reset.success'));
+    } catch (error) {
+      setStatus('success');
+      setErrorMessage(String(error));
+      toast.error(t('realPerson.reset.failed'));
+      onConfiguredChange(true);
+    } finally {
+      setResetting(false);
+    }
+  };
+
   return (
     <div className="space-y-5">
       <div className="space-y-1">
@@ -619,6 +681,16 @@ function RealPersonAuthContent({ onConfiguredChange }: RealPersonAuthContentProp
           <div className="space-y-1">
             <h3 className="text-lg font-semibold">{t('realPerson.success.title')}</h3>
             <p className="text-sm text-muted-foreground">{statusMessage || t('realPerson.success.default')}</p>
+          </div>
+          <div className="flex justify-center">
+            <Button
+              variant="outline"
+              onClick={() => void handleReset()}
+              disabled={resetting}
+            >
+              {resetting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              {t('realPerson.reset.button')}
+            </Button>
           </div>
         </div>
       ) : (

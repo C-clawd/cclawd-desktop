@@ -3,6 +3,7 @@
  * Application configuration
  */
 import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   RefreshCw,
   ExternalLink,
@@ -43,8 +44,14 @@ type ControlUiInfo = {
   port: number;
 };
 
+type RealPersonAuthResetResponse = {
+  success?: boolean;
+  error?: string;
+};
+
 export function Settings() {
   const { t } = useTranslation('settings');
+  const navigate = useNavigate();
   const {
     language,
     setLanguage,
@@ -98,6 +105,7 @@ export function Settings() {
   const [showLogs, setShowLogs] = useState(false);
   const [logContent, setLogContent] = useState('');
   const [doctorRunningMode, setDoctorRunningMode] = useState<'diagnose' | 'fix' | null>(null);
+  const [resettingRealPersonAuth, setResettingRealPersonAuth] = useState(false);
   const [doctorResult, setDoctorResult] = useState<{
     mode: 'diagnose' | 'fix';
     success: boolean;
@@ -444,6 +452,31 @@ export function Settings() {
     );
   };
 
+  const handleResetRealPersonAuth = async () => {
+    const confirmed = window.confirm(t('advanced.realPersonAuthResetConfirm'));
+    if (!confirmed) {
+      return;
+    }
+
+    setResettingRealPersonAuth(true);
+    try {
+      const response = await hostApiFetch<RealPersonAuthResetResponse>('/api/app/real-person-auth/reset', {
+        method: 'POST',
+      });
+      if (response?.success === false) {
+        throw new Error(response.error || 'Failed to reset real-person auth');
+      }
+      await useSettingsStore.getState().init();
+      useSettingsStore.setState({ setupComplete: false });
+      toast.success(t('advanced.realPersonAuthResetSuccess'));
+      navigate('/setup?step=realPerson');
+    } catch (error) {
+      toast.error(`${t('advanced.realPersonAuthResetFailed')}: ${toUserMessage(error)}`);
+    } finally {
+      setResettingRealPersonAuth(false);
+    }
+  };
+
   return (
     <div className="flex flex-col -m-6 dark:bg-background h-[calc(100vh-2.5rem)] overflow-hidden">
       <div className="w-full max-w-5xl mx-auto flex flex-col h-full p-10 pt-16">
@@ -606,10 +639,23 @@ export function Settings() {
                     {t('advanced.realPersonAuthDesc')}
                   </p>
                 </div>
-                <Switch
-                  checked={realPersonAuthEnabled}
-                  onCheckedChange={setRealPersonAuthEnabled}
-                />
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => void handleResetRealPersonAuth()}
+                    disabled={resettingRealPersonAuth}
+                    className="rounded-full h-8 px-4 border-black/10 dark:border-white/10 bg-transparent hover:bg-black/5 dark:hover:bg-white/5"
+                  >
+                    {resettingRealPersonAuth ? <RefreshCw className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : null}
+                    {t('advanced.realPersonAuthReset')}
+                  </Button>
+                  <Switch
+                    checked={realPersonAuthEnabled}
+                    onCheckedChange={setRealPersonAuthEnabled}
+                  />
+                </div>
               </div>
 
             </div>

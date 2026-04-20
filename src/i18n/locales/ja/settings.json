@@ -206,7 +206,15 @@
       }
     },
     "devMode": "開発者モード",
-    "devModeDesc": "開発者ツールとショートカットを表示"
+    "devModeDesc": "開発者ツールとショートカットを表示",
+    "telemetry": "匿名利用データ",
+    "telemetryDesc": "Cclawd 改善のため、匿名の基本利用データ提供を許可します",
+    "realPersonAuth": "本人確認",
+    "realPersonAuthDesc": "セットアップ時の本人確認ステップと 24 時間ごとの本人確認を有効化します（変更後は再初期化が必要）",
+    "realPersonAuthReset": "解除して再認証",
+    "realPersonAuthResetConfirm": ".openclaw/.env から MFA_AUTH_API_KEY を削除し、本人確認をやり直します。続行しますか？",
+    "realPersonAuthResetSuccess": "本人確認を解除しました。再認証してください。",
+    "realPersonAuthResetFailed": "本人確認の解除に失敗しました"
   },
   "developer": {
     "title": "開発者",

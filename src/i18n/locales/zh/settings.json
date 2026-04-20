@@ -211,7 +211,11 @@
     "telemetry": "匿名使用数据",
     "telemetryDesc": "允许提供匿名的基础使用数据，用于改进 Cclawd",
     "realPersonAuth": "实名认证",
-    "realPersonAuthDesc": "启用初始化向导实名认证步骤和每24小时一次的实名认证（修改后需重新初始化生效）"
+    "realPersonAuthDesc": "启用初始化向导实名认证步骤和每24小时一次的实名认证（修改后需重新初始化生效）",
+    "realPersonAuthReset": "退出并重认证",
+    "realPersonAuthResetConfirm": "将删除 .openclaw/.env 中的 MFA_AUTH_API_KEY，并需要重新进行实人认证。确认继续吗？",
+    "realPersonAuthResetSuccess": "已退出实人认证，请重新认证",
+    "realPersonAuthResetFailed": "退出实人认证失败"
   },
   "developer": {
     "title": "开发者",

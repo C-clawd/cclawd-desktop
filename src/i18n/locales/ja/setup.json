@@ -186,6 +186,12 @@
             "default": "本人確認が完了しました。",
             "persisted": "本人確認はすでに完了しています。"
         },
+        "reset": {
+            "button": "認証を解除して再認証",
+            "confirm": ".openclaw/.env から MFA_AUTH_API_KEY を削除し、本人確認をやり直します。続行しますか？",
+            "success": "本人確認を解除しました。再認証してください。",
+            "failed": "本人確認の解除に失敗しました"
+        },
         "loadFailed": ".env の読み込みに失敗しました",
         "guide": {
             "title": "認証フロー",

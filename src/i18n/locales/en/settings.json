@@ -211,7 +211,11 @@
     "telemetry": "Anonymous Usage Data",
     "telemetryDesc": "Allow providing anonymous basic usage data to improve Cclawd",
     "realPersonAuth": "Real-Person Authentication",
-    "realPersonAuthDesc": "Enable real-person authentication in setup wizard and every 24 hours (requires re-initialization after change)"
+    "realPersonAuthDesc": "Enable real-person authentication in setup wizard and every 24 hours (requires re-initialization after change)",
+    "realPersonAuthReset": "Sign out & re-verify",
+    "realPersonAuthResetConfirm": "This will remove MFA_AUTH_API_KEY from .openclaw/.env and require real-person verification again. Continue?",
+    "realPersonAuthResetSuccess": "Real-person verification was signed out. Please verify again.",
+    "realPersonAuthResetFailed": "Failed to sign out real-person verification"
   },
   "developer": {
     "title": "Developer",

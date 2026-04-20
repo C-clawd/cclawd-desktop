@@ -122,6 +122,12 @@
             "default": "Real-person verification succeeded.",
             "persisted": "Real-person verification is already complete."
         },
+        "reset": {
+            "button": "Sign out and re-verify",
+            "confirm": "This will remove MFA_AUTH_API_KEY from .openclaw/.env and require verification again. Continue?",
+            "success": "Verification has been signed out. Please verify again.",
+            "failed": "Failed to sign out verification"
+        },
         "loadFailed": "Failed to load .env",
         "guide": {
             "title": "Verification Flow",
