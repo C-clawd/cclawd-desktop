@@ -2,13 +2,17 @@
  * Settings Page
  * Application configuration
  */
-import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  AlertCircle,
+  Eye,
+  EyeOff,
   RefreshCw,
   ExternalLink,
   Copy,
   FileText,
+  Loader2,
+  X,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -49,9 +53,32 @@ type RealPersonAuthResetResponse = {
   error?: string;
 };
 
+type RealPersonAuthStartResponse = {
+  success?: boolean;
+  apiKey?: string;
+  certToken?: string;
+  qrCodeUrl?: string;
+  qrCodeDataUrl?: string;
+  error?: string;
+};
+
+type RealPersonAuthCheckResponse = {
+  success?: boolean;
+  status?: 'pending' | 'success' | 'failed';
+  message?: string;
+  retCode?: number;
+  error?: string;
+};
+
+type RealPersonAuthSession = {
+  apiKey: string;
+  certToken: string;
+  qrCodeUrl: string;
+  qrCodeDataUrl: string;
+};
+
 export function Settings() {
   const { t } = useTranslation('settings');
-  const navigate = useNavigate();
   const {
     language,
     setLanguage,
@@ -106,6 +133,17 @@ export function Settings() {
   const [logContent, setLogContent] = useState('');
   const [doctorRunningMode, setDoctorRunningMode] = useState<'diagnose' | 'fix' | null>(null);
   const [resettingRealPersonAuth, setResettingRealPersonAuth] = useState(false);
+  const [showReauthDialog, setShowReauthDialog] = useState(false);
+  const [reauthName, setReauthName] = useState('');
+  const [reauthIdCard, setReauthIdCard] = useState('');
+  const [showReauthIdCard, setShowReauthIdCard] = useState(false);
+  const [reauthStarting, setReauthStarting] = useState(false);
+  const [reauthChecking, setReauthChecking] = useState(false);
+  const [reauthStatus, setReauthStatus] = useState<'idle' | 'qr' | 'success'>('idle');
+  const [reauthError, setReauthError] = useState<string | null>(null);
+  const [reauthStatusMessage, setReauthStatusMessage] = useState<string | null>(null);
+  const [reauthSession, setReauthSession] = useState<RealPersonAuthSession | null>(null);
+  const reauthPollTimerRef = useRef<number | null>(null);
   const [doctorResult, setDoctorResult] = useState<{
     mode: 'diagnose' | 'fix';
     success: boolean;
@@ -118,6 +156,13 @@ export function Settings() {
     timedOut?: boolean;
     error?: string;
   } | null>(null);
+
+  const clearReauthPollTimer = () => {
+    if (reauthPollTimerRef.current !== null) {
+      window.clearTimeout(reauthPollTimerRef.current);
+      reauthPollTimerRef.current = null;
+    }
+  };
 
   const handleShowLogs = async () => {
     try {
@@ -452,6 +497,115 @@ export function Settings() {
     );
   };
 
+  const scheduleReauthStatusCheck = (activeSession: RealPersonAuthSession) => {
+    clearReauthPollTimer();
+    reauthPollTimerRef.current = window.setTimeout(() => {
+      void (async () => {
+        setReauthChecking(true);
+        try {
+          const response = await hostApiFetch<RealPersonAuthCheckResponse>('/api/app/real-person-auth/check', {
+            method: 'POST',
+            body: JSON.stringify({
+              apiKey: activeSession.apiKey,
+              certToken: activeSession.certToken,
+              context: 'setup',
+            }),
+          });
+
+          if (response?.success === false) {
+            throw new Error(response.error || 'Failed to check verification status');
+          }
+
+          if (response.status === 'success') {
+            clearReauthPollTimer();
+            setReauthStatus('success');
+            setReauthChecking(false);
+            setReauthError(null);
+            setReauthStatusMessage(response.message || t('setup:realPerson.success.default'));
+            await useSettingsStore.getState().init();
+            toast.success(t('setup:realPerson.saved'));
+            return;
+          }
+
+          if (response.status === 'pending') {
+            setReauthError(null);
+            setReauthStatusMessage(response.message || t('setup:realPerson.pending'));
+            scheduleReauthStatusCheck(activeSession);
+            return;
+          }
+
+          clearReauthPollTimer();
+          setReauthChecking(false);
+          setReauthError(response.message || t('setup:realPerson.statusFailed'));
+          setReauthStatusMessage(null);
+        } catch (error) {
+          clearReauthPollTimer();
+          setReauthChecking(false);
+          setReauthError(String(error));
+          setReauthStatusMessage(null);
+        }
+      })();
+    }, 2_000);
+  };
+
+  const handleStartRealPersonReauth = async () => {
+    if (!reauthName.trim() || !reauthIdCard.trim()) {
+      setReauthError(t('setup:realPerson.validation.required'));
+      return;
+    }
+
+    clearReauthPollTimer();
+    setReauthStarting(true);
+    setReauthChecking(false);
+    setReauthError(null);
+    setReauthStatusMessage(null);
+
+    try {
+      const response = await hostApiFetch<RealPersonAuthStartResponse>('/api/app/real-person-auth/start', {
+        method: 'POST',
+        body: JSON.stringify({ name: reauthName.trim(), idCard: reauthIdCard.trim() }),
+      });
+
+      if (response?.success === false) {
+        throw new Error(response.error || 'Failed to start verification');
+      }
+
+      if (!response.apiKey || !response.certToken || !response.qrCodeUrl || !response.qrCodeDataUrl) {
+        throw new Error(t('setup:realPerson.startFailed'));
+      }
+
+      const nextSession: RealPersonAuthSession = {
+        apiKey: response.apiKey,
+        certToken: response.certToken,
+        qrCodeUrl: response.qrCodeUrl,
+        qrCodeDataUrl: response.qrCodeDataUrl,
+      };
+      setReauthSession(nextSession);
+      setReauthStatus('qr');
+      setReauthChecking(true);
+      setReauthStatusMessage(t('setup:realPerson.pending'));
+      scheduleReauthStatusCheck(nextSession);
+    } catch (error) {
+      setReauthStatus('idle');
+      setReauthSession(null);
+      setReauthError(String(error));
+      toast.error(t('setup:realPerson.startFailed'));
+    } finally {
+      setReauthStarting(false);
+    }
+  };
+
+  const handleCloseReauthDialog = () => {
+    clearReauthPollTimer();
+    setShowReauthDialog(false);
+    setReauthSession(null);
+    setReauthStatus('idle');
+    setReauthChecking(false);
+    setReauthStarting(false);
+    setReauthError(null);
+    setReauthStatusMessage(null);
+  };
+
   const handleResetRealPersonAuth = async () => {
     const confirmed = window.confirm(t('advanced.realPersonAuthResetConfirm'));
     if (!confirmed) {
@@ -467,15 +621,27 @@ export function Settings() {
         throw new Error(response.error || 'Failed to reset real-person auth');
       }
       await useSettingsStore.getState().init();
-      useSettingsStore.setState({ setupComplete: false });
       toast.success(t('advanced.realPersonAuthResetSuccess'));
-      navigate('/setup?step=realPerson');
+      setReauthName('');
+      setReauthIdCard('');
+      setShowReauthIdCard(false);
+      setReauthSession(null);
+      setReauthStatus('idle');
+      setReauthChecking(false);
+      setReauthStarting(false);
+      setReauthError(null);
+      setReauthStatusMessage(null);
+      setShowReauthDialog(true);
     } catch (error) {
       toast.error(`${t('advanced.realPersonAuthResetFailed')}: ${toUserMessage(error)}`);
     } finally {
       setResettingRealPersonAuth(false);
     }
   };
+
+  useEffect(() => () => {
+    clearReauthPollTimer();
+  }, []);
 
   return (
     <div className="flex flex-col -m-6 dark:bg-background h-[calc(100vh-2.5rem)] overflow-hidden">
@@ -1114,6 +1280,148 @@ export function Settings() {
 
         </div>
       </div>
+
+      {showReauthDialog && (
+        <div className="fixed inset-0 z-[100001] flex items-center justify-center bg-black/75 px-4 py-8 backdrop-blur-sm">
+          <div className="w-full max-w-xl rounded-3xl border border-white/10 bg-background p-6 shadow-2xl">
+            <div className="mb-4 flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-xl font-semibold">{t('setup:realPerson.title')}</h2>
+                <p className="mt-1 text-sm text-muted-foreground">{t('setup:realPerson.subtitle')}</p>
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={handleCloseReauthDialog}
+                className="h-8 w-8 rounded-full"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+
+            {reauthStatus === 'success' ? (
+              <div className="space-y-4">
+                <div className="rounded-xl border border-green-500/20 bg-green-500/5 p-3 text-sm text-green-700 dark:text-green-300">
+                  {reauthStatusMessage || t('setup:realPerson.success.default')}
+                </div>
+                <div className="flex justify-end">
+                  <Button type="button" onClick={handleCloseReauthDialog}>
+                    {t('common:actions.close')}
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="settings-reauth-name">{t('setup:realPerson.name')}</Label>
+                    <Input
+                      id="settings-reauth-name"
+                      value={reauthName}
+                      onChange={(event) => setReauthName(event.target.value)}
+                      placeholder={t('setup:realPerson.namePlaceholder')}
+                      autoComplete="name"
+                      disabled={reauthStarting || reauthChecking || reauthStatus === 'qr'}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="settings-reauth-id-card">{t('setup:realPerson.idCard')}</Label>
+                    <div className="relative">
+                      <Input
+                        id="settings-reauth-id-card"
+                        type={showReauthIdCard ? 'text' : 'password'}
+                        value={reauthIdCard}
+                        onChange={(event) => setReauthIdCard(event.target.value)}
+                        placeholder={t('setup:realPerson.idCardPlaceholder')}
+                        autoComplete="off"
+                        disabled={reauthStarting || reauthChecking || reauthStatus === 'qr'}
+                        className="pr-10"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowReauthIdCard((visible) => !visible)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                        aria-label={showReauthIdCard ? t('setup:realPerson.hideIdCard') : t('setup:realPerson.showIdCard')}
+                        disabled={reauthStarting || reauthChecking || reauthStatus === 'qr'}
+                      >
+                        {showReauthIdCard ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {reauthError && (
+                  <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-3 text-sm text-red-500">
+                    <div className="flex items-start gap-2">
+                      <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                      <span>{reauthError}</span>
+                    </div>
+                  </div>
+                )}
+
+                {reauthStatus === 'qr' && reauthSession && (
+                  <div className="space-y-3 rounded-xl border border-black/10 dark:border-white/10 p-4">
+                    <div className="text-center">
+                      <h3 className="text-base font-semibold">{t('setup:realPerson.qr.title')}</h3>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        {reauthChecking ? t('setup:realPerson.qr.subtitleChecking') : t('setup:realPerson.qr.subtitle')}
+                      </p>
+                    </div>
+                    <div className="mx-auto w-full max-w-xs rounded-2xl border bg-white p-1 shadow-sm">
+                      <img
+                        src={reauthSession.qrCodeDataUrl}
+                        alt={t('setup:realPerson.qr.alt')}
+                        className="mx-auto h-full w-full"
+                      />
+                    </div>
+                    <div className="rounded-xl bg-background/70 p-3 text-sm text-muted-foreground break-all">
+                      {reauthSession.qrCodeUrl}
+                    </div>
+                    {reauthStatusMessage && (
+                      <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+                        {reauthChecking ? <Loader2 className="h-4 w-4 animate-spin text-blue-500" /> : null}
+                        <span>{reauthStatusMessage}</span>
+                      </div>
+                    )}
+                    <div className="flex flex-wrap justify-end gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => void invokeIpc('shell:openExternal', reauthSession.qrCodeUrl)}
+                      >
+                        <ExternalLink className="mr-2 h-4 w-4" />
+                        {t('setup:realPerson.qr.open')}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => void handleStartRealPersonReauth()}
+                        disabled={reauthStarting}
+                      >
+                        {reauthStarting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
+                        {t('setup:realPerson.refreshQr')}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {reauthStatus === 'idle' && (
+                  <Button
+                    type="button"
+                    onClick={() => void handleStartRealPersonReauth()}
+                    disabled={reauthStarting || !reauthName.trim() || !reauthIdCard.trim()}
+                    className="w-full"
+                  >
+                    {reauthStarting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                    {t('setup:realPerson.start')}
+                  </Button>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
