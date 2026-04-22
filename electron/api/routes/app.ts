@@ -90,14 +90,21 @@ export async function handleAppRoutes(
     try {
       const body = await parseJsonBody<{ apiKey?: string; certToken?: string; context?: 'setup' | 'periodic' }>(req);
       const result = await checkRealPersonAuth(body.apiKey || '', body.certToken || '');
+      let restartGatewayAfterResponse = false;
       if (result.status === 'success') {
         await ensureTrialStartAt();
         if (body.context === 'setup') {
           await ensureSetupRealPersonAuthConfig();
+          restartGatewayAfterResponse = ctx.gatewayManager.getStatus().state === 'running';
         }
         await markPeriodicAuthComplete();
       }
       sendJson(res, 200, { success: true, ...result });
+      if (restartGatewayAfterResponse) {
+        void ctx.gatewayManager.restart().catch((error) => {
+          console.error('Failed to restart gateway after real-person auth success:', error);
+        });
+      }
     } catch (error) {
       sendJson(res, 500, { success: false, error: String(error) });
     }
@@ -118,9 +125,6 @@ export async function handleAppRoutes(
       const result = await resetRealPersonAuth();
       await setSetting('periodicAuthLastVerifiedAt', 0);
       await setSetting('periodicAuthLocked', false);
-      if (ctx.gatewayManager.getStatus().state === 'running') {
-        await ctx.gatewayManager.restart();
-      }
       sendJson(res, 200, { success: true, ...result });
     } catch (error) {
       sendJson(res, 500, { success: false, error: String(error) });

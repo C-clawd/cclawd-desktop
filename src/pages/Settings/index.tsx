@@ -20,6 +20,7 @@ import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { toast } from 'sonner';
 import { useSettingsStore } from '@/stores/settings';
 import { useGatewayStore } from '@/stores/gateway';
@@ -133,6 +134,7 @@ export function Settings() {
   const [logContent, setLogContent] = useState('');
   const [doctorRunningMode, setDoctorRunningMode] = useState<'diagnose' | 'fix' | null>(null);
   const [resettingRealPersonAuth, setResettingRealPersonAuth] = useState(false);
+  const [confirmResetOpen, setConfirmResetOpen] = useState(false);
   const [showReauthDialog, setShowReauthDialog] = useState(false);
   const [reauthName, setReauthName] = useState('');
   const [reauthIdCard, setReauthIdCard] = useState('');
@@ -606,12 +608,7 @@ export function Settings() {
     setReauthStatusMessage(null);
   };
 
-  const handleResetRealPersonAuth = async () => {
-    const confirmed = window.confirm(t('advanced.realPersonAuthResetConfirm'));
-    if (!confirmed) {
-      return;
-    }
-
+  const executeResetRealPersonAuth = async () => {
     setResettingRealPersonAuth(true);
     try {
       const response = await hostApiFetch<RealPersonAuthResetResponse>('/api/app/real-person-auth/reset', {
@@ -620,7 +617,6 @@ export function Settings() {
       if (response?.success === false) {
         throw new Error(response.error || 'Failed to reset real-person auth');
       }
-      await useSettingsStore.getState().init();
       toast.success(t('advanced.realPersonAuthResetSuccess'));
       setReauthName('');
       setReauthIdCard('');
@@ -632,6 +628,7 @@ export function Settings() {
       setReauthError(null);
       setReauthStatusMessage(null);
       setShowReauthDialog(true);
+      void useSettingsStore.getState().init();
     } catch (error) {
       toast.error(`${t('advanced.realPersonAuthResetFailed')}: ${toUserMessage(error)}`);
     } finally {
@@ -810,7 +807,7 @@ export function Settings() {
                     type="button"
                     variant="outline"
                     size="sm"
-                    onClick={() => void handleResetRealPersonAuth()}
+                    onClick={() => setConfirmResetOpen(true)}
                     disabled={resettingRealPersonAuth}
                     className="rounded-full h-8 px-4 border-black/10 dark:border-white/10 bg-transparent hover:bg-black/5 dark:hover:bg-white/5"
                   >
@@ -1422,6 +1419,19 @@ export function Settings() {
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        open={confirmResetOpen}
+        title={t('advanced.realPersonAuthReset')}
+        message={t('advanced.realPersonAuthResetConfirm')}
+        confirmLabel={t('advanced.realPersonAuthReset')}
+        cancelLabel={t('common:actions.cancel')}
+        onCancel={() => setConfirmResetOpen(false)}
+        onConfirm={async () => {
+          setConfirmResetOpen(false);
+          await executeResetRealPersonAuth();
+        }}
+      />
     </div>
   );
 }
