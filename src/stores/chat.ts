@@ -995,7 +995,6 @@ export const useChatStore = create<ChatState>((set, get) => ({
   sessionLabels: {},
   sessionLastActivity: {},
 
-  showThinking: true,
   thinkingLevel: null,
 
   // ── Load sessions via sessions.list ──
@@ -1959,10 +1958,6 @@ export const useChatStore = create<ChatState>((set, get) => ({
       }
     }
   },
-
-  // ── Toggle thinking visibility ──
-
-  toggleThinking: () => set((s) => ({ showThinking: !s.showThinking })),
 
   // ── Refresh: reload history + sessions ──
 
