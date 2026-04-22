@@ -99,6 +99,7 @@ Complete the entire setup—from installation to your first AI interaction—thr
 
 ### 💬 Intelligent Chat Interface
 Communicate with AI agents through a modern chat experience. Support for multiple conversation contexts, message history, rich content rendering with Markdown, and direct `@agent` routing in the main composer for multi-agent setups.
+During each run, the chat view can render an Execution Graph that unfolds model thinking, tool calls, and process narration while keeping the final reply in a clean assistant bubble.
 When you target another agent with `@agent`, Cclawd switches into that agent's own conversation context directly instead of relaying through the default agent. Agent workspaces stay separate by default, and stronger isolation depends on OpenClaw sandbox settings.
 
 ### 📡 Multi-Channel Management

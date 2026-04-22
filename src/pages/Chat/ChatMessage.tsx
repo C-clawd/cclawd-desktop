@@ -4,7 +4,7 @@
  * with markdown, thinking sections, images, and tool cards.
  */
 import { useState, useCallback, useEffect, memo } from 'react';
-import { Sparkles, Bot, Copy, Check, ChevronDown, ChevronRight, Wrench, FileText, Film, Music, FileArchive, File, X, FolderOpen, ZoomIn, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Sparkles, Copy, Check, ChevronDown, ChevronRight, Wrench, FileText, Film, Music, FileArchive, File, X, FolderOpen, ZoomIn, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { createPortal } from 'react-dom';
@@ -16,7 +16,17 @@ import { extractText, extractThinking, extractImages, extractToolUse, formatTime
 
 interface ChatMessageProps {
   message: RawMessage;
-  showThinking: boolean;
+  textOverride?: string;
+  suppressToolCards?: boolean;
+  suppressProcessAttachments?: boolean;
+  /**
+   * When true, hides the assistant text bubble (and any thinking block that
+   * would be shown above it). Used when the message's text is being folded
+   * into an ExecutionGraphCard as a narration step, to prevent the same text
+   * from appearing both inside the graph and as an orphan bubble in the chat
+   * stream.
+   */
+  suppressAssistantText?: boolean;
   isStreaming?: boolean;
   streamingTools?: Array<{
     id?: string;
@@ -39,22 +49,34 @@ function imageSrc(img: ExtractedImage): string | null {
 
 export const ChatMessage = memo(function ChatMessage({
   message,
-  showThinking,
+  textOverride,
+  suppressToolCards = false,
+  suppressProcessAttachments = false,
+  suppressAssistantText = false,
   isStreaming = false,
   streamingTools = [],
 }: ChatMessageProps) {
   const isUser = message.role === 'user';
   const role = typeof message.role === 'string' ? message.role.toLowerCase() : '';
   const isToolResult = role === 'toolresult' || role === 'tool_result';
-  const text = extractText(message);
-  const hasText = text.trim().length > 0;
-  const thinking = extractThinking(message);
+  const text = textOverride ?? extractText(message);
+  // When text is folded into an ExecutionGraphCard, treat the message as
+  // having no text for rendering purposes. Keeping this behind a flag (vs
+  // blanking `text` outright) lets future hover affordances still read the
+  // original content without surfacing the bubble.
+  const hideAssistantText = suppressAssistantText && !isUser;
+  const hasText = !hideAssistantText && text.trim().length > 0;
+  const visibleThinkingRaw = extractThinking(message);
+  const visibleThinking = hideAssistantText ? null : visibleThinkingRaw;
   const images = extractImages(message);
   const tools = extractToolUse(message);
-  const visibleThinking = showThinking ? thinking : null;
-  const visibleTools = tools;
+  const visibleTools = suppressToolCards ? [] : tools;
+  const shouldHideProcessAttachments = suppressProcessAttachments
+    && (hasText || !!visibleThinking || images.length > 0 || visibleTools.length > 0);
 
-  const attachedFiles = message._attachedFiles || [];
+  const attachedFiles = shouldHideProcessAttachments
+    ? (message._attachedFiles || []).filter((file) => file.source !== 'tool-result')
+    : (message._attachedFiles || []);
   const [lightboxImg, setLightboxImg] = useState<{ src: string; fileName: string; filePath?: string; base64?: string; mimeType?: string } | null>(null);
 
   // Never render tool result messages in chat UI
@@ -72,8 +94,8 @@ export const ChatMessage = memo(function ChatMessage({
     >
       {/* Avatar */}
       {!isUser && (
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full mt-1 bg-[#eff1f8] dark:bg-white/5 text-foreground">
-          <Bot className="h-4 w-4" />
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full mt-1 bg-black/5 dark:bg-white/5 text-foreground">
+          <Sparkles className="h-4 w-4" />
         </div>
       )}
 
@@ -337,8 +359,8 @@ function MessageBubble({
         'relative rounded-2xl px-4 py-3',
         !isUser && 'w-full',
         isUser
-          ? 'bg-[#0233cb] text-white shadow-sm'
-          : 'bg-[#eff1f8] dark:bg-white/5 text-foreground',
+          ? 'bg-[#0a84ff] text-white shadow-sm'
+          : 'bg-black/5 dark:bg-white/5 text-foreground',
       )}
     >
       {isUser ? (
@@ -393,7 +415,7 @@ function ThinkingBlock({ content }: { content: string }) {
   const [expanded, setExpanded] = useState(false);
 
   return (
-    <div className="w-full rounded-xl border border-black/10 dark:border-white/10 bg-[#eff1f8] dark:bg-white/5 text-[14px]">
+    <div className="w-full rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5 text-[14px]">
       <button
         className="flex items-center gap-2 w-full px-3 py-2 text-muted-foreground hover:text-foreground transition-colors"
         onClick={() => setExpanded(!expanded)}
@@ -603,7 +625,7 @@ function ToolCard({ name, input }: { name: string; input: unknown }) {
   const [expanded, setExpanded] = useState(false);
 
   return (
-    <div className="rounded-xl border border-black/10 dark:border-white/10 bg-[#eff1f8] dark:bg-white/5 text-[14px]">
+    <div className="rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5 text-[14px]">
       <button
         className="flex items-center gap-2 w-full px-3 py-1.5 text-muted-foreground hover:text-foreground transition-colors"
         onClick={() => setExpanded(!expanded)}

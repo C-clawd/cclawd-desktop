@@ -2,7 +2,7 @@
     "gatewayNotRunning": "Gateway Not Running",
     "gatewayRequired": "The OpenClaw Gateway needs to be running to use chat. It will start automatically, or you can start it from Settings.",
     "welcome": {
-        "title": "Cclawd Chat",
+        "title": "ClawX Chat",
         "subtitle": "What can I do for you?",
         "askQuestions": "Handle Tasks",
         "askQuestionsDesc": "Work on task-oriented requests",
@@ -13,9 +13,31 @@
     "noLogs": "(No logs available yet)",
     "toolbar": {
         "refresh": "Refresh chat",
-        "showThinking": "Show thinking",
-        "hideThinking": "Hide thinking",
         "currentAgent": "Talking to {{agent}}"
+    },
+    "taskPanel": {
+        "eyebrow": "Run View",
+        "title": "Task Outline",
+        "emptyTitle": "No structured steps yet",
+        "emptyBody": "Once a run starts, ClawX will surface thinking, tool calls, and handoff states here.",
+        "status": {
+            "idle": "Idle",
+            "running_one": "1 active step",
+            "running_other": "{{count}} active steps"
+        },
+        "stepStatus": {
+            "running": "Running",
+            "completed": "Done",
+            "error": "Error"
+        }
+    },
+    "executionGraph": {
+        "title": "Execution Graph",
+        "branchLabel": "branch",
+        "thinkingLabel": "Thinking",
+        "agentRun": "{{agent}} execution",
+        "collapsedSummary": "{{toolCount}} tool calls · {{processCount}} process messages",
+        "collapseAction": "Collapse execution graph"
     },
     "composer": {
         "attachFiles": "Attach files",

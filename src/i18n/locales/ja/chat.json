@@ -2,7 +2,7 @@
     "gatewayNotRunning": "ゲートウェイが停止中",
     "gatewayRequired": "チャットを利用するには OpenClaw ゲートウェイが実行されている必要があります。自動的に起動するか、設定から起動できます。",
     "welcome": {
-        "title": "Cclawd チャット",
+        "title": "ClawX チャット",
         "subtitle": "お手伝いできることはありますか？",
         "askQuestions": "タスク対応",
         "askQuestionsDesc": "タスク指向の依頼に対応します",
@@ -13,9 +13,31 @@
     "noLogs": "（ログはまだありません）",
     "toolbar": {
         "refresh": "チャットを更新",
-        "showThinking": "思考を表示",
-        "hideThinking": "思考を非表示",
         "currentAgent": "現在の会話相手: {{agent}}"
+    },
+    "taskPanel": {
+        "eyebrow": "実行ビュー",
+        "title": "タスクの流れ",
+        "emptyTitle": "まだ構造化されたステップはありません",
+        "emptyBody": "実行が始まると、ClawX は思考・ツール呼び出し・最終化の状態をここに表示します。",
+        "status": {
+            "idle": "待機中",
+            "running_one": "進行中 1 件",
+            "running_other": "進行中 {{count}} 件"
+        },
+        "stepStatus": {
+            "running": "実行中",
+            "completed": "完了",
+            "error": "エラー"
+        }
+    },
+    "executionGraph": {
+        "title": "実行グラフ",
+        "branchLabel": "branch",
+        "thinkingLabel": "考え中",
+        "agentRun": "{{agent}} の実行",
+        "collapsedSummary": "ツール呼び出し {{toolCount}} 件 · プロセスメッセージ {{processCount}} 件",
+        "collapseAction": "実行グラフを折りたたむ"
     },
     "composer": {
         "attachFiles": "ファイルを添付",
