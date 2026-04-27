@@ -45,6 +45,21 @@ type OrgLoginResponse = {
   error?: string;
 };
 
+type OrgActionResult = {
+  ok: boolean;
+  message?: string;
+  reasonCode?: string;
+};
+
+type OrgReleaseDeviceResponse = {
+  success?: boolean;
+  code?: string;
+  error?: string;
+  data?: {
+    releasedBindings?: number;
+  };
+};
+
 
 /**
  * Error Boundary to catch and display React rendering errors
@@ -261,10 +276,11 @@ function App() {
     }
   };
 
-  const handleOrgLoginSuccess = async (): Promise<{ ok: boolean; message?: string }> => {
+  const handleOrgLoginSuccess = async (): Promise<OrgActionResult> => {
     try {
       const response = await hostApiFetch<GuardEntitlementResponse>('/api/audit/entitlement');
       const allowed = Boolean(response?.success) && response?.data?.allowed !== false;
+      const reasonCode = response?.data?.reasonCode || '';
       setGuardEntitlementChecked(true);
       setGuardEntitlementAllowed(allowed);
       setGuardEntitlementMessage(allowed ? '' : (response?.data?.message || '企业权限校验未通过'));
@@ -273,6 +289,7 @@ function App() {
         return {
           ok: false,
           message: response?.data?.message || '登录成功，但当前账号仍未通过企业权限校验',
+          reasonCode,
         };
       }
     } catch {
@@ -382,11 +399,13 @@ function LockScreenShell({ children }: { children: ReactNode }) {
   );
 }
 
-function OrgLoginPage({ message, onLoginSuccess }: { message: string; onLoginSuccess: () => Promise<{ ok: boolean; message?: string }> }) {
+function OrgLoginPage({ message, onLoginSuccess }: { message: string; onLoginSuccess: () => Promise<OrgActionResult> }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [releasing, setReleasing] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [canReleaseOtherDevices, setCanReleaseOtherDevices] = useState(false);
   const displayMessage = message || '当前组织账号不可用，请重新登录';
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -408,11 +427,42 @@ function OrgLoginPage({ message, onLoginSuccess }: { message: string; onLoginSuc
       const result = await onLoginSuccess();
       if (!result.ok) {
         setErrorMessage(result.message || '登录成功，但当前账号仍不可用');
+        setCanReleaseOtherDevices(result.reasonCode === 'bind_409');
       }
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : String(error));
+      setCanReleaseOtherDevices(false);
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleReleaseOtherDevices = async () => {
+    if (submitting || releasing) return;
+    setErrorMessage('');
+    setReleasing(true);
+    try {
+      const response = await hostApiFetch<OrgReleaseDeviceResponse>('/api/audit/release-device', {
+        method: 'POST',
+        body: JSON.stringify({
+          email: email.trim(),
+          password,
+        }),
+      });
+      if (!response?.success) {
+        throw new Error(response?.error || '释放设备失败，请稍后重试');
+      }
+      const result = await onLoginSuccess();
+      if (!result.ok) {
+        setErrorMessage(result.message || '释放旧设备成功，但当前账号仍不可用');
+        setCanReleaseOtherDevices(result.reasonCode === 'bind_409');
+        return;
+      }
+      setCanReleaseOtherDevices(false);
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : String(error));
+    } finally {
+      setReleasing(false);
     }
   };
 
@@ -452,6 +502,17 @@ function OrgLoginPage({ message, onLoginSuccess }: { message: string; onLoginSuc
           >
             {submitting ? '登录中...' : '登录并继续'}
           </Button>
+          {canReleaseOtherDevices ? (
+            <Button
+              type="button"
+              variant="outline"
+              disabled={submitting || releasing}
+              className="w-full"
+              onClick={handleReleaseOtherDevices}
+            >
+              {releasing ? '释放中...' : '释放其他设备并继续'}
+            </Button>
+          ) : null}
         </form>
       </div>
     </LockScreenShell>

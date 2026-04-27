@@ -116,6 +116,7 @@ const ENTITLEMENT_REASON_CODES = {
   ORG_AUTH_MISSING: 'org_auth_missing',
   BIND_402: 'bind_402',
   BIND_403: 'bind_403',
+  BIND_409: 'bind_409',
   UNKNOWN: 'unknown',
 } as const;
 
@@ -150,6 +151,14 @@ type OrgConfig = {
 type OrgLoginBody = {
   email?: string;
   password?: string;
+};
+
+type OrgReleaseBindingsResponse = {
+  success?: boolean;
+  data?: {
+    releasedBindings?: number;
+  };
+  error?: string;
 };
 
 function stripWrappingQuotes(input: string): string {
@@ -299,6 +308,36 @@ async function performOrgLogin(email: string, password: string): Promise<OrgAuth
   return org;
 }
 
+async function releaseOrgBindings(email: string, password: string): Promise<{ releasedBindings: number }> {
+  const org = await performOrgLogin(email, password);
+  const response = await proxyAwareFetch(`${GUARD_BASE_URL}/api/v1/org/bindings/release`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${org.token}`,
+      Accept: 'application/json',
+    },
+  });
+  const payload = await parseGuardJson<OrgReleaseBindingsResponse>(response);
+  if (!response.ok || !payload?.success) {
+    throw new Error(parseGuardErrorMessage(payload as GuardApiResponse<unknown> | null, `Release bindings failed: HTTP ${response.status}`));
+  }
+
+  cachedGuardAgentId = '';
+  cachedGuardApiKey = '';
+  pendingGuardAuthPromise = null;
+  saveSharedGuardCredentials({
+    orgToken: org.token,
+    orgId: org.orgId,
+    userId: org.userId,
+    agentId: '',
+    apiKey: '',
+  });
+
+  return {
+    releasedBindings: Number(payload.data?.releasedBindings || 0),
+  };
+}
+
 async function isValidGuardApiKey(apiKey: string): Promise<boolean> {
   try {
     const response = await proxyAwareFetch(`${GUARD_BASE_URL}/api/v1/account`, {
@@ -383,6 +422,8 @@ function getEntitlementMessageZh(reasonCode?: string, fallback?: string): string
       return '当前账号无可用订阅或席位，暂无法使用企业能力';
     case ENTITLEMENT_REASON_CODES.BIND_403:
       return '当前组织账号不可用，请重新登录后重试';
+    case ENTITLEMENT_REASON_CODES.BIND_409:
+      return '当前账号已在另一台设备激活，请先释放原设备后再继续使用';
     default:
       return fallback || '企业权限校验失败，请稍后重试';
   }
@@ -671,6 +712,16 @@ function classifyEntitlementError(rawError: unknown): { code: EntitlementReasonC
       message: getEntitlementMessageZh(ENTITLEMENT_REASON_CODES.BIND_403),
     };
   }
+  if (
+    lower.includes('failed to bind guard agent: http 409')
+    || lower.includes('当前席位已在另一台设备激活')
+    || lower.includes('另一台设备激活')
+  ) {
+    return {
+      code: ENTITLEMENT_REASON_CODES.BIND_409,
+      message: getEntitlementMessageZh(ENTITLEMENT_REASON_CODES.BIND_409),
+    };
+  }
   return {
     code: ENTITLEMENT_REASON_CODES.UNKNOWN,
     message: getEntitlementMessageZh(ENTITLEMENT_REASON_CODES.UNKNOWN),
@@ -826,6 +877,27 @@ export async function handleAuditRoutes(
             orgId: org.orgId || '',
             userId: org.userId || '',
           },
+        });
+      } catch (error) {
+        const mapped = mapOrgLoginError(error);
+        sendJson(res, 200, {
+          success: false,
+          code: mapped.code,
+          error: mapped.message,
+        });
+      }
+      return true;
+    }
+
+    if (url.pathname === '/api/audit/release-device' && req.method === 'POST') {
+      try {
+        const body = await parseJsonBody<OrgLoginBody>(req);
+        const email = typeof body.email === 'string' ? body.email : '';
+        const password = typeof body.password === 'string' ? body.password : '';
+        const result = await releaseOrgBindings(email, password);
+        sendJson(res, 200, {
+          success: true,
+          data: result,
         });
       } catch (error) {
         const mapped = mapOrgLoginError(error);
