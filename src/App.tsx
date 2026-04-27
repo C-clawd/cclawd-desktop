@@ -8,7 +8,11 @@ import type { ErrorInfo, FormEvent, ReactNode } from 'react';
 import { Toaster } from 'sonner';
 import i18n from './i18n';
 import { MainLayout } from './components/layout/MainLayout';
+import { TitleBar } from './components/layout/TitleBar';
 import { TooltipProvider } from '@/components/ui/tooltip';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Models } from './pages/Models';
 import { Chat } from './pages/Chat';
 import { Agents } from './pages/Agents';
@@ -335,10 +339,12 @@ function App() {
 function GuardEntitlementLocked({ message }: { message: string }) {
   const displayMessage = message || '当前账号未通过企业权限校验，主功能已受限';
   return (
-    <div className="mx-auto mt-10 max-w-3xl rounded-2xl border border-red-500/20 bg-red-500/5 p-8">
-      <h2 className="text-2xl font-semibold text-red-600">企业权限受限</h2>
-      <p className="mt-3 text-sm text-foreground/80">{displayMessage}</p>
-      <p className="mt-2 text-xs text-foreground/60">请联系管理员处理订阅/席位/账号状态后重试。你仍可进入“设置”页面修改组织鉴权配置。</p>
+    <div className="flex min-h-full items-center justify-center">
+      <div className="w-full max-w-xl rounded-2xl border border-[#DDE3F1] bg-card/95 p-8 text-center shadow-sm">
+        <h2 className="text-2xl font-semibold text-gray-900">企业权限受限</h2>
+        <p className="mt-3 text-sm leading-6 text-foreground/80">{displayMessage}</p>
+        <p className="mt-2 text-xs leading-5 text-foreground/60">请联系管理员处理订阅、席位或账号状态后重试。你仍可进入“设置”页面修改组织鉴权配置。</p>
+      </div>
     </div>
   );
 }
@@ -346,17 +352,32 @@ function GuardEntitlementLocked({ message }: { message: string }) {
 function GuardReloginLocked({ message, onRelogin }: { message: string; onRelogin: () => void }) {
   const displayMessage = message || '当前组织账号不可用，已强制退出主功能';
   return (
-    <div className="mx-auto mt-10 max-w-3xl rounded-2xl border border-red-500/20 bg-red-500/5 p-8">
-      <h2 className="text-2xl font-semibold text-red-600">需要重新登录</h2>
-      <p className="mt-3 text-sm text-foreground/80">{displayMessage}</p>
-      <p className="mt-2 text-xs text-foreground/60">请重新登录后再继续使用 Cclawd Desktop。</p>
-      <button
-        type="button"
-        onClick={onRelogin}
-        className="mt-6 rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
-      >
-        重新登录
-      </button>
+    <div className="flex min-h-full items-center justify-center">
+      <div className="w-full max-w-xl rounded-2xl border border-[#DDE3F1] bg-card/95 p-8 text-center shadow-sm">
+        <h2 className="text-2xl font-semibold text-gray-900">需要重新登录</h2>
+        <p className="mt-3 text-sm leading-6 text-foreground/80">{displayMessage}</p>
+        <p className="mt-2 text-xs leading-5 text-foreground/60">请重新登录后再继续使用 Cclawd Desktop。</p>
+        <Button
+          type="button"
+          onClick={onRelogin}
+          className="mt-6 min-w-[140px]"
+        >
+          重新登录
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function LockScreenShell({ children }: { children: ReactNode }) {
+  return (
+    <div className="flex h-screen flex-col overflow-hidden bg-background/50 text-foreground">
+      <TitleBar />
+      <div className="flex-1 overflow-auto">
+        <div className="flex min-h-full items-center justify-center px-6 py-10">
+          {children}
+        </div>
+      </div>
     </div>
   );
 }
@@ -396,46 +417,44 @@ function OrgLoginPage({ message, onLoginSuccess }: { message: string; onLoginSuc
   };
 
   return (
-    <div className="flex min-h-[calc(100vh-48px)] items-center justify-center px-4">
-      <div className="w-full max-w-md rounded-2xl border border-sky-200/70 bg-card/95 p-8 shadow-sm">
-        <h2 className="text-2xl font-semibold text-sky-600">企业账号重新登录</h2>
-        <p className="mt-3 text-sm text-foreground/80">{displayMessage}</p>
-        <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
-          <div>
-            <label className="mb-1 block text-sm text-foreground/70" htmlFor="org-login-email">邮箱</label>
-            <input
+    <LockScreenShell>
+      <div className="w-full max-w-md rounded-2xl border border-[#DDE3F1] bg-card/95 p-8 shadow-sm">
+        <h2 className="text-2xl font-semibold text-gray-900">企业账号重新登录</h2>
+        <p className="mt-3 text-sm leading-6 text-foreground/80">{displayMessage}</p>
+        <form className="mt-6 space-y-4 no-drag" onSubmit={handleSubmit}>
+          <div className="space-y-2">
+            <Label className="text-sm text-foreground/70" htmlFor="org-login-email">邮箱</Label>
+            <Input
               id="org-login-email"
               type="email"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
               autoComplete="username"
-              className="w-full rounded-md border border-sky-200 bg-background px-3 py-2 text-sm outline-none focus:border-sky-400"
               required
             />
           </div>
-          <div>
-            <label className="mb-1 block text-sm text-foreground/70" htmlFor="org-login-password">密码</label>
-            <input
+          <div className="space-y-2">
+            <Label className="text-sm text-foreground/70" htmlFor="org-login-password">密码</Label>
+            <Input
               id="org-login-password"
               type="password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
               autoComplete="current-password"
-              className="w-full rounded-md border border-sky-200 bg-background px-3 py-2 text-sm outline-none focus:border-sky-400"
               required
             />
           </div>
           {errorMessage ? <p className="text-sm text-red-600">{errorMessage}</p> : null}
-          <button
+          <Button
             type="submit"
             disabled={submitting}
-            className="w-full rounded-md bg-sky-500 px-4 py-2 text-sm font-medium text-white hover:bg-sky-600 disabled:cursor-not-allowed disabled:opacity-70"
+            className="w-full"
           >
             {submitting ? '登录中...' : '登录并继续'}
-          </button>
+          </Button>
         </form>
       </div>
-    </div>
+    </LockScreenShell>
   );
 }
 
