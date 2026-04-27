@@ -1,6 +1,6 @@
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-export const TRIAL_TOTAL_DAYS = 30;
+export const TRIAL_TOTAL_DAYS = 365;
 export const TRIAL_TOTAL_MS = TRIAL_TOTAL_DAYS * DAY_MS;
 const TRIAL_ALLOWED_ROUTES = [
   { pathname: '/api/settings', method: 'GET' },
