@@ -214,8 +214,12 @@ export function Setup() {
   };
 
   const handleSkip = () => {
-    markSetupComplete();
-    navigate('/');
+    if (isLastStep) {
+      markSetupComplete();
+      navigate('/');
+      return;
+    }
+    setCurrentStep((i) => i + 1);
   };
 
   // Auto-proceed when installation is complete
@@ -336,11 +340,11 @@ export function Setup() {
                     )}
                   </div>
                   <div className="flex gap-2">
-                    {/* {!isLastStep && safeStepIndex !== STEP.RUNTIME && (
+                    {step.id === 'provider' && !isLastStep && (
                       <Button variant="ghost" onClick={handleSkip}>
                         {t('nav.skipSetup')}
                       </Button>
-                    )} */}
+                    )}
                     <Button onClick={handleNext} disabled={!canProceed} className="min-w-[120px]">
                       {isLastStep ? (
                         t('nav.getStarted')
