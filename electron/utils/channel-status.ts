@@ -63,13 +63,11 @@ export function isChannelRuntimeConnected(
     return true;
   }
 
-  if (hasRecentChannelActivity(account) || hasSuccessfulChannelProbe(account)) {
+  if (hasRecentChannelActivity(account)) {
     return true;
   }
 
-  // OpenClaw integrations such as Feishu/WeCom may stay "running" without ever
-  // setting a durable connected=true flag. Treat healthy running as connected.
-  return account.running === true && !hasChannelRuntimeError(account);
+  return hasSuccessfulChannelProbe(account) && account.running !== true;
 }
 
 export function computeChannelRuntimeStatus(
