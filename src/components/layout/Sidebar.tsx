@@ -12,7 +12,6 @@ import {
   PanelLeft,
   Plus,
   Trash2,
-  Timer,
   ClipboardList,
   Box,
   BookAudio,
@@ -28,7 +27,6 @@ import { Badge } from '@/components/ui/badge';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { useTranslation } from 'react-i18next';
 import logoPng from '@/assets/logo.png';
-import { getRemainingTrialDays, isTrialExpired } from '../../../shared/trial';
 
 type SessionBucketKey =
   | 'today'
@@ -149,7 +147,6 @@ export function Sidebar() {
   const { t } = useTranslation(['common', 'chat']);
   const [sessionToDelete, setSessionToDelete] = useState<{ key: string; label: string } | null>(null);
   const [nowMs, setNowMs] = useState(INITIAL_NOW_MS);
-  const trialStartAt = useSettingsStore((state) => state.trialStartAt);
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -187,14 +184,6 @@ export function Sidebar() {
   }
 
   const navItems = [
-    {
-      to: '/trial',
-      icon: <Timer className="h-[18px] w-[18px]" strokeWidth={2} />,
-      label: t('sidebar.trial'),
-      badge: isTrialExpired(trialStartAt, nowMs)
-        ? t('trial.expiredBadge')
-        : t('trial.remaining', { days: getRemainingTrialDays(trialStartAt, nowMs) }),
-    },
     { to: '/skills', icon: <ClipboardList className="h-[18px] w-[18px]" strokeWidth={2} />, label: t('sidebar.skills') },
     // { to: '/agents', icon: <Bot className="h-[18px] w-[18px]" strokeWidth={2} />, label: t('sidebar.agents') },
     { to: '/models', icon: <Box className="h-[18px] w-[18px]" strokeWidth={2} />, label: t('sidebar.models') },

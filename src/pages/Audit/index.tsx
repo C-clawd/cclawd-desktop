@@ -160,6 +160,41 @@ function formatNumber(value: number): string {
 }
 
 function formatApiError(error: unknown): string {
+  const raw = (() => {
+    if (typeof error === 'string') return error;
+    if (error && typeof error === 'object') {
+      try {
+        return JSON.stringify(error);
+      } catch {
+        return '[object]';
+      }
+    }
+    return 'unknown error';
+  })();
+
+  const lower = raw.toLowerCase();
+  if (lower.includes('subscription is inactive or expired')) {
+    return '\u8ba2\u9605\u5df2\u8fc7\u671f\u6216\u672a\u6fc0\u6d3b\uff0c\u8bf7\u8054\u7cfb\u7ba1\u7406\u5458\u7eed\u8d39\u540e\u91cd\u8bd5';
+  }
+  if (lower.includes('no available seats')) {
+    return '\u5f53\u524d\u4f01\u4e1a\u5e2d\u4f4d\u5df2\u7528\u5b8c\uff0c\u8bf7\u8054\u7cfb\u7ba1\u7406\u5458\u6269\u5bb9\u5e2d\u4f4d';
+  }
+  if (lower.includes('seat is not assigned')) {
+    return '\u5f53\u524d\u8d26\u53f7\u672a\u5206\u914d\u5e2d\u4f4d\uff0c\u8bf7\u8054\u7cfb\u7ba1\u7406\u5458\u5206\u914d\u540e\u91cd\u8bd5';
+  }
+  if (lower.includes('organization user is inactive')) {
+    return '\u5f53\u524d\u7ec4\u7ec7\u8d26\u53f7\u4e0d\u53ef\u7528\uff0c\u8bf7\u8054\u7cfb\u7ba1\u7406\u5458\u5904\u7406';
+  }
+  if (lower.includes('failed to login/register guard org account')) {
+    return '\u7ec4\u7ec7\u8d26\u53f7\u4e0d\u53ef\u7528\u6216\u767b\u5f55\u5931\u8d25\uff0c\u8bf7\u68c0\u67e5\u4f01\u4e1a\u8d26\u53f7\u72b6\u6001\u4e0e\u5bc6\u7801';
+  }
+  if (lower.includes('invalid email or password')) {
+    return '\u7ec4\u7ec7\u8ba4\u8bc1\u5931\u8d25\uff0c\u8bf7\u68c0\u67e5\u8d26\u53f7\u72b6\u6001\u6216\u5bc6\u7801\u914d\u7f6e';
+  }
+  if (lower.includes('missing org auth config')) {
+    return '\u5ba1\u8ba1\u9274\u6743\u914d\u7f6e\u7f3a\u5931\uff0c\u8bf7\u68c0\u67e5\u7ec4\u7ec7\u8d26\u53f7\u914d\u7f6e';
+  }
+
   if (typeof error === 'string') return error;
   if (error && typeof error === 'object') {
     try {
@@ -170,7 +205,6 @@ function formatApiError(error: unknown): string {
   }
   return 'unknown error';
 }
-
 function normalizeInstruction(value?: string): string {
   if (!value || value.trim().length === 0 || value === '-') return '\u672a\u91c7\u96c6';
   return value
@@ -297,9 +331,14 @@ export function Audit() {
       ].filter((item) => !item.resp?.success);
 
       if (failures.length > 0) {
-        const details = failures
-          .map((item) => `${item.name}: ${formatApiError(item.resp?.error)}`)
-          .join('; ');
+        const normalized = failures.map((item) => ({
+          name: item.name,
+          message: formatApiError(item.resp?.error),
+        }));
+        const uniqueMessages = Array.from(new Set(normalized.map((item) => item.message)));
+        const details = uniqueMessages.length === 1
+          ? uniqueMessages[0]
+          : normalized.map((item) => `${item.name}: ${item.message}`).join('; ');
         throw new Error(`\u5ba1\u8ba1\u63a5\u53e3\u8fd4\u56de\u5931\u8d25 (${details})`);
       }
 
@@ -678,3 +717,4 @@ function ContextTextBlock({ label, value }: { label: string; value: string; }) {
 }
 
 export default Audit;
+
