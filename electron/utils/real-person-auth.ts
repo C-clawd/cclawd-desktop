@@ -14,15 +14,6 @@ const QRErrorCorrectLevel = require(join(qrcodeTerminalPath, 'vendor', 'QRCode',
 
 const REAL_PERSON_AUTH_BASE_URL = 'https://cclawd.dbhl.cn';
 const MFA_AUTH_API_KEY = 'MFA_AUTH_API_KEY';
-const REAL_PERSON_ENV_DEFAULTS: Array<OpenClawEnvEntry> = [
-  { key: 'DABBY_API_BASE_URL', value: REAL_PERSON_AUTH_BASE_URL },
-  { key: 'MFA_REQUIRE_AUTH_ON_FIRST_MESSAGE', value: 'false' },
-  { key: 'MFA_FIRST_MESSAGE_AUTH_DURATION', value: '86400000' },
-  { key: 'MFA_AUTH_STATE_DIR', value: '~/.openclaw/cclawd-guard/' },
-  { key: 'MFA_REQUIRE_AUTH_ON_SENSITIVE_OPERATION', value: 'true' },
-  { key: 'MFA_VERIFICATION_DURATION', value: '120001' },
-  { key: 'MFA_SENSITIVE_KEYWORDS', value: 'delete,rm,remove,rmdir,del,unlink,drop,truncate,Remove-Item' },
-];
 
 type RealPersonApiResponse = {
   code?: number;
@@ -293,10 +284,7 @@ function upsertEnvEntry(entries: OpenClawEnvEntry[], key: string, value: string)
 
 async function persistApiKeyToEnv(apiKey: string): Promise<void> {
   const current = await readOpenClawEnv();
-  let nextEntries = upsertEnvEntry(current.entries, MFA_AUTH_API_KEY, apiKey);
-  for (const entry of REAL_PERSON_ENV_DEFAULTS) {
-    nextEntries = upsertEnvEntry(nextEntries, entry.key, entry.value);
-  }
+  const nextEntries = upsertEnvEntry(current.entries, MFA_AUTH_API_KEY, apiKey);
   await writeOpenClawEnv(nextEntries);
 }
 

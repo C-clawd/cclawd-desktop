@@ -4,6 +4,7 @@ import os from 'node:os';
 import fs from 'node:fs';
 import path from 'node:path';
 import { proxyAwareFetch } from '../../utils/proxy-fetch';
+import { DEFAULT_GUARD_CORE_URL } from '../../utils/guard-core-url';
 import type { HostApiContext } from '../context';
 import { parseJsonBody, sendJson } from '../route-utils';
 
@@ -25,7 +26,6 @@ type StoredGuardCredentials = {
   coreUrl?: string;
 };
 
-const DEFAULT_GUARD_BASE_URL = 'https://cclawd.dbhl.cn/cclawd-guard-core';
 const OPENCLAW_CONFIG_FILE = path.join(os.homedir(), '.openclaw', 'openclaw.json');
 const OPENCLAW_ENV_FILE = path.join(os.homedir(), '.openclaw', '.env');
 
@@ -48,7 +48,7 @@ function readGuardBaseUrlFromOpenClawConfig(): string {
 const GUARD_BASE_URL = (
   process.env.CCLAWD_GUARD_BASE_URL?.trim()
   || readGuardBaseUrlFromOpenClawConfig()
-  || DEFAULT_GUARD_BASE_URL
+  || DEFAULT_GUARD_CORE_URL
 ).replace(/\/$/, '');
 const SHARED_CREDENTIALS_FILE = path.join(
   os.homedir(),
@@ -229,13 +229,10 @@ function loadSharedGuardCredentials(): StoredGuardCredentials | null {
     const agentId = typeof parsed.agentId === 'string' ? parsed.agentId.trim() : '';
     const apiKey = typeof parsed.apiKey === 'string' ? parsed.apiKey.trim() : '';
     const issuedCoreUrl = typeof parsed.coreUrl === 'string' ? parsed.coreUrl.replace(/\/$/, '') : '';
-    if (!agentId || !apiKey) {
-      return null;
-    }
     if (issuedCoreUrl && issuedCoreUrl !== GUARD_BASE_URL) {
       return null;
     }
-    return {
+    const credentials: StoredGuardCredentials = {
       agentId,
       apiKey,
       machineId: typeof parsed.machineId === 'string' ? parsed.machineId.trim() : '',
@@ -244,6 +241,17 @@ function loadSharedGuardCredentials(): StoredGuardCredentials | null {
       userId: typeof parsed.userId === 'string' ? parsed.userId.trim() : '',
       coreUrl: issuedCoreUrl,
     };
+    if (
+      !credentials.agentId
+      && !credentials.apiKey
+      && !credentials.machineId
+      && !credentials.orgToken
+      && !credentials.orgId
+      && !credentials.userId
+    ) {
+      return null;
+    }
+    return credentials;
   } catch {
     return null;
   }
@@ -682,6 +690,23 @@ function classifyEntitlementError(rawError: unknown): { code: EntitlementReasonC
       message: getEntitlementMessageZh(ENTITLEMENT_REASON_CODES.ORG_AUTH_INVALID),
     };
   }
+  if (lower.includes('missing org token')) {
+    return {
+      code: ENTITLEMENT_REASON_CODES.ORG_AUTH_MISSING,
+      message: getEntitlementMessageZh(ENTITLEMENT_REASON_CODES.ORG_AUTH_MISSING),
+    };
+  }
+  if (
+    lower.includes('invalid org token')
+    || lower.includes('org token expired')
+    || lower.includes('invalid org token signature')
+    || lower.includes('invalid org token payload')
+  ) {
+    return {
+      code: ENTITLEMENT_REASON_CODES.ORG_AUTH_INVALID,
+      message: getEntitlementMessageZh(ENTITLEMENT_REASON_CODES.ORG_AUTH_INVALID),
+    };
+  }
   if (lower.includes('failed to login/register guard org account') || lower.includes('failed to login guard org account')) {
     return {
       code: ENTITLEMENT_REASON_CODES.ORG_AUTH_INVALID,
@@ -704,6 +729,12 @@ function classifyEntitlementError(rawError: unknown): { code: EntitlementReasonC
     return {
       code: ENTITLEMENT_REASON_CODES.BIND_402,
       message: getEntitlementMessageZh(ENTITLEMENT_REASON_CODES.BIND_402),
+    };
+  }
+  if (lower.includes('failed to bind guard agent: http 401')) {
+    return {
+      code: ENTITLEMENT_REASON_CODES.ORG_AUTH_INVALID,
+      message: getEntitlementMessageZh(ENTITLEMENT_REASON_CODES.ORG_AUTH_INVALID),
     };
   }
   if (lower.includes('failed to bind guard agent: http 403')) {

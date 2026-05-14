@@ -25,6 +25,7 @@ import {
 } from './provider-keys';
 import { withConfigLock } from './config-mutex';
 import { readJsonFileAllowMissing, writeJsonFileAtomic } from './openclaw-config-io';
+import { DEFAULT_GUARD_CORE_URL } from './guard-core-url';
 
 const AUTH_STORE_VERSION = 1;
 const AUTH_PROFILE_FILENAME = 'auth-profiles.json';
@@ -133,8 +134,6 @@ const OPENCLAW_CONFIG_PATH = join(homedir(), '.openclaw', 'openclaw.json');
 const FEISHU_PLUGIN_ID_CANDIDATES = ['feishu'] as const;
 const VALID_COMPACTION_MODES = new Set(['default', 'safeguard']);
 const CCLAWD_MFA_AUTH_PLUGIN_ID = 'cclawd-guard';
-const DEFAULT_CCLAWD_GUARD_CORE_URL = 'https://cclawd.dbhl.cn/cclawd-guard-core';
-
 async function readOpenClawJson(): Promise<Record<string, unknown>> {
   return (await readJsonFileAllowMissing<Record<string, unknown>>(OPENCLAW_CONFIG_PATH)) ?? {};
 }
@@ -233,7 +232,7 @@ export async function ensureRealPersonAuthPluginEnabled(): Promise<void> {
     ) as Record<string, unknown>;
     const envCoreUrl = process.env.CCLAWD_GUARD_BASE_URL?.trim() || '';
     const existingCoreUrl = typeof pluginConfig.coreUrl === 'string' ? pluginConfig.coreUrl.trim() : '';
-    const configuredCoreUrl = envCoreUrl || existingCoreUrl || DEFAULT_CCLAWD_GUARD_CORE_URL;
+    const configuredCoreUrl = envCoreUrl || existingCoreUrl || DEFAULT_GUARD_CORE_URL;
     pluginConfig.coreUrl = configuredCoreUrl.replace(/\/+$/, '');
     existingEntry.config = pluginConfig;
     entries[CCLAWD_MFA_AUTH_PLUGIN_ID] = existingEntry;
