@@ -66,3 +66,4 @@ docs/pr-session-notes-*.md
 .cursor/
 .pnpm-store/
 pnpm-lock.yaml
+uv-x86_64-pc-windows-msvc.zip
