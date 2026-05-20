@@ -55,6 +55,27 @@ let flushing = false;
 const FLUSH_INTERVAL_MS = 500;
 const FLUSH_SIZE_THRESHOLD = 20;
 
+function padNumber(value: number, length = 2): string {
+  return String(value).padStart(length, '0');
+}
+
+function formatLocalTimestamp(date = new Date()): string {
+  const offsetMinutes = -date.getTimezoneOffset();
+  const offsetSign = offsetMinutes >= 0 ? '+' : '-';
+  const absoluteOffset = Math.abs(offsetMinutes);
+  const offsetHours = Math.floor(absoluteOffset / 60);
+  const offsetRemainderMinutes = absoluteOffset % 60;
+
+  return `${date.getFullYear()}-${padNumber(date.getMonth() + 1)}-${padNumber(date.getDate())}`
+    + `T${padNumber(date.getHours())}:${padNumber(date.getMinutes())}:${padNumber(date.getSeconds())}`
+    + `.${padNumber(date.getMilliseconds(), 3)}`
+    + `${offsetSign}${padNumber(offsetHours)}:${padNumber(offsetRemainderMinutes)}`;
+}
+
+function formatLocalDate(date = new Date()): string {
+  return `${date.getFullYear()}-${padNumber(date.getMonth() + 1)}-${padNumber(date.getDate())}`;
+}
+
 async function flushBuffer(): Promise<void> {
   if (flushing || writeBuffer.length === 0 || !logFilePath) return;
   flushing = true;
@@ -101,11 +122,11 @@ export function initLogger(): void {
       mkdirSync(logDir, { recursive: true });
     }
 
-    const timestamp = new Date().toISOString().split('T')[0];
+    const timestamp = formatLocalDate();
     logFilePath = join(logDir, `Cclawd-${timestamp}.log`);
 
     // Write a separator for new session (sync is OK — happens once at startup)
-    const sessionHeader = `\n${'='.repeat(80)}\n[${new Date().toISOString()}] === Cclawd Session Start (v${app.getVersion()}) ===\n${'='.repeat(80)}\n`;
+    const sessionHeader = `\n${'='.repeat(80)}\n[${formatLocalTimestamp()}] === Cclawd Session Start (v${app.getVersion()}) ===\n${'='.repeat(80)}\n`;
     appendFileSync(logFilePath, sessionHeader);
   } catch (error) {
     console.error('Failed to initialize logger:', error);
@@ -129,7 +150,7 @@ export function getLogFilePath(): string | null {
 // ── Formatting ───────────────────────────────────────────────────
 
 function formatMessage(level: string, message: string, ...args: unknown[]): string {
-  const timestamp = new Date().toISOString();
+  const timestamp = formatLocalTimestamp();
   const formattedArgs = args.length > 0 ? ' ' + args.map(arg => {
     if (arg instanceof Error) {
       return `${arg.message}\n${arg.stack || ''}`;
@@ -279,7 +300,7 @@ export async function listLogFiles(): Promise<Array<{ name: string; path: string
         name: f,
         path: fullPath,
         size: s.size,
-        modified: s.mtime.toISOString(),
+        modified: formatLocalTimestamp(s.mtime),
       });
     }
     return results.sort((a, b) => b.modified.localeCompare(a.modified));
