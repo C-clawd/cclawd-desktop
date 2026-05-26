@@ -3,7 +3,7 @@ import { dirname, join } from 'node:path';
 import { deflateSync } from 'node:zlib';
 import { proxyAwareFetch } from './proxy-fetch';
 import { readOpenClawEnv, writeOpenClawEnv, type OpenClawEnvEntry } from './openclaw-env';
-import { ensureRealPersonAuthPluginEnabled } from './openclaw-auth';
+import { ensureCclawdGuardPluginEnabled } from './openclaw-auth';
 import { getOpenClawResolvedDir } from './paths';
 
 const require = createRequire(import.meta.url);
@@ -320,5 +320,5 @@ export async function checkRealPersonAuth(apiKey: string, certToken: string): Pr
 }
 
 export async function ensureSetupRealPersonAuthConfig(): Promise<void> {
-  await ensureRealPersonAuthPluginEnabled();
+  await ensureCclawdGuardPluginEnabled();
 }

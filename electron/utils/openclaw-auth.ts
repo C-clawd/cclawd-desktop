@@ -187,7 +187,8 @@ async function writeOpenClawJson(config: Record<string, unknown>): Promise<void>
   await writeJsonFile(OPENCLAW_CONFIG_PATH, config);
 }
 
-export async function ensureRealPersonAuthPluginEnabled(): Promise<void> {
+/** Ensure cclawd-guard is enabled in openclaw.json (independent of real-person auth). */
+export async function ensureCclawdGuardPluginEnabled(): Promise<void> {
   return withConfigLock(async () => {
     const config = await readOpenClawJson();
     const plugins = (
@@ -241,6 +242,11 @@ export async function ensureRealPersonAuthPluginEnabled(): Promise<void> {
     config.plugins = plugins;
     await writeOpenClawJson(config);
   });
+}
+
+/** @deprecated Use ensureCclawdGuardPluginEnabled — guard is not tied to real-person auth. */
+export async function ensureRealPersonAuthPluginEnabled(): Promise<void> {
+  return ensureCclawdGuardPluginEnabled();
 }
 
 // ── Exported Functions (all async) ───────────────────────────────

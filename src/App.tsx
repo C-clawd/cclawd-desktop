@@ -138,6 +138,7 @@ function App() {
   const [guardEntitlementChecked, setGuardEntitlementChecked] = useState(false);
   const [guardEntitlementAllowed, setGuardEntitlementAllowed] = useState(true);
   const [guardEntitlementMessage, setGuardEntitlementMessage] = useState('');
+  const [guardReasonCode, setGuardReasonCode] = useState('');
   const [guardRequireRelogin, setGuardRequireRelogin] = useState(false);
   const [guardEntitlementRefreshKey, setGuardEntitlementRefreshKey] = useState(0);
 
@@ -215,6 +216,7 @@ function App() {
       setGuardEntitlementChecked(false);
       setGuardEntitlementAllowed(true);
       setGuardEntitlementMessage('');
+      setGuardReasonCode('');
       setGuardRequireRelogin(false);
       return;
     }
@@ -227,12 +229,14 @@ function App() {
         const allowed = Boolean(response?.success) && response?.data?.allowed !== false;
         setGuardEntitlementAllowed(allowed);
         setGuardEntitlementMessage(allowed ? '' : (response?.data?.message || '企业权限校验未通过'));
+        setGuardReasonCode(allowed ? '' : (response?.data?.reasonCode || ''));
         setGuardRequireRelogin(Boolean(response?.data?.requireRelogin));
       } catch {
         if (cancelled) return;
         // Keep app usable on transient check failures.
         setGuardEntitlementAllowed(true);
         setGuardEntitlementMessage('');
+        setGuardReasonCode('');
         setGuardRequireRelogin(false);
       } finally {
         if (!cancelled) {
@@ -267,14 +271,27 @@ function App() {
     navigate('/org-login');
   }, [guardReloginBlocked, location.pathname, navigate]);
 
-  const handleRelogin = async () => {
+  const clearOrgSession = async () => {
     try {
       await hostApiFetch('/api/audit/relogin', { method: 'POST' });
     } catch {
       // Best effort only.
-    } finally {
-      navigate('/org-login');
     }
+  };
+
+  const handleRelogin = async () => {
+    await clearOrgSession();
+    navigate('/org-login');
+  };
+
+  const handleOrgLogout = async () => {
+    await clearOrgSession();
+    setGuardEntitlementChecked(true);
+    setGuardEntitlementAllowed(false);
+    setGuardEntitlementMessage('已退出企业账号，请重新登录或切换账号');
+    setGuardReasonCode('');
+    setGuardRequireRelogin(true);
+    navigate('/org-login');
   };
 
   const handleOrgLoginSuccess = async (): Promise<OrgActionResult> => {
@@ -285,6 +302,7 @@ function App() {
       setGuardEntitlementChecked(true);
       setGuardEntitlementAllowed(allowed);
       setGuardEntitlementMessage(allowed ? '' : (response?.data?.message || '企业权限校验未通过'));
+      setGuardReasonCode(allowed ? '' : reasonCode);
       setGuardRequireRelogin(Boolean(response?.data?.requireRelogin));
       if (!allowed) {
         return {
@@ -300,6 +318,7 @@ function App() {
     setGuardEntitlementChecked(false);
     setGuardEntitlementAllowed(true);
     setGuardEntitlementMessage('');
+    setGuardReasonCode('');
     setGuardRequireRelogin(false);
     setGuardEntitlementRefreshKey((current) => current + 1);
     navigate('/');
@@ -313,16 +332,45 @@ function App() {
           <Routes>
             {/* Setup wizard (shown on first launch) */}
             <Route path="/setup/*" element={<Setup />} />
-            <Route path="/org-login" element={<OrgLoginPage message={guardEntitlementMessage} onLoginSuccess={handleOrgLoginSuccess} />} />
+            <Route
+              path="/org-login"
+              element={(
+                <OrgLoginPage
+                  message={guardEntitlementMessage}
+                  reasonCode={guardReasonCode}
+                  onLoginSuccess={handleOrgLoginSuccess}
+                  onLogout={handleOrgLogout}
+                />
+              )}
+            />
 
             {/* Main application routes */}
             <Route element={<MainLayout />}>
               {guardReloginBlocked ? (
-                <Route path="*" element={<GuardReloginLocked message={guardEntitlementMessage} onRelogin={handleRelogin} />} />
+                <Route
+                  path="*"
+                  element={(
+                    <GuardReloginLocked
+                      message={guardEntitlementMessage}
+                      onRelogin={handleRelogin}
+                      onLogout={handleOrgLogout}
+                    />
+                  )}
+                />
               ) : guardBlocked ? (
                 <>
                   <Route path="/settings/*" element={<Settings />} />
-                  <Route path="*" element={<GuardEntitlementLocked message={guardEntitlementMessage} />} />
+                  <Route
+                    path="*"
+                    element={(
+                      <GuardEntitlementLocked
+                        message={guardEntitlementMessage}
+                        reasonCode={guardReasonCode}
+                        onRelogin={handleRelogin}
+                        onLogout={handleOrgLogout}
+                      />
+                    )}
+                  />
                 </>
               ) : (
                 <>
@@ -354,20 +402,55 @@ function App() {
   );
 }
 
-function GuardEntitlementLocked({ message }: { message: string }) {
+function GuardEntitlementLocked({
+  message,
+  reasonCode,
+  onRelogin,
+  onLogout,
+}: {
+  message: string;
+  reasonCode: string;
+  onRelogin: () => void;
+  onLogout: () => void;
+}) {
   const displayMessage = message || '当前账号未通过企业权限校验，主功能已受限';
+  const isDeviceConflict = reasonCode === 'bind_409';
   return (
     <div className="flex min-h-full items-center justify-center">
       <div className="w-full max-w-xl rounded-2xl border border-[#DDE3F1] bg-card/95 p-8 text-center shadow-sm">
         <h2 className="text-2xl font-semibold text-gray-900">企业权限受限</h2>
         <p className="mt-3 text-sm leading-6 text-foreground/80">{displayMessage}</p>
-        <p className="mt-2 text-xs leading-5 text-foreground/60">请联系管理员处理订阅、席位或账号状态后重试。你仍可进入“设置”页面修改组织鉴权配置。</p>
+        {isDeviceConflict ? (
+          <p className="mt-2 text-xs leading-5 text-foreground/60">
+            无需知道是哪台设备。重新登录后，可使用「释放其他设备并继续」解除占用，让本机重新获得席位。
+          </p>
+        ) : (
+          <p className="mt-2 text-xs leading-5 text-foreground/60">
+            请联系管理员处理订阅、席位或账号状态后重试。你仍可进入「设置」页面查看其他配置。
+          </p>
+        )}
+        <div className="mt-6 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
+          <Button type="button" onClick={onRelogin} className="min-w-[140px]">
+            {isDeviceConflict ? '登录并释放设备' : '重新登录'}
+          </Button>
+          <Button type="button" variant="outline" onClick={onLogout} className="min-w-[140px]">
+            退出登录
+          </Button>
+        </div>
       </div>
     </div>
   );
 }
 
-function GuardReloginLocked({ message, onRelogin }: { message: string; onRelogin: () => void }) {
+function GuardReloginLocked({
+  message,
+  onRelogin,
+  onLogout,
+}: {
+  message: string;
+  onRelogin: () => void;
+  onLogout: () => void;
+}) {
   const displayMessage = message || '当前组织账号不可用，已强制退出主功能';
   return (
     <div className="flex min-h-full items-center justify-center">
@@ -375,13 +458,14 @@ function GuardReloginLocked({ message, onRelogin }: { message: string; onRelogin
         <h2 className="text-2xl font-semibold text-gray-900">需要重新登录</h2>
         <p className="mt-3 text-sm leading-6 text-foreground/80">{displayMessage}</p>
         <p className="mt-2 text-xs leading-5 text-foreground/60">请重新登录后再继续使用 Cclawd Desktop。</p>
-        <Button
-          type="button"
-          onClick={onRelogin}
-          className="mt-6 min-w-[140px]"
-        >
-          重新登录
-        </Button>
+        <div className="mt-6 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
+          <Button type="button" onClick={onRelogin} className="min-w-[140px]">
+            重新登录
+          </Button>
+          <Button type="button" variant="outline" onClick={onLogout} className="min-w-[140px]">
+            退出登录
+          </Button>
+        </div>
       </div>
     </div>
   );
@@ -400,14 +484,26 @@ function LockScreenShell({ children }: { children: ReactNode }) {
   );
 }
 
-function OrgLoginPage({ message, onLoginSuccess }: { message: string; onLoginSuccess: () => Promise<OrgActionResult> }) {
+function OrgLoginPage({
+  message,
+  reasonCode,
+  onLoginSuccess,
+  onLogout,
+}: {
+  message: string;
+  reasonCode: string;
+  onLoginSuccess: () => Promise<OrgActionResult>;
+  onLogout: () => void;
+}) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [releasing, setReleasing] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
-  const [canReleaseOtherDevices, setCanReleaseOtherDevices] = useState(false);
+  const [canReleaseOtherDevices, setCanReleaseOtherDevices] = useState(reasonCode === 'bind_409');
   const displayMessage = message || '当前组织账号不可用，请重新登录';
+  const showReleaseHint = reasonCode === 'bind_409' || canReleaseOtherDevices;
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -467,11 +563,30 @@ function OrgLoginPage({ message, onLoginSuccess }: { message: string; onLoginSuc
     }
   };
 
+  const handleLogoutClick = async () => {
+    if (submitting || releasing || loggingOut) return;
+    setLoggingOut(true);
+    try {
+      await onLogout();
+      setEmail('');
+      setPassword('');
+      setErrorMessage('');
+      setCanReleaseOtherDevices(false);
+    } finally {
+      setLoggingOut(false);
+    }
+  };
+
   return (
     <LockScreenShell>
       <div className="w-full max-w-md rounded-2xl border border-[#DDE3F1] bg-card/95 p-8 shadow-sm">
         <h2 className="text-2xl font-semibold text-gray-900">企业账号重新登录</h2>
         <p className="mt-3 text-sm leading-6 text-foreground/80">{displayMessage}</p>
+        {showReleaseHint ? (
+          <p className="mt-2 text-xs leading-5 text-foreground/60">
+            若提示设备冲突，无需查找是哪台电脑，输入密码后点击「释放其他设备并继续」即可。
+          </p>
+        ) : null}
         <form className="mt-6 space-y-4 no-drag" onSubmit={handleSubmit}>
           <div className="space-y-2">
             <Label className="text-sm text-foreground/70" htmlFor="org-login-email">邮箱</Label>
@@ -507,13 +622,22 @@ function OrgLoginPage({ message, onLoginSuccess }: { message: string; onLoginSuc
             <Button
               type="button"
               variant="outline"
-              disabled={submitting || releasing}
+              disabled={submitting || releasing || loggingOut}
               className="w-full"
               onClick={handleReleaseOtherDevices}
             >
               {releasing ? '释放中...' : '释放其他设备并继续'}
             </Button>
           ) : null}
+          <Button
+            type="button"
+            variant="ghost"
+            disabled={submitting || releasing || loggingOut}
+            className="w-full text-foreground/70"
+            onClick={handleLogoutClick}
+          >
+            {loggingOut ? '退出中...' : '退出登录'}
+          </Button>
         </form>
       </div>
     </LockScreenShell>
