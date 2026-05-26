@@ -210,7 +210,7 @@
     "telemetry": "匿名利用データ",
     "telemetryDesc": "Cclawd 改善のため、匿名の基本利用データ提供を許可します",
     "realPersonAuth": "本人確認",
-    "realPersonAuthDesc": "セットアップ時の本人確認ステップと 24 時間ごとの本人確認を有効化します（変更後は再初期化が必要）",
+    "realPersonAuthDesc": "セットアップ本人確認、24 時間ごとの本人確認、Feishu DM 本人確認リンクを有効化します（既定はオフ。有効化後はセットアップを再実行してください）",
     "realPersonAuthReset": "解除して再認証",
     "realPersonAuthResetConfirm": ".openclaw/.env から MFA_AUTH_API_KEY を削除し、本人確認をやり直します。続行しますか？",
     "realPersonAuthResetSuccess": "本人確認を解除しました。再認証してください。",

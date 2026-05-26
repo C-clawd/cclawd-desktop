@@ -131,6 +131,7 @@ function App() {
   const initSettings = useSettingsStore((state) => state.init);
   const language = useSettingsStore((state) => state.language);
   const setupComplete = useSettingsStore((state) => state.setupComplete);
+  const realPersonAuthEnabled = useSettingsStore((state) => state.realPersonAuthEnabled);
   const initialized = useSettingsStore((state) => state.initialized);
   const initGateway = useGatewayStore((state) => state.init);
   const initProviders = useProviderStore((state) => state.init);
@@ -338,7 +339,7 @@ function App() {
             </Route>
           </Routes>
 
-          <PeriodicRealPersonAuthGuard />
+          {realPersonAuthEnabled ? <PeriodicRealPersonAuthGuard /> : null}
         </>
 
         {/* Global toast notifications */}

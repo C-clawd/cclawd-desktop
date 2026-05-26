@@ -6,6 +6,7 @@
 import { randomBytes } from 'crypto';
 import { app } from 'electron';
 import { resolveSupportedLanguage } from '../../shared/language';
+import { syncRealPersonAuthEnabledToEnv } from './real-person-auth-flag';
 
 // Lazy-load electron-store (ESM module)
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -115,11 +116,11 @@ function createDefaultSettings(): AppSettings {
     devModeUnlocked: false,
 
     // Security
-    periodicAuthEnabled: true,
+    periodicAuthEnabled: false,
     periodicAuthIntervalMs: defaultPeriodicAuthIntervalMs,
     periodicAuthLastVerifiedAt: 0,
     periodicAuthLocked: false,
-    realPersonAuthEnabled: true,
+    realPersonAuthEnabled: false,
 
     // Trial
     trialStartAt: 0,
@@ -129,6 +130,23 @@ function createDefaultSettings(): AppSettings {
     enabledSkills: [],
     disabledSkills: [],
   };
+}
+
+const REAL_PERSON_AUTH_OPT_IN_MIGRATION_KEY = 'realPersonAuthOptInMigrated_v1';
+
+async function migrateRealPersonAuthToOptInDefault(store: {
+  get: (key: string) => unknown;
+  set: <K extends keyof AppSettings>(key: K, value: AppSettings[K]) => void;
+}) {
+  if (store.get(REAL_PERSON_AUTH_OPT_IN_MIGRATION_KEY) === true) {
+    return;
+  }
+
+  store.set('realPersonAuthEnabled', false);
+  store.set('periodicAuthEnabled', false);
+  store.set('periodicAuthLocked', false);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (store as any).set(REAL_PERSON_AUTH_OPT_IN_MIGRATION_KEY, true);
 }
 
 async function sanitizePeriodicAuthSettingsOnLoad(store: {
@@ -161,7 +179,9 @@ async function getSettingsStore() {
       name: 'settings',
       defaults: createDefaultSettings(),
     });
+    await migrateRealPersonAuthToOptInDefault(settingsStoreInstance);
     await sanitizePeriodicAuthSettingsOnLoad(settingsStoreInstance);
+    await syncRealPersonAuthEnabledToEnv(settingsStoreInstance.get('realPersonAuthEnabled'));
   }
   return settingsStoreInstance;
 }
@@ -183,6 +203,20 @@ export async function setSetting<K extends keyof AppSettings>(
 ): Promise<void> {
   const store = await getSettingsStore();
   store.set(key, value);
+
+  if (key === 'realPersonAuthEnabled') {
+    const enabled = Boolean(value);
+    store.set('periodicAuthEnabled', enabled);
+    if (!enabled) {
+      store.set('periodicAuthLocked', false);
+    }
+    await syncRealPersonAuthEnabledToEnv(enabled);
+    return;
+  }
+
+  if (key === 'periodicAuthEnabled') {
+    await syncRealPersonAuthEnabledToEnv(store.get('realPersonAuthEnabled'));
+  }
 }
 
 /**

@@ -93,7 +93,7 @@ export async function handleAppRoutes(
       let restartGatewayAfterResponse = false;
       if (result.status === 'success') {
         await ensureTrialStartAt();
-        if (body.context === 'setup') {
+        if (body.context === 'setup' && (await getSetting('realPersonAuthEnabled'))) {
           await ensureSetupRealPersonAuthConfig();
           restartGatewayAfterResponse = ctx.gatewayManager.getStatus().state === 'running';
         }

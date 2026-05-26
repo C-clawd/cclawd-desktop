@@ -339,10 +339,12 @@ async function initialize(): Promise<void> {
     logger.warn('Failed to install/upgrade bundled plugins:', error);
   });
 
-  // Ensure the cclawd-guard plugin config is present in openclaw.json as soon
-  // as the app starts, instead of waiting for the first successful auth flow.
+  // Ensure cclawd-guard plugin config when real-person auth is enabled.
   try {
-    await ensureSetupRealPersonAuthConfig();
+    const { getSetting } = await import('../utils/store');
+    if (await getSetting('realPersonAuthEnabled')) {
+      await ensureSetupRealPersonAuthConfig();
+    }
   } catch (error) {
     logger.warn('Failed to ensure cclawd-guard config in openclaw.json:', error);
   }
