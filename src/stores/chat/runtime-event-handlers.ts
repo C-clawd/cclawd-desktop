@@ -12,6 +12,7 @@ import {
   isToolOnlyMessage,
   isToolResultRole,
   makeAttachedFile,
+  normalizeStreamingMessage,
   setErrorRecoveryTimer,
   upsertToolStatuses,
 } from './helpers';
@@ -48,8 +49,12 @@ export function handleRuntimeEventState(
               if (event.message && typeof event.message === 'object') {
                 const msgRole = (event.message as RawMessage).role;
                 if (isToolResultRole(msgRole)) return s.streamingMessage;
+                const msgObj = event.message as RawMessage;
+                if (s.streamingMessage && msgObj.content === undefined) {
+                  return s.streamingMessage;
+                }
               }
-              return event.message ?? s.streamingMessage;
+              return normalizeStreamingMessage(event.message ?? s.streamingMessage);
             })(),
             streamingTools: updates.length > 0 ? upsertToolStatuses(s.streamingTools, updates) : s.streamingTools,
           }));

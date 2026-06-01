@@ -52,6 +52,7 @@ let _loadSessionsInFlight: Promise<void> | null = null;
 let _lastLoadSessionsAt = 0;
 const _historyLoadInFlight = new Map<string, Promise<void>>();
 const _lastHistoryLoadAtBySession = new Map<string, number>();
+const _forceNextHistoryLoadBySession = new Set<string>();
 const SESSION_LOAD_MIN_INTERVAL_MS = 1_200;
 const HISTORY_LOAD_MIN_INTERVAL_MS = 800;
 const HISTORY_POLL_SILENCE_WINDOW_MS = 2_500;
@@ -72,6 +73,10 @@ function clearHistoryPoll(): void {
   }
 }
 
+function forceNextHistoryLoad(sessionKey: string): void {
+  _forceNextHistoryLoadBySession.add(sessionKey);
+}
+
 function pruneChatEventDedupe(now: number): void {
   for (const [key, ts] of _chatEventDedupe.entries()) {
     if (now - ts > CHAT_EVENT_DEDUPE_TTL_MS) {
@@ -84,6 +89,13 @@ function buildChatEventDedupeKey(eventState: string, event: Record<string, unkno
   const runId = event.runId != null ? String(event.runId) : '';
   const sessionKey = event.sessionKey != null ? String(event.sessionKey) : '';
   const seq = event.seq != null ? String(event.seq) : '';
+  // Some gateways emit multiple `delta` updates without a monotonically
+  // increasing `seq`. Deduping those by just `runId + sessionKey + state`
+  // collapses legitimate stream progression, so only seq-backed deltas are
+  // safe to dedupe generically.
+  if (eventState === 'delta' && !seq) {
+    return null;
+  }
   if (runId || sessionKey || seq || eventState) {
     return [runId, sessionKey, seq, eventState].join('|');
   }
@@ -100,16 +112,98 @@ function buildChatEventDedupeKey(eventState: string, event: Record<string, unkno
   return null;
 }
 
+function getFinalMessageIdDedupeKey(eventState: string, event: Record<string, unknown>): string | null {
+  if (eventState !== 'final') return null;
+  const msg = (event.message && typeof event.message === 'object')
+    ? event.message as Record<string, unknown>
+    : null;
+  if (msg?.id != null) return `final-msgid|${String(msg.id)}`;
+  return null;
+}
+
 function isDuplicateChatEvent(eventState: string, event: Record<string, unknown>): boolean {
   const key = buildChatEventDedupeKey(eventState, event);
-  if (!key) return false;
+  const msgKey = getFinalMessageIdDedupeKey(eventState, event);
+  if (!key && !msgKey) return false;
   const now = Date.now();
   pruneChatEventDedupe(now);
-  if (_chatEventDedupe.has(key)) {
+  if ((key && _chatEventDedupe.has(key)) || (msgKey && _chatEventDedupe.has(msgKey))) {
     return true;
   }
-  _chatEventDedupe.set(key, now);
+  if (key) _chatEventDedupe.set(key, now);
+  if (msgKey) _chatEventDedupe.set(msgKey, now);
   return false;
+}
+
+function normalizeStreamingMessage(message: unknown): unknown {
+  if (!message || typeof message !== 'object') return message;
+
+  const rawMessage = message as RawMessage;
+  const rawContent = rawMessage.content;
+  if (!Array.isArray(rawContent)) return rawMessage;
+
+  const normalizedContent = (rawContent as ContentBlock[]).map((block) => ({ ...block }));
+  const didChange = normalizedContent.some((block, index) => block !== rawContent[index])
+    || normalizedContent.length !== rawContent.length;
+
+  return didChange
+    ? { ...rawMessage, content: normalizedContent }
+    : rawMessage;
+}
+
+function getMessageStopReason(message: RawMessage | Record<string, unknown>): string | null {
+  const msg = message as Record<string, unknown>;
+  const reason = msg.stopReason ?? msg.stop_reason;
+  return reason != null ? String(reason).toLowerCase() : null;
+}
+
+function hasPendingToolUse(message: RawMessage | undefined): boolean {
+  if (!message) return false;
+  const reason = getMessageStopReason(message);
+  if (reason === 'tool_use' || reason === 'tooluse') return true;
+
+  const content = message.content;
+  if (Array.isArray(content)) {
+    for (const block of content as ContentBlock[]) {
+      if (block.type === 'tool_use' || block.type === 'toolCall') return true;
+    }
+  }
+
+  const msg = message as unknown as Record<string, unknown>;
+  const toolCalls = msg.tool_calls ?? msg.toolCalls;
+  if (Array.isArray(toolCalls) && toolCalls.length > 0) return true;
+
+  return false;
+}
+
+function isRealUserBoundaryMessage(msg: RawMessage): boolean {
+  if (msg.role !== 'user') return false;
+  if (!Array.isArray(msg.content)) return true;
+  const blocks = msg.content as ContentBlock[];
+  return blocks.length === 0 || !blocks.every((block) => block.type === 'tool_result' || block.type === 'toolResult');
+}
+
+function hasAssistantAfterLastRealUser(messages: RawMessage[]): boolean {
+  for (let i = messages.length - 1; i >= 0; i -= 1) {
+    if (isRealUserBoundaryMessage(messages[i])) {
+      return messages.slice(i + 1).some((m) => m.role === 'assistant');
+    }
+  }
+  return false;
+}
+
+function hasAssistantProgressSinceSend(messages: RawMessage[], lastUserMessageAt: number | null): boolean {
+  if (!lastUserMessageAt) return false;
+  const normalized = [...messages];
+  while (normalized.length > 0) {
+    const last = normalized[normalized.length - 1];
+    if (last.role === 'user' && !last.timestamp) {
+      normalized.pop();
+      continue;
+    }
+    break;
+  }
+  return hasAssistantAfterLastRealUser(normalized);
 }
 
 // ── Local image cache ─────────────────────────────────────────
@@ -1278,14 +1372,20 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   loadHistory: async (quiet = false) => {
     const { currentSessionKey } = get();
+    const forceLoad = _forceNextHistoryLoadBySession.delete(currentSessionKey);
     const existingLoad = _historyLoadInFlight.get(currentSessionKey);
     if (existingLoad) {
       await existingLoad;
-      return;
+      if (!forceLoad) {
+        return;
+      }
+      if (get().currentSessionKey !== currentSessionKey) {
+        return;
+      }
     }
 
     const lastLoadAt = _lastHistoryLoadAtBySession.get(currentSessionKey) || 0;
-    if (quiet && Date.now() - lastLoadAt < HISTORY_LOAD_MIN_INTERVAL_MS) {
+    if (!forceLoad && quiet && Date.now() - lastLoadAt < HISTORY_LOAD_MIN_INTERVAL_MS) {
       return;
     }
 
@@ -1300,7 +1400,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }, 15_000);
 
     const loadPromise = (async () => {
+      const isCurrentSession = () => get().currentSessionKey === currentSessionKey;
+
       const applyLoadedMessages = (rawMessages: RawMessage[], thinkingLevel: string | null) => {
+      if (!isCurrentSession()) return;
       // Before filtering: attach images/files from tool_result messages to the next assistant message
       const messagesWithToolImages = enrichWithToolResultFiles(rawMessages);
       const filteredMessages = messagesWithToolImages.filter((msg) => !isToolResultRole(msg.role));
@@ -1383,25 +1486,46 @@ export const useChatStore = create<ChatState>((set, get) => ({
       };
 
       if (isSendingNow && !pendingFinal) {
-        const hasRecentAssistantActivity = [...filteredMessages].reverse().some((msg) => {
+        const hasFinalLikeAssistant = [...filteredMessages].reverse().some((msg) => {
           if (msg.role !== 'assistant') return false;
-          return isAfterUserMsg(msg);
+          if (!isAfterUserMsg(msg)) return false;
+          if (hasPendingToolUse(msg)) return false;
+          return hasNonToolAssistantContent(msg);
         });
-        if (hasRecentAssistantActivity) {
+        if (hasFinalLikeAssistant) {
           set({ pendingFinal: true });
+        } else {
+          const hasRecentAssistantActivity = [...filteredMessages].reverse().some((msg) => {
+            if (msg.role !== 'assistant') return false;
+            return isAfterUserMsg(msg);
+          });
+          if (hasRecentAssistantActivity) {
+            set({ pendingFinal: true });
+          }
         }
       }
 
       // If pendingFinal, check whether the AI produced a final text response.
+      // Reject intermediate tool turns so the run stays open across tool rounds.
       if (pendingFinal || get().pendingFinal) {
         const recentAssistant = [...filteredMessages].reverse().find((msg) => {
           if (msg.role !== 'assistant') return false;
+          if (hasPendingToolUse(msg)) return false;
           if (!hasNonToolAssistantContent(msg)) return false;
           return isAfterUserMsg(msg);
         });
         if (recentAssistant) {
           clearHistoryPoll();
           set({ sending: false, activeRunId: null, pendingFinal: false });
+        }
+      }
+
+      // History poll fallback: any assistant activity after the user message counts
+      // as progress so the safety timeout does not fire during tool chains.
+      if (isSendingNow && hasAssistantProgressSinceSend(filteredMessages, lastUserMessageAt)) {
+        _lastChatEventAt = Date.now();
+        if (get().error) {
+          set({ error: null });
         }
       }
       };
@@ -1543,6 +1667,20 @@ export const useChatStore = create<ChatState>((set, get) => ({
       if (!state.sending) return;
       if (state.streamingMessage || state.streamingText) return;
       if (state.pendingFinal) {
+        if (hasAssistantProgressSinceSend(state.messages, state.lastUserMessageAt)) {
+          _lastChatEventAt = Date.now();
+          if (state.error) {
+            set({ error: null });
+          }
+        }
+        setTimeout(checkStuck, 10_000);
+        return;
+      }
+      if (hasAssistantProgressSinceSend(state.messages, state.lastUserMessageAt)) {
+        _lastChatEventAt = Date.now();
+        if (state.error) {
+          set({ error: null });
+        }
         setTimeout(checkStuck, 10_000);
         return;
       }
@@ -1721,8 +1859,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
             if (event.message && typeof event.message === 'object') {
               const msgRole = (event.message as RawMessage).role;
               if (isToolResultRole(msgRole)) return s.streamingMessage;
+              const msgObj = event.message as RawMessage;
+              // During multi-model fallback the Gateway may emit an empty or
+              // role-only delta to signal a model switch. Do not discard
+              // accumulated streaming content when there is nothing to show.
+              if (s.streamingMessage && msgObj.content === undefined) {
+                return s.streamingMessage;
+              }
             }
-            return event.message ?? s.streamingMessage;
+            return normalizeStreamingMessage(event.message ?? s.streamingMessage);
           })(),
           streamingTools: updates.length > 0 ? upsertToolStatuses(s.streamingTools, updates) : s.streamingTools,
         }));
@@ -1967,3 +2112,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   clearError: () => set({ error: null }),
 }));
+
+/** Bypass the quiet-history throttle and retry after an in-flight load completes. */
+export function markHistoryReloadRequired(sessionKey: string): void {
+  forceNextHistoryLoad(sessionKey);
+}

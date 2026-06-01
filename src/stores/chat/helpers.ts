@@ -813,6 +813,22 @@ function getLastChatEventAt(): number {
   return _lastChatEventAt;
 }
 
+function normalizeStreamingMessage(message: unknown): unknown {
+  if (!message || typeof message !== 'object') return message;
+
+  const rawMessage = message as RawMessage;
+  const rawContent = rawMessage.content;
+  if (!Array.isArray(rawContent)) return rawMessage;
+
+  const normalizedContent = (rawContent as ContentBlock[]).map((block) => ({ ...block }));
+  const didChange = normalizedContent.some((block, index) => block !== rawContent[index])
+    || normalizedContent.length !== rawContent.length;
+
+  return didChange
+    ? { ...rawMessage, content: normalizedContent }
+    : rawMessage;
+}
+
 export {
   toMs,
   clearErrorRecoveryTimer,
@@ -838,4 +854,5 @@ export {
   setErrorRecoveryTimer,
   setLastChatEventAt,
   getLastChatEventAt,
+  normalizeStreamingMessage,
 };

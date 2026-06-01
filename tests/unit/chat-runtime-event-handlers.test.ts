@@ -38,6 +38,7 @@ vi.mock('@/stores/chat/helpers', () => ({
   makeAttachedFile: (...args: unknown[]) => makeAttachedFile(...args),
   setErrorRecoveryTimer: (...args: unknown[]) => setErrorRecoveryTimer(...args),
   upsertToolStatuses: (...args: unknown[]) => upsertToolStatuses(...args),
+  normalizeStreamingMessage: (message: unknown) => message,
 }));
 
 type ChatLikeState = {
