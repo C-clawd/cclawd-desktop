@@ -6,6 +6,7 @@ import { create } from 'zustand';
 import { hostApiFetch } from '@/lib/host-api';
 import { invokeIpc } from '@/lib/api-client';
 import { subscribeHostEvent } from '@/lib/host-events';
+import { stableGatewayEventFingerprint } from '@/lib/gateway-event-fingerprint';
 import type { GatewayStatus } from '../types/gateway';
 
 let gatewayInitPromise: Promise<void> | null = null;
@@ -46,53 +47,15 @@ function pruneGatewayEventDedupe(now: number): void {
   }
 }
 
-function stableGatewayEventFingerprint(value: unknown): string {
-  let hash = 2166136261;
-  let length = 0;
-
-  const add = (part: string): void => {
-    length += part.length;
-    for (let i = 0; i < part.length; i += 1) {
-      hash ^= part.charCodeAt(i);
-      hash = Math.imul(hash, 16777619) >>> 0;
-    }
-  };
-
-  const visit = (entry: unknown): void => {
-    if (entry === undefined) {
-      add('u:');
-      return;
-    }
-    if (entry === null || typeof entry !== 'object') {
-      add(`${typeof entry}:${JSON.stringify(entry)};`);
-      return;
-    }
-    if (Array.isArray(entry)) {
-      add('[');
-      for (const item of entry) visit(item);
-      add(']');
-      return;
-    }
-
-    add('{');
-    for (const [key, child] of Object.entries(entry as Record<string, unknown>).sort(([left], [right]) => left.localeCompare(right))) {
-      add(`${JSON.stringify(key)}:`);
-      visit(child);
-    }
-    add('}');
-  };
-
-  visit(value);
-  return `${hash.toString(36)}:${length.toString(36)}`;
-}
-
 function buildGatewayEventDedupeKey(event: Record<string, unknown>): string | null {
   const runId = event.runId != null ? String(event.runId) : '';
   const sessionKey = event.sessionKey != null ? String(event.sessionKey) : '';
   const seq = event.seq != null ? String(event.seq) : '';
   const state = event.state != null ? String(event.state) : '';
-  if (state === 'delta' && !seq) {
-    return ['delta-nosq', runId, sessionKey, stableGatewayEventFingerprint(event.message ?? event)].join('|');
+  // Gateway may emit multiple `delta` payloads under the same `seq` (flush /
+  // throttle paths). Dedupe only exact replays by fingerprinting message body.
+  if (state === 'delta') {
+    return ['delta', runId, sessionKey, seq, stableGatewayEventFingerprint(event.message ?? event)].join('|');
   }
   if (runId || sessionKey || seq || state) {
     return [runId, sessionKey, seq, state].join('|');
@@ -231,10 +194,23 @@ function handleGatewayNotification(notification: { method?: string; params?: Rec
         const matchesActiveRun = runId != null && state.activeRunId != null && String(runId) === state.activeRunId;
 
         if (matchesCurrentSession || matchesActiveRun) {
-          if (isRunTerminal && resolvedSessionKey) {
+          if (resolvedSessionKey) {
             markHistoryReloadRequired(resolvedSessionKey);
           }
-          maybeLoadHistory(state, isRunTerminal);
+          if (isRunTerminal && state.sending) {
+            void state.loadHistory(true).finally(() => {
+              if (resolvedSessionKey && useChatStore.getState().currentSessionKey !== resolvedSessionKey) return;
+              useChatStore.setState({
+                sending: false,
+                activeRunId: null,
+                pendingFinal: false,
+                lastUserMessageAt: null,
+                error: isRunFailure ? useChatStore.getState().error : null,
+              });
+            });
+          } else {
+            maybeLoadHistory(state, isRunTerminal || isPerMessageEnd);
+          }
         }
 
         if (isRunFailure && (matchesCurrentSession || matchesActiveRun)) {
@@ -249,16 +225,6 @@ function handleGatewayNotification(notification: { method?: string; params?: Rec
               sessionKey: resolvedSessionKey ?? undefined,
             });
           }
-        }
-
-        if (isRunTerminal && (matchesCurrentSession || matchesActiveRun) && state.sending) {
-          useChatStore.setState({
-            sending: false,
-            activeRunId: null,
-            pendingFinal: false,
-            lastUserMessageAt: null,
-            error: isRunFailure ? state.error : null,
-          });
         }
       })
       .catch(() => {});

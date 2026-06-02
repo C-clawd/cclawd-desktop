@@ -182,7 +182,8 @@ export function Chat() {
   const hasStreamImages = streamImages.length > 0;
   const hasStreamToolStatus = streamingTools.length > 0;
   const hasRunningStreamToolStatus = streamingTools.some((tool) => tool.status === 'running');
-  const shouldRenderStreaming = sending && (hasStreamText || hasStreamThinking || hasStreamTools || hasStreamImages || hasStreamToolStatus);
+  // Thinking-only chunks belong in ExecutionGraph, not a separate bubble.
+  const shouldRenderStreaming = sending && (hasStreamText || hasStreamTools || hasStreamImages || hasStreamToolStatus);
   const hasAnyStreamContent = hasStreamText || hasStreamThinking || hasStreamTools || hasStreamImages || hasStreamToolStatus;
 
   const isEmpty = messages.length === 0 && !sending;
@@ -572,7 +573,11 @@ export function Chat() {
 
                   {/* Streaming message — render when reply text is separated from graph,
                       OR when there's streaming content without an active graph */}
-                  {shouldRenderStreaming && (streamingReplyText != null || !hasActiveExecutionGraph) && (
+                  {shouldRenderStreaming && (
+                    streamingReplyText != null
+                    || !hasActiveExecutionGraph
+                    || (hasStreamText && streamTools.length === 0)
+                  ) && (
                     <ChatMessage
                       message={(() => {
                         const base = streamMsg

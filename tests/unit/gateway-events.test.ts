@@ -152,6 +152,7 @@ describe('gateway store event wiring', () => {
     await flushAsyncImports();
     notifyPhase('completed');
     await flushAsyncImports();
+    await Promise.resolve();
 
     expect(loadHistory).toHaveBeenCalledTimes(2);
     expect(useChatStore.getState().sending).toBe(false);
@@ -242,5 +243,48 @@ describe('gateway store event wiring', () => {
     await flushAsyncImports();
 
     expect(handleChatEvent).toHaveBeenCalledTimes(1);
+  });
+
+  it('passes progressive delta notifications with the same seq through to chat store', async () => {
+    const handlers = new Map<string, (payload: unknown) => void>();
+    subscribeHostEventMock.mockImplementation((eventName: string, handler: (payload: unknown) => void) => {
+      handlers.set(eventName, handler);
+      return () => {};
+    });
+
+    const { useChatStore } = await import('@/stores/chat');
+    const handleChatEvent = vi.fn();
+    useChatStore.setState({
+      currentSessionKey: 'agent:main:main',
+      sessions: [{ key: 'agent:main:main' }],
+      handleChatEvent,
+    });
+
+    const { useGatewayStore } = await import('@/stores/gateway');
+    await useGatewayStore.getState().init();
+
+    handlers.get('gateway:notification')?.({
+      method: 'agent',
+      params: {
+        runId: 'run-same-seq',
+        sessionKey: 'agent:main:main',
+        seq: 1,
+        state: 'delta',
+        message: { role: 'assistant', content: [{ type: 'text', text: 'Hello' }] },
+      },
+    });
+    handlers.get('gateway:notification')?.({
+      method: 'agent',
+      params: {
+        runId: 'run-same-seq',
+        sessionKey: 'agent:main:main',
+        seq: 1,
+        state: 'delta',
+        message: { role: 'assistant', content: [{ type: 'text', text: 'Hello world' }] },
+      },
+    });
+    await flushAsyncImports();
+
+    expect(handleChatEvent).toHaveBeenCalledTimes(2);
   });
 });

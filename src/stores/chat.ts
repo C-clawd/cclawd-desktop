@@ -8,6 +8,7 @@ import { hostApiFetch } from '@/lib/host-api';
 import { useGatewayStore } from './gateway';
 import { useAgentsStore } from './agents';
 import { buildCronSessionHistoryPath, isCronSessionKey } from './chat/cron-session-utils';
+import { buildStreamingDeltaDedupeKey } from '@/lib/gateway-event-fingerprint';
 import {
   DEFAULT_CANONICAL_PREFIX,
   DEFAULT_SESSION_KEY,
@@ -89,12 +90,8 @@ function buildChatEventDedupeKey(eventState: string, event: Record<string, unkno
   const runId = event.runId != null ? String(event.runId) : '';
   const sessionKey = event.sessionKey != null ? String(event.sessionKey) : '';
   const seq = event.seq != null ? String(event.seq) : '';
-  // Some gateways emit multiple `delta` updates without a monotonically
-  // increasing `seq`. Deduping those by just `runId + sessionKey + state`
-  // collapses legitimate stream progression, so only seq-backed deltas are
-  // safe to dedupe generically.
-  if (eventState === 'delta' && !seq) {
-    return null;
+  if (eventState === 'delta') {
+    return buildStreamingDeltaDedupeKey(event);
   }
   if (runId || sessionKey || seq || eventState) {
     return [runId, sessionKey, seq, eventState].join('|');
@@ -1649,6 +1646,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
       const state = get();
       if (!state.sending) { clearHistoryPoll(); return; }
       if (state.streamingMessage) {
+        // Keep polling during active streaming: if WS deltas stall, fall back
+        // to chat.history after a quiet window (same path as manual refresh).
+        if (Date.now() - _lastChatEventAt >= HISTORY_POLL_SILENCE_WINDOW_MS) {
+          forceNextHistoryLoad(state.currentSessionKey);
+          state.loadHistory(true);
+        }
         _historyPollTimer = setTimeout(pollHistory, POLL_INTERVAL);
         return;
       }
@@ -1826,10 +1829,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
     // way to track progress when the gateway doesn't stream intermediate turns.
     const hasUsefulData = resolvedState === 'delta' || resolvedState === 'final'
       || resolvedState === 'error' || resolvedState === 'aborted';
-    if (hasUsefulData) {
+    if (hasUsefulData && resolvedState !== 'delta') {
       clearHistoryPoll();
       // Adopt run started from another client (e.g. console at 127.0.0.1:18789):
       // show loading/streaming in the app when this session has an active run.
+      const { sending } = get();
+      if (!sending && runId) {
+        set({ sending: true, activeRunId: runId, error: null });
+      }
+    } else if (resolvedState === 'delta') {
       const { sending } = get();
       if (!sending && runId) {
         set({ sending: true, activeRunId: runId, error: null });
