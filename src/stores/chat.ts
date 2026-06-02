@@ -8,6 +8,10 @@ import { hostApiFetch } from '@/lib/host-api';
 import { useGatewayStore } from './gateway';
 import { useAgentsStore } from './agents';
 import { buildCronSessionHistoryPath, isCronSessionKey } from './chat/cron-session-utils';
+import {
+  filterHeartbeatTurns,
+  shouldIgnoreBackgroundMainSessionRun,
+} from './chat/heartbeat-filter';
 import { buildStreamingDeltaDedupeKey } from '@/lib/gateway-event-fingerprint';
 import {
   DEFAULT_CANONICAL_PREFIX,
@@ -1442,8 +1446,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
       // Before filtering: attach images/files from tool_result messages to the next assistant message
       const messagesWithToolImages = enrichWithToolResultFiles(rawMessages);
       const filteredMessages = messagesWithToolImages.filter((msg) => !isToolResultRole(msg.role));
+      const withoutHeartbeatTurns = filterHeartbeatTurns(filteredMessages, currentSessionKey);
       // Restore file attachments for user/assistant messages (from cache + text patterns)
-      const enrichedMessages = enrichWithCachedImages(filteredMessages);
+      const enrichedMessages = enrichWithCachedImages(withoutHeartbeatTurns);
 
       // Preserve the optimistic user message during an active send.
       // The Gateway may not include the user's message in chat.history
@@ -1841,7 +1846,16 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const runId = String(event.runId || '');
     const eventState = String(event.state || '');
     const eventSessionKey = event.sessionKey != null ? String(event.sessionKey) : null;
-    const { activeRunId, currentSessionKey } = get();
+    const { activeRunId, currentSessionKey, lastUserMessageAt, sending } = get();
+
+    if (shouldIgnoreBackgroundMainSessionRun({
+      sessionKey: eventSessionKey,
+      currentSessionKey,
+      lastUserMessageAt,
+      sending,
+    })) {
+      return;
+    }
 
     // Only process events for the current session (when sessionKey is present)
     if (eventSessionKey != null && eventSessionKey !== currentSessionKey) return;

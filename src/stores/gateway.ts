@@ -7,6 +7,7 @@ import { hostApiFetch } from '@/lib/host-api';
 import { invokeIpc } from '@/lib/api-client';
 import { subscribeHostEvent } from '@/lib/host-events';
 import { stableGatewayEventFingerprint } from '@/lib/gateway-event-fingerprint';
+import { shouldIgnoreBackgroundMainSessionRun } from './chat/heartbeat-filter';
 import type { GatewayStatus } from '../types/gateway';
 
 let gatewayInitPromise: Promise<void> | null = null;
@@ -159,6 +160,15 @@ function handleGatewayNotification(notification: { method?: string; params?: Rec
           || !state.sessions.some((session) => session.key === resolvedSessionKey);
         if (shouldRefreshSessions) {
           maybeLoadSessions(state, true);
+        }
+
+        if (shouldIgnoreBackgroundMainSessionRun({
+          sessionKey: resolvedSessionKey,
+          currentSessionKey: state.currentSessionKey,
+          lastUserMessageAt: state.lastUserMessageAt,
+          sending: state.sending,
+        })) {
+          return;
         }
 
         state.handleChatEvent({
