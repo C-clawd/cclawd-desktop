@@ -56,7 +56,8 @@ const _lastHistoryLoadAtBySession = new Map<string, number>();
 const _forceNextHistoryLoadBySession = new Set<string>();
 const SESSION_LOAD_MIN_INTERVAL_MS = 1_200;
 const HISTORY_LOAD_MIN_INTERVAL_MS = 800;
-const HISTORY_POLL_SILENCE_WINDOW_MS = 2_500;
+const SEND_HISTORY_POLL_START_MS = 600;
+const SEND_HISTORY_POLL_INTERVAL_MS = 800;
 const CHAT_EVENT_DEDUPE_TTL_MS = 30_000;
 const _chatEventDedupe = new Map<string, number>();
 
@@ -201,6 +202,43 @@ function hasAssistantProgressSinceSend(messages: RawMessage[], lastUserMessageAt
     break;
   }
   return hasAssistantAfterLastRealUser(normalized);
+}
+
+function getAssistantVisibleTextLength(message: RawMessage | undefined): number {
+  if (!message) return 0;
+  return getMessageText(message.content).trim().length;
+}
+
+function findLatestAssistantSinceLastUser(messages: RawMessage[]): RawMessage | undefined {
+  let lastUserIdx = -1;
+  for (let i = messages.length - 1; i >= 0; i -= 1) {
+    if (isRealUserBoundaryMessage(messages[i])) {
+      lastUserIdx = i;
+      break;
+    }
+  }
+  if (lastUserIdx === -1) return undefined;
+  for (let i = messages.length - 1; i > lastUserIdx; i -= 1) {
+    if (messages[i].role === 'assistant') return messages[i];
+  }
+  return undefined;
+}
+
+function shouldAdoptHistoryStreamingCandidate(
+  candidate: RawMessage,
+  currentStream: RawMessage | null,
+): boolean {
+  if (hasPendingToolUse(candidate)) return true;
+  const candidateLen = getAssistantVisibleTextLength(candidate);
+  if (candidateLen === 0) {
+    const content = candidate.content;
+    if (Array.isArray(content)) {
+      return (content as ContentBlock[]).some((block) => block.type === 'tool_use' || block.type === 'toolCall');
+    }
+    return false;
+  }
+  if (!currentStream) return true;
+  return candidateLen > getAssistantVisibleTextLength(currentStream);
 }
 
 // ── Local image cache ─────────────────────────────────────────
@@ -1430,6 +1468,23 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
       set({ messages: finalMessages, thinkingLevel, loading: false });
 
+      // When Gateway chat deltas are dropped (dropIfSlow), mirror the latest
+      // in-progress assistant row from chat.history into streamingMessage so
+      // the UI updates between poll ticks instead of only jumping messages[].
+      if (isCurrentSession() && get().sending) {
+        const historyCandidate = findLatestAssistantSinceLastUser(filteredMessages);
+        const currentStream = get().streamingMessage as RawMessage | null;
+        if (historyCandidate && shouldAdoptHistoryStreamingCandidate(historyCandidate, currentStream)) {
+          const updates = collectToolUpdates(historyCandidate, 'delta');
+          set((s) => ({
+            streamingMessage: normalizeStreamingMessage(historyCandidate),
+            streamingTools: updates.length > 0
+              ? upsertToolStatuses(s.streamingTools, updates)
+              : s.streamingTools,
+          }));
+        }
+      }
+
       // Extract first user message text as a session label for display in the toolbar.
       // Skip main sessions (key ends with ":main") — they rely on the Gateway-provided
       // displayName (e.g. the configured agent name "Cclawd") instead.
@@ -1640,29 +1695,16 @@ export const useChatStore = create<ChatState>((set, get) => ({
     clearHistoryPoll();
     clearErrorRecoveryTimer();
 
-    const POLL_START_DELAY = 3_000;
-    const POLL_INTERVAL = 4_000;
     const pollHistory = () => {
       const state = get();
       if (!state.sending) { clearHistoryPoll(); return; }
-      if (state.streamingMessage) {
-        // Keep polling during active streaming: if WS deltas stall, fall back
-        // to chat.history after a quiet window (same path as manual refresh).
-        if (Date.now() - _lastChatEventAt >= HISTORY_POLL_SILENCE_WINDOW_MS) {
-          forceNextHistoryLoad(state.currentSessionKey);
-          state.loadHistory(true);
-        }
-        _historyPollTimer = setTimeout(pollHistory, POLL_INTERVAL);
-        return;
-      }
-      if (Date.now() - _lastChatEventAt < HISTORY_POLL_SILENCE_WINDOW_MS) {
-        _historyPollTimer = setTimeout(pollHistory, POLL_INTERVAL);
-        return;
-      }
-      state.loadHistory(true);
-      _historyPollTimer = setTimeout(pollHistory, POLL_INTERVAL);
+      // Gateway broadcasts chat deltas with dropIfSlow; poll chat.history
+      // aggressively while sending so the UI stays near real-time.
+      forceNextHistoryLoad(state.currentSessionKey);
+      void state.loadHistory(true);
+      _historyPollTimer = setTimeout(pollHistory, SEND_HISTORY_POLL_INTERVAL_MS);
     };
-    _historyPollTimer = setTimeout(pollHistory, POLL_START_DELAY);
+    _historyPollTimer = setTimeout(pollHistory, SEND_HISTORY_POLL_START_MS);
 
     const SAFETY_TIMEOUT_MS = 90_000;
     const checkStuck = () => {
