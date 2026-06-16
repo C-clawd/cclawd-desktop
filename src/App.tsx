@@ -3,16 +3,12 @@
  * Handles routing and global providers
  */
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
-import { Component, useEffect, useMemo, useState } from 'react';
-import type { ErrorInfo, FormEvent, ReactNode } from 'react';
+import { Component, useEffect } from 'react';
+import type { ErrorInfo, ReactNode } from 'react';
 import { Toaster } from 'sonner';
 import i18n from './i18n';
 import { MainLayout } from './components/layout/MainLayout';
-import { TitleBar } from './components/layout/TitleBar';
 import { TooltipProvider } from '@/components/ui/tooltip';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Models } from './pages/Models';
 import { Chat } from './pages/Chat';
 import { Agents } from './pages/Agents';
@@ -27,38 +23,6 @@ import { useGatewayStore } from './stores/gateway';
 import { useProviderStore } from './stores/providers';
 import { applyGatewayTransportPreference } from './lib/api-client';
 import { PeriodicRealPersonAuthGuard } from './components/security/PeriodicRealPersonAuthGuard';
-import { hostApiFetch } from './lib/host-api';
-
-type GuardEntitlementResponse = {
-  success?: boolean;
-  data?: {
-    allowed?: boolean;
-    reasonCode?: string;
-    message?: string;
-    requireRelogin?: boolean;
-  };
-};
-
-type OrgLoginResponse = {
-  success?: boolean;
-  code?: string;
-  error?: string;
-};
-
-type OrgActionResult = {
-  ok: boolean;
-  message?: string;
-  reasonCode?: string;
-};
-
-type OrgReleaseDeviceResponse = {
-  success?: boolean;
-  code?: string;
-  error?: string;
-  data?: {
-    releasedBindings?: number;
-  };
-};
 
 
 /**
@@ -135,12 +99,6 @@ function App() {
   const initialized = useSettingsStore((state) => state.initialized);
   const initGateway = useGatewayStore((state) => state.init);
   const initProviders = useProviderStore((state) => state.init);
-  const [guardEntitlementChecked, setGuardEntitlementChecked] = useState(false);
-  const [guardEntitlementAllowed, setGuardEntitlementAllowed] = useState(true);
-  const [guardEntitlementMessage, setGuardEntitlementMessage] = useState('');
-  const [guardReasonCode, setGuardReasonCode] = useState('');
-  const [guardRequireRelogin, setGuardRequireRelogin] = useState(false);
-  const [guardEntitlementRefreshKey, setGuardEntitlementRefreshKey] = useState(0);
 
   useEffect(() => {
     initSettings();
@@ -165,22 +123,13 @@ function App() {
     initProviders();
   }, [initProviders, initialized]);
 
-  // Redirect to setup wizard when appropriate (after org-login guard settles).
+  // Redirect to setup wizard when appropriate.
   useEffect(() => {
-    if (!initialized || !guardEntitlementChecked) return;
-    if (guardRequireRelogin && !guardEntitlementAllowed) return;
+    if (!initialized) return;
     if (!setupComplete && !location.pathname.startsWith('/setup')) {
       navigate('/setup');
     }
-  }, [
-    guardEntitlementAllowed,
-    guardEntitlementChecked,
-    guardRequireRelogin,
-    initialized,
-    location.pathname,
-    navigate,
-    setupComplete,
-  ]);
+  }, [initialized, location.pathname, navigate, setupComplete]);
 
   // Listen for navigation events from main process
   useEffect(() => {
@@ -211,120 +160,6 @@ function App() {
     applyGatewayTransportPreference();
   }, []);
 
-  useEffect(() => {
-    if (!initialized) {
-      setGuardEntitlementChecked(false);
-      setGuardEntitlementAllowed(true);
-      setGuardEntitlementMessage('');
-      setGuardReasonCode('');
-      setGuardRequireRelogin(false);
-      return;
-    }
-
-    let cancelled = false;
-    const load = async () => {
-      try {
-        const response = await hostApiFetch<GuardEntitlementResponse>('/api/audit/entitlement');
-        if (cancelled) return;
-        const allowed = Boolean(response?.success) && response?.data?.allowed !== false;
-        setGuardEntitlementAllowed(allowed);
-        setGuardEntitlementMessage(allowed ? '' : (response?.data?.message || '企业权限校验未通过'));
-        setGuardReasonCode(allowed ? '' : (response?.data?.reasonCode || ''));
-        setGuardRequireRelogin(Boolean(response?.data?.requireRelogin));
-      } catch {
-        if (cancelled) return;
-        // Keep app usable on transient check failures.
-        setGuardEntitlementAllowed(true);
-        setGuardEntitlementMessage('');
-        setGuardReasonCode('');
-        setGuardRequireRelogin(false);
-      } finally {
-        if (!cancelled) {
-          setGuardEntitlementChecked(true);
-        }
-      }
-    };
-
-    void load();
-    const timer = window.setInterval(() => {
-      void load();
-    }, 60 * 1000);
-
-    return () => {
-      cancelled = true;
-      window.clearInterval(timer);
-    };
-  }, [initialized, guardEntitlementRefreshKey]);
-
-  const guardBlocked = useMemo(
-    () => initialized && guardEntitlementChecked && !guardEntitlementAllowed,
-    [initialized, guardEntitlementChecked, guardEntitlementAllowed],
-  );
-  const guardReloginBlocked = useMemo(
-    () => guardBlocked && guardRequireRelogin,
-    [guardBlocked, guardRequireRelogin],
-  );
-
-  useEffect(() => {
-    if (!guardReloginBlocked) return;
-    if (location.pathname === '/org-login') return;
-    navigate('/org-login');
-  }, [guardReloginBlocked, location.pathname, navigate]);
-
-  const clearOrgSession = async () => {
-    try {
-      await hostApiFetch('/api/audit/relogin', { method: 'POST' });
-    } catch {
-      // Best effort only.
-    }
-  };
-
-  const handleRelogin = async () => {
-    await clearOrgSession();
-    navigate('/org-login');
-  };
-
-  const handleOrgLogout = async () => {
-    await clearOrgSession();
-    setGuardEntitlementChecked(true);
-    setGuardEntitlementAllowed(false);
-    setGuardEntitlementMessage('已退出企业账号，请重新登录或切换账号');
-    setGuardReasonCode('');
-    setGuardRequireRelogin(true);
-    navigate('/org-login');
-  };
-
-  const handleOrgLoginSuccess = async (): Promise<OrgActionResult> => {
-    try {
-      const response = await hostApiFetch<GuardEntitlementResponse>('/api/audit/entitlement');
-      const allowed = Boolean(response?.success) && response?.data?.allowed !== false;
-      const reasonCode = response?.data?.reasonCode || '';
-      setGuardEntitlementChecked(true);
-      setGuardEntitlementAllowed(allowed);
-      setGuardEntitlementMessage(allowed ? '' : (response?.data?.message || '企业权限校验未通过'));
-      setGuardReasonCode(allowed ? '' : reasonCode);
-      setGuardRequireRelogin(Boolean(response?.data?.requireRelogin));
-      if (!allowed) {
-        return {
-          ok: false,
-          message: response?.data?.message || '登录成功，但当前账号仍未通过企业权限校验',
-          reasonCode,
-        };
-      }
-    } catch {
-      return { ok: false, message: '登录成功，但权限校验失败，请稍后重试' };
-    }
-
-    setGuardEntitlementChecked(false);
-    setGuardEntitlementAllowed(true);
-    setGuardEntitlementMessage('');
-    setGuardReasonCode('');
-    setGuardRequireRelogin(false);
-    setGuardEntitlementRefreshKey((current) => current + 1);
-    navigate('/');
-    return { ok: true };
-  };
-
   return (
     <ErrorBoundary>
       <TooltipProvider delayDuration={300}>
@@ -332,58 +167,17 @@ function App() {
           <Routes>
             {/* Setup wizard (shown on first launch) */}
             <Route path="/setup/*" element={<Setup />} />
-            <Route
-              path="/org-login"
-              element={(
-                <OrgLoginPage
-                  message={guardEntitlementMessage}
-                  reasonCode={guardReasonCode}
-                  onLoginSuccess={handleOrgLoginSuccess}
-                  onLogout={handleOrgLogout}
-                />
-              )}
-            />
 
             {/* Main application routes */}
             <Route element={<MainLayout />}>
-              {guardReloginBlocked ? (
-                <Route
-                  path="*"
-                  element={(
-                    <GuardReloginLocked
-                      message={guardEntitlementMessage}
-                      onRelogin={handleRelogin}
-                      onLogout={handleOrgLogout}
-                    />
-                  )}
-                />
-              ) : guardBlocked ? (
-                <>
-                  <Route path="/settings/*" element={<Settings />} />
-                  <Route
-                    path="*"
-                    element={(
-                      <GuardEntitlementLocked
-                        message={guardEntitlementMessage}
-                        reasonCode={guardReasonCode}
-                        onRelogin={handleRelogin}
-                        onLogout={handleOrgLogout}
-                      />
-                    )}
-                  />
-                </>
-              ) : (
-                <>
-                  <Route path="/settings/*" element={<Settings />} />
-                  <Route path="/" element={<Chat />} />
-                  <Route path="/models" element={<Models />} />
-                  <Route path="/agents" element={<Agents />} />
-                  <Route path="/channels" element={<Channels />} />
-                  <Route path="/skills" element={<Skills />} />
-                  <Route path="/cron" element={<Cron />} />
-                  <Route path="/audit" element={<Audit />} />
-                </>
-              )}
+              <Route path="/settings/*" element={<Settings />} />
+              <Route path="/" element={<Chat />} />
+              <Route path="/models" element={<Models />} />
+              <Route path="/agents" element={<Agents />} />
+              <Route path="/channels" element={<Channels />} />
+              <Route path="/skills" element={<Skills />} />
+              <Route path="/cron" element={<Cron />} />
+              <Route path="/audit" element={<Audit />} />
             </Route>
           </Routes>
 
@@ -399,248 +193,6 @@ function App() {
         />
       </TooltipProvider>
     </ErrorBoundary>
-  );
-}
-
-function GuardEntitlementLocked({
-  message,
-  reasonCode,
-  onRelogin,
-  onLogout,
-}: {
-  message: string;
-  reasonCode: string;
-  onRelogin: () => void;
-  onLogout: () => void;
-}) {
-  const displayMessage = message || '当前账号未通过企业权限校验，主功能已受限';
-  const isDeviceConflict = reasonCode === 'bind_409';
-  return (
-    <div className="flex min-h-full items-center justify-center">
-      <div className="w-full max-w-xl rounded-2xl border border-[#DDE3F1] bg-card/95 p-8 text-center shadow-sm">
-        <h2 className="text-2xl font-semibold text-gray-900">企业权限受限</h2>
-        <p className="mt-3 text-sm leading-6 text-foreground/80">{displayMessage}</p>
-        {isDeviceConflict ? (
-          <p className="mt-2 text-xs leading-5 text-foreground/60">
-            无需知道是哪台设备。重新登录后，可使用「释放其他设备并继续」解除占用，让本机重新获得席位。
-          </p>
-        ) : (
-          <p className="mt-2 text-xs leading-5 text-foreground/60">
-            请联系管理员处理订阅、席位或账号状态后重试。你仍可进入「设置」页面查看其他配置。
-          </p>
-        )}
-        <div className="mt-6 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
-          <Button type="button" onClick={onRelogin} className="min-w-[140px]">
-            {isDeviceConflict ? '登录并释放设备' : '重新登录'}
-          </Button>
-          <Button type="button" variant="outline" onClick={onLogout} className="min-w-[140px]">
-            退出登录
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function GuardReloginLocked({
-  message,
-  onRelogin,
-  onLogout,
-}: {
-  message: string;
-  onRelogin: () => void;
-  onLogout: () => void;
-}) {
-  const displayMessage = message || '当前组织账号不可用，已强制退出主功能';
-  return (
-    <div className="flex min-h-full items-center justify-center">
-      <div className="w-full max-w-xl rounded-2xl border border-[#DDE3F1] bg-card/95 p-8 text-center shadow-sm">
-        <h2 className="text-2xl font-semibold text-gray-900">需要重新登录</h2>
-        <p className="mt-3 text-sm leading-6 text-foreground/80">{displayMessage}</p>
-        <p className="mt-2 text-xs leading-5 text-foreground/60">请重新登录后再继续使用 Cclawd Desktop。</p>
-        <div className="mt-6 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
-          <Button type="button" onClick={onRelogin} className="min-w-[140px]">
-            重新登录
-          </Button>
-          <Button type="button" variant="outline" onClick={onLogout} className="min-w-[140px]">
-            退出登录
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function LockScreenShell({ children }: { children: ReactNode }) {
-  return (
-    <div className="flex h-screen flex-col overflow-hidden bg-background/50 text-foreground">
-      <TitleBar />
-      <div className="flex-1 overflow-auto">
-        <div className="flex min-h-full items-center justify-center px-6 py-10">
-          {children}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function OrgLoginPage({
-  message,
-  reasonCode,
-  onLoginSuccess,
-  onLogout,
-}: {
-  message: string;
-  reasonCode: string;
-  onLoginSuccess: () => Promise<OrgActionResult>;
-  onLogout: () => void;
-}) {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [submitting, setSubmitting] = useState(false);
-  const [releasing, setReleasing] = useState(false);
-  const [loggingOut, setLoggingOut] = useState(false);
-  const [errorMessage, setErrorMessage] = useState('');
-  const [canReleaseOtherDevices, setCanReleaseOtherDevices] = useState(reasonCode === 'bind_409');
-  const displayMessage = message || '当前组织账号不可用，请重新登录';
-  const showReleaseHint = reasonCode === 'bind_409' || canReleaseOtherDevices;
-
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (submitting) return;
-    setErrorMessage('');
-    setSubmitting(true);
-    try {
-      const response = await hostApiFetch<OrgLoginResponse>('/api/audit/org-login', {
-        method: 'POST',
-        body: JSON.stringify({
-          email: email.trim(),
-          password,
-        }),
-      });
-      if (!response?.success) {
-        throw new Error(response?.error || '登录失败，请稍后重试');
-      }
-      const result = await onLoginSuccess();
-      if (!result.ok) {
-        setErrorMessage(result.message || '登录成功，但当前账号仍不可用');
-        setCanReleaseOtherDevices(result.reasonCode === 'bind_409');
-      }
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : String(error));
-      setCanReleaseOtherDevices(false);
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleReleaseOtherDevices = async () => {
-    if (submitting || releasing) return;
-    setErrorMessage('');
-    setReleasing(true);
-    try {
-      const response = await hostApiFetch<OrgReleaseDeviceResponse>('/api/audit/release-device', {
-        method: 'POST',
-        body: JSON.stringify({
-          email: email.trim(),
-          password,
-        }),
-      });
-      if (!response?.success) {
-        throw new Error(response?.error || '释放设备失败，请稍后重试');
-      }
-      const result = await onLoginSuccess();
-      if (!result.ok) {
-        setErrorMessage(result.message || '释放旧设备成功，但当前账号仍不可用');
-        setCanReleaseOtherDevices(result.reasonCode === 'bind_409');
-        return;
-      }
-      setCanReleaseOtherDevices(false);
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : String(error));
-    } finally {
-      setReleasing(false);
-    }
-  };
-
-  const handleLogoutClick = async () => {
-    if (submitting || releasing || loggingOut) return;
-    setLoggingOut(true);
-    try {
-      await onLogout();
-      setEmail('');
-      setPassword('');
-      setErrorMessage('');
-      setCanReleaseOtherDevices(false);
-    } finally {
-      setLoggingOut(false);
-    }
-  };
-
-  return (
-    <LockScreenShell>
-      <div className="w-full max-w-md rounded-2xl border border-[#DDE3F1] bg-card/95 p-8 shadow-sm">
-        <h2 className="text-2xl font-semibold text-gray-900">企业账号重新登录</h2>
-        <p className="mt-3 text-sm leading-6 text-foreground/80">{displayMessage}</p>
-        {showReleaseHint ? (
-          <p className="mt-2 text-xs leading-5 text-foreground/60">
-            若提示设备冲突，无需查找是哪台电脑，输入密码后点击「释放其他设备并继续」即可。
-          </p>
-        ) : null}
-        <form className="mt-6 space-y-4 no-drag" onSubmit={handleSubmit}>
-          <div className="space-y-2">
-            <Label className="text-sm text-foreground/70" htmlFor="org-login-email">邮箱</Label>
-            <Input
-              id="org-login-email"
-              type="email"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              autoComplete="username"
-              required
-            />
-          </div>
-          <div className="space-y-2">
-            <Label className="text-sm text-foreground/70" htmlFor="org-login-password">密码</Label>
-            <Input
-              id="org-login-password"
-              type="password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              autoComplete="current-password"
-              required
-            />
-          </div>
-          {errorMessage ? <p className="text-sm text-red-600">{errorMessage}</p> : null}
-          <Button
-            type="submit"
-            disabled={submitting}
-            className="w-full"
-          >
-            {submitting ? '登录中...' : '登录并继续'}
-          </Button>
-          {canReleaseOtherDevices ? (
-            <Button
-              type="button"
-              variant="outline"
-              disabled={submitting || releasing || loggingOut}
-              className="w-full"
-              onClick={handleReleaseOtherDevices}
-            >
-              {releasing ? '释放中...' : '释放其他设备并继续'}
-            </Button>
-          ) : null}
-          <Button
-            type="button"
-            variant="ghost"
-            disabled={submitting || releasing || loggingOut}
-            className="w-full text-foreground/70"
-            onClick={handleLogoutClick}
-          >
-            {loggingOut ? '退出中...' : '退出登录'}
-          </Button>
-        </form>
-      </div>
-    </LockScreenShell>
   );
 }
 

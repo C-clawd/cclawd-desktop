@@ -154,6 +154,14 @@ type OrgLoginBody = {
   password?: string;
 };
 
+type AuthMode = 'enterprise' | 'cloud' | 'local';
+
+type GuardBindRequestInit = {
+  method: 'POST';
+  headers: Record<string, string>;
+  body: string;
+};
+
 type OrgReleaseBindingsResponse = {
   success?: boolean;
   data?: {
@@ -219,6 +227,17 @@ function getOrgConfig(): OrgConfig {
     || 'Cclawd Enterprise'
   ).trim();
   return { token, email, password, name };
+}
+
+function getAuthMode(): AuthMode {
+  const raw = (
+    process.env.CCLAWD_DESKTOP_AUTH_MODE?.trim()
+    || process.env.CCLAWD_GUARD_AUTH_MODE?.trim()
+    || 'cloud'
+  ).toLowerCase();
+  if (raw === 'enterprise') return 'enterprise';
+  if (raw === 'local') return 'local';
+  return 'cloud';
 }
 
 function loadSharedGuardCredentials(): StoredGuardCredentials | null {
@@ -502,6 +521,9 @@ async function registerOrg(orgName: string, email: string, password: string): Pr
 }
 
 async function ensureOrgToken(): Promise<OrgAuthData> {
+  if (getAuthMode() === 'local') {
+    throw new Error('local auth mode does not use org token');
+  }
   const orgConfig = getOrgConfig();
 
   if (cachedOrgToken && await isValidOrgToken(cachedOrgToken)) {
@@ -561,58 +583,80 @@ async function ensureGuardAuth(): Promise<{ agentId: string; apiKey: string }> {
   }
 
   pendingGuardAuthPromise = (async () => {
-  if (cachedGuardAgentId && cachedGuardApiKey) {
-    return { agentId: cachedGuardAgentId, apiKey: cachedGuardApiKey };
-  }
-
-  const sharedCredentials = loadSharedGuardCredentials();
-  if (sharedCredentials?.apiKey && sharedCredentials?.agentId && await isValidGuardApiKey(sharedCredentials.apiKey)) {
-    cachedGuardAgentId = sharedCredentials.agentId;
-    cachedGuardApiKey = sharedCredentials.apiKey;
-    if (sharedCredentials.machineId && isGeneratedMachineId(sharedCredentials.machineId)) {
-      cachedMachineId = sharedCredentials.machineId;
+    if (cachedGuardAgentId && cachedGuardApiKey) {
+      return { agentId: cachedGuardAgentId, apiKey: cachedGuardApiKey };
     }
-    if (sharedCredentials.orgToken) {
-      cachedOrgToken = sharedCredentials.orgToken;
+
+    const sharedCredentials = loadSharedGuardCredentials();
+    if (sharedCredentials?.apiKey && sharedCredentials?.agentId && await isValidGuardApiKey(sharedCredentials.apiKey)) {
+      cachedGuardAgentId = sharedCredentials.agentId;
+      cachedGuardApiKey = sharedCredentials.apiKey;
+      if (sharedCredentials.machineId && isGeneratedMachineId(sharedCredentials.machineId)) {
+        cachedMachineId = sharedCredentials.machineId;
+      }
+      if (sharedCredentials.orgToken) {
+        cachedOrgToken = sharedCredentials.orgToken;
+      }
+      return sharedCredentials;
     }
-    return sharedCredentials;
-  }
 
-  const org = await ensureOrgToken();
-  const orgToken = org.token || cachedOrgToken;
-  const machineId = await getCurrentMachineId();
-  const bindResponse = await proxyAwareFetch(`${GUARD_BASE_URL}/api/v1/agents/bind`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${orgToken}`,
-      Accept: 'application/json',
-    },
-    body: JSON.stringify({
-      machineId,
-      name: `cclawd-desktop-${machineId}`,
-      description: 'Desktop audit dashboard access',
-    }),
-  });
-  const payload = await parseGuardJson<GuardRegisterResponse>(bindResponse);
-  const agentId = payload?.agent?.id ?? '';
-  const apiKey = payload?.agent?.api_key ?? '';
+    const machineId = await getCurrentMachineId();
+    const authMode = getAuthMode();
+    const bindPath = authMode === 'enterprise'
+      ? '/api/v1/agents/bind'
+      : authMode === 'local'
+        ? '/api/v1/agents/local-bind'
+        : '/api/v1/agents/cloud-bind';
+    let org: OrgAuthData | null = null;
+    const requestInit: GuardBindRequestInit = {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+      body: JSON.stringify({
+        machineId,
+        name: `cclawd-desktop-${machineId}`,
+        description: authMode === 'enterprise'
+          ? 'Desktop audit dashboard access'
+          : authMode === 'local'
+            ? 'Local desktop audit dashboard access'
+            : 'Cloud desktop audit dashboard access',
+      }),
+    };
+    if (authMode === 'enterprise') {
+      org = await ensureOrgToken();
+      const orgToken = org.token || cachedOrgToken;
+      requestInit.headers.Authorization = `Bearer ${orgToken}`;
+    }
+    const bindResponse = await proxyAwareFetch(`${GUARD_BASE_URL}${bindPath}`, requestInit);
+    const payload = await parseGuardJson<GuardRegisterResponse>(bindResponse);
+    const agentId = payload?.agent?.id ?? '';
+    const apiKey = payload?.agent?.api_key ?? '';
 
-  if (!bindResponse.ok || !payload?.success || !agentId || !apiKey) {
-    throw new Error(`Failed to bind guard agent: HTTP ${bindResponse.status}`);
-  }
+    if (!bindResponse.ok || !payload?.success || !agentId || !apiKey) {
+      throw new Error(`Failed to bind guard agent: HTTP ${bindResponse.status}`);
+    }
 
-  cachedGuardAgentId = agentId;
-  cachedGuardApiKey = apiKey;
-  saveSharedGuardCredentials({
-    machineId,
-    orgToken,
-    orgId: org.orgId,
-    userId: org.userId,
-    agentId,
-    apiKey,
-  });
-  return { agentId, apiKey };
+    cachedGuardAgentId = agentId;
+    cachedGuardApiKey = apiKey;
+    if (authMode === 'enterprise') {
+      saveSharedGuardCredentials({
+        machineId,
+        orgToken: org?.token || cachedOrgToken,
+        orgId: org?.orgId,
+        userId: org?.userId,
+        agentId,
+        apiKey,
+      });
+    } else {
+      saveSharedGuardCredentials({
+        machineId,
+        agentId,
+        apiKey,
+      });
+    }
+    return { agentId, apiKey };
   })();
 
   try {
@@ -762,6 +806,9 @@ function classifyEntitlementError(rawError: unknown): { code: EntitlementReasonC
 
 async function checkGuardEntitlement(): Promise<{ allowed: boolean; reasonCode: string; message: string; requireRelogin: boolean }> {
   try {
+    if (getAuthMode() !== 'enterprise') {
+      return { allowed: true, reasonCode: ENTITLEMENT_REASON_CODES.OK, message: '', requireRelogin: false };
+    }
     const org = await ensureOrgToken();
     const token = org.token || cachedOrgToken;
     const response = await proxyAwareFetch(`${GUARD_BASE_URL}/api/v1/org/me`, {
@@ -898,6 +945,10 @@ export async function handleAuditRoutes(
 ): Promise<boolean> {
   try {
     if (url.pathname === '/api/audit/org-login' && req.method === 'POST') {
+      if (getAuthMode() !== 'enterprise') {
+        sendJson(res, 404, { success: false, error: 'Enterprise login is disabled in cloud auth mode' });
+        return true;
+      }
       try {
         const body = await parseJsonBody<OrgLoginBody>(req);
         const email = typeof body.email === 'string' ? body.email : '';
@@ -922,6 +973,10 @@ export async function handleAuditRoutes(
     }
 
     if (url.pathname === '/api/audit/release-device' && req.method === 'POST') {
+      if (getAuthMode() !== 'enterprise') {
+        sendJson(res, 404, { success: false, error: 'Enterprise device release is disabled in cloud auth mode' });
+        return true;
+      }
       try {
         const body = await parseJsonBody<OrgLoginBody>(req);
         const email = typeof body.email === 'string' ? body.email : '';

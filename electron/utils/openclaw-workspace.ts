@@ -13,6 +13,8 @@ import { getResourcesDir } from './paths';
 
 const CCLAWD_BEGIN = '<!-- cclawd:begin -->';
 const CCLAWD_END = '<!-- cclawd:end -->';
+const LEGACY_CLAWX_BEGIN = '<!-- clawx:begin -->';
+const LEGACY_CLAWX_END = '<!-- clawx:end -->';
 
 // ── Helpers ──────────────────────────────────────────────────────
 
@@ -35,12 +37,45 @@ async function ensureDir(dir: string): Promise<void> {
  */
 export function mergeCCLAWDSection(existing: string, section: string): string {
   const wrapped = `${CCLAWD_BEGIN}\n${section.trim()}\n${CCLAWD_END}`;
-  const beginIdx = existing.indexOf(CCLAWD_BEGIN);
-  const endIdx = existing.indexOf(CCLAWD_END);
-  if (beginIdx !== -1 && endIdx !== -1) {
-    return existing.slice(0, beginIdx) + wrapped + existing.slice(endIdx + CCLAWD_END.length);
+  const merged = replaceMarkedSection(existing, CCLAWD_BEGIN, CCLAWD_END, wrapped);
+  if (merged.replaced) {
+    return removeMarkedSections(merged.content, LEGACY_CLAWX_BEGIN, LEGACY_CLAWX_END);
+  }
+
+  const migrated = replaceMarkedSection(existing, LEGACY_CLAWX_BEGIN, LEGACY_CLAWX_END, wrapped);
+  if (migrated.replaced) {
+    return removeMarkedSections(migrated.content, LEGACY_CLAWX_BEGIN, LEGACY_CLAWX_END);
   }
   return existing.trimEnd() + '\n\n' + wrapped + '\n';
+}
+
+function replaceMarkedSection(
+  existing: string,
+  beginMarker: string,
+  endMarker: string,
+  replacement: string,
+): { content: string; replaced: boolean } {
+  const beginIdx = existing.indexOf(beginMarker);
+  const endIdx = existing.indexOf(endMarker);
+  if (beginIdx === -1 || endIdx === -1 || endIdx < beginIdx) {
+    return { content: existing, replaced: false };
+  }
+  return {
+    content: existing.slice(0, beginIdx) + replacement + existing.slice(endIdx + endMarker.length),
+    replaced: true,
+  };
+}
+
+function removeMarkedSections(existing: string, beginMarker: string, endMarker: string): string {
+  let content = existing;
+  while (true) {
+    const beginIdx = content.indexOf(beginMarker);
+    const endIdx = content.indexOf(endMarker);
+    if (beginIdx === -1 || endIdx === -1 || endIdx < beginIdx) {
+      return content;
+    }
+    content = content.slice(0, beginIdx).trimEnd() + '\n\n' + content.slice(endIdx + endMarker.length).trimStart();
+  }
 }
 
 // ── Workspace directory resolution ───────────────────────────────
@@ -151,7 +186,7 @@ async function mergeCCLAWDContextOnce(): Promise<number> {
 
   let files: string[];
   try {
-    files = (await readdir(contextDir)).filter((f) => f.endsWith('.Cclawd.md'));
+    files = (await readdir(contextDir)).filter((f) => f.toLowerCase().endsWith('.cclawd.md'));
   } catch {
     return 0;
   }
@@ -163,7 +198,7 @@ async function mergeCCLAWDContextOnce(): Promise<number> {
     await ensureDir(workspaceDir);
 
     for (const file of files) {
-      const targetName = file.replace('.Cclawd.md', '.md');
+      const targetName = file.replace(/\.cclawd\.md$/i, '.md');
       const targetPath = join(workspaceDir, targetName);
 
       if (!(await fileExists(targetPath))) {
