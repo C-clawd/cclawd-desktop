@@ -6,7 +6,13 @@
       "Bash(git checkout:*)",
       "Bash(for c in 55ab4d5 e79a4f9 219db5f d9f4293 dbe9d3c fdc0b0d)",
       "Bash(do echo \"=== $c ===\")",
-      "Bash(done)"
+      "Bash(done)",
+      "Bash(cat:*)",
+      "Bash(npx tsc:*)",
+      "Bash(pnpm run typecheck:*)",
+      "Bash(pnpm run test)",
+      "Bash(git stash:*)",
+      "Bash(node:*)"
     ]
   }
 }

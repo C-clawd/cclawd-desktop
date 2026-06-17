@@ -109,6 +109,26 @@ function consumeLeadingSegment(text: string, segment: string): number {
   return match ? match[0].length : 0;
 }
 
+/** True for OpenClaw internal assistant tokens that must never appear in the chat UI. */
+export function isInternalAssistantReplyText(text: string): boolean {
+  return /^(HEARTBEAT_OK|NO_REPLY)\s*$/i.test(text.trim());
+}
+
+/**
+ * Remove standalone internal sentinel lines (`NO_REPLY` / `HEARTBEAT_OK`) that
+ * the model sometimes appends *after* a real reply. The whole-message form is
+ * caught by `isInternalAssistantReplyText`; this covers the mixed case so the
+ * sentinel never leaks into the rendered chat bubble.
+ */
+export function stripInternalSentinelLines(text: string): string {
+  if (!text) return text;
+  return text
+    .replace(/(^|\n)[ \t]*(?:HEARTBEAT_OK|NO_REPLY)[ \t]*(?=\n|$)/gi, '$1')
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
 /**
  * Extract displayable text from a message's content field.
  * Handles both string content and array-of-blocks content.
@@ -145,6 +165,13 @@ export function extractText(message: RawMessage | unknown): string {
     result = cleanUserText(result);
   }
 
+  // For assistant messages, drop a trailing `NO_REPLY` / `HEARTBEAT_OK` the
+  // model may append after an otherwise-real answer so the internal sentinel
+  // never leaks into the rendered chat bubble.
+  if (!isUser && result) {
+    result = stripInternalSentinelLines(result);
+  }
+
   return result;
 }
 
@@ -172,7 +199,11 @@ export function extractTextSegments(message: RawMessage | unknown): string[] {
     segments = cleaned ? [cleaned] : [];
   }
 
-  if (!isUser) return segments;
+  if (!isUser) {
+    return segments
+      .map((segment) => stripInternalSentinelLines(segment))
+      .filter((segment) => segment.length > 0);
+  }
 
   return segments
     .map((segment) => cleanUserText(segment))
