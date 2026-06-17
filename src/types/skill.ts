@@ -23,6 +23,7 @@ export interface Skill {
   source?: string;
   baseDir?: string;
   filePath?: string;
+  useButton?: boolean;
 }
 
 /**
@@ -45,12 +46,26 @@ export interface SkillBundle {
  */
 export interface MarketplaceSkill {
   slug: string;
+  skillId?: string;
   name: string;
   description: string;
   version: string;
   author?: string;
   downloads?: number;
   stars?: number;
+  category?: string;
+  iconUrl?: string;
+  downloadUrl?: string;
+}
+
+export interface BuiltinSkillDefinition {
+  slug: string;
+  name: string;
+  description: string;
+  icon?: string;
+  version?: string;
+  autoEnable?: boolean;
+  useButton?: boolean;
 }
 
 /**

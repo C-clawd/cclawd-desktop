@@ -1,0 +1,77 @@
+{
+  "skills": [
+    {
+      "slug": "create-skill",
+      "name": "create-skill",
+      "description": "引导用户为 QoderWork 创建有效的 Agent 技能。当用户想要创建、编写或制作新技能，或询问技能结构、最佳实践或 SKILL.md 格式时使用。",
+      "icon": "hammer",
+      "version": "1.0.0",
+      "autoEnable": true
+    },
+    {
+      "slug": "docx",
+      "name": "docx",
+      "description": "当用户需要创建、读取、编辑或操作 Word 文档（.docx 文件）时使用此技能。触发条件包括：任何提及 'Word 文档'、'.docx' 的情况，或要求生成带有目录、标题、页码或信头等格式的专业文档。也适用于：从 .docx 文件中提取或重组内容、在文档中插入或替换图片、在 Word 文件中执行查找替换、处理修订标记或批注，或将内容转换为精美的 Word 文档。当用户要求以 Word 或 .docx 文件形式交付'报告'、'备忘录'、'信函'、'模板'或类似文档时使用此技能。不适用于 PDF、电子表格、Google Docs 或与文档生成无关的编程任务。",
+      "icon": "file-text",
+      "version": "1.0.1",
+      "autoEnable": true,
+      "useButton": true
+    },
+    {
+      "slug": "find-skills",
+      "name": "find-skills",
+      "description": "从官方市场、社区源以及企业技能市场（若通过 MCP 可用）搜索并安装专用技能。处理任何实质性任务前应先调用此技能查找可用的专用工具，即使认为通用能力已可能完成任务——专用技能往往能产生更好的结果。纯闲聊和简单事实查询除外。",
+      "icon": "search",
+      "version": "1.0.4",
+      "autoEnable": true
+    },
+    {
+      "slug": "install-skill-dependency",
+      "name": "install-skill-dependency",
+      "description": "诊断并修复已安装技能所需的缺失依赖、二进制文件或运行时环境。当技能因缺少资源、二进制文件未找到、运行时依赖不可用而失败时，或当用户希望主动安装所有技能依赖项时使用。",
+      "icon": "hammer",
+      "version": "1.0.0",
+      "autoEnable": true
+    },
+    {
+      "slug": "pdf",
+      "name": "pdf",
+      "description": "当用户需要对 PDF 文件执行任何操作时使用此技能。包括：读取或提取 PDF 中的文本/表格、合并多个 PDF、拆分 PDF、旋转页面、添加水印、创建新 PDF、填写 PDF 表单、加密/解密 PDF、提取图片，以及对扫描版 PDF 进行 OCR 使其可搜索。只要用户提及 .pdf 文件或要求生成 PDF，就使用此技能。",
+      "icon": "file-type",
+      "version": "1.0.1",
+      "autoEnable": true
+    },
+    {
+      "slug": "plugin-creator",
+      "name": "plugin-creator",
+      "description": "创建、定制或修改 QoderWork 专家套件。当用户想要创建新套件、定制已有套件或编辑套件内的技能/指令时使用。",
+      "icon": "hammer",
+      "version": "1.4.0",
+      "autoEnable": true
+    },
+    {
+      "slug": "pptx",
+      "name": "pptx",
+      "description": "当 .pptx 文件以任何方式涉及时使用此技能——无论是作为输入、输出还是两者兼有。包括：创建幻灯片、演示文稿或路演材料；读取、解析或提取任何 .pptx 文件中的文本（即使提取的内容将用于其他地方，如邮件或摘要）；编辑、修改或更新现有演示文稿；合并或拆分幻灯片文件；使用模板、布局、演讲者备注或批注。当用户提及“幻灯片”、“演示文稿”、“PPT”或引用 .pptx 文件名时触发，无论他们计划如何使用内容。只要需要打开、创建或操作 .pptx 文件，就使用此技能。",
+      "icon": "presentation",
+      "version": "1.0.1",
+      "autoEnable": true
+    },
+    {
+      "slug": "vm-error-recovery",
+      "name": "vm-error-recovery",
+      "description": "诊断并引导用户修复 Cclawd Desktop 运行环境问题，包括桌面端启动、Gateway、Host API、Cloud/cclawd-guard、审计数据、技能、插件、消息渠道、配置漂移、网络、代理和证书问题。",
+      "icon": "hammer",
+      "version": "1.0.0",
+      "autoEnable": true
+    },
+    {
+      "slug": "xlsx",
+      "name": "xlsx",
+      "description": "当电子表格文件是主要输入或输出时使用此技能。包括：打开、读取、编辑或修复现有的 .xlsx、.xlsm、.csv 或 .tsv 文件（如添加列、计算公式、格式化、图表、清洗数据）；从零或其他数据源创建新电子表格；在表格文件格式之间转换。当用户提及电子表格文件名或路径时触发——即使是随意提及（如“下载文件夹里的 xlsx”）——并希望对其进行操作或生成电子表格。也适用于将混乱的表格数据文件（格式错误的行、错位的表头、垃圾数据）清理重组为规范的电子表格。交付物必须是电子表格文件。当主要交付物是 Word 文档、HTML 报告、独立 Python 脚本、数据库管道或 Google Sheets API 集成时，即使涉及表格数据也不要触发。",
+      "icon": "file-spreadsheet",
+      "version": "1.0.1",
+      "autoEnable": true
+    }
+  ]
+}

@@ -6,7 +6,7 @@ import { create } from 'zustand';
 import { hostApiFetch } from '@/lib/host-api';
 import { AppError, normalizeAppError } from '@/lib/error-model';
 import { useGatewayStore } from './gateway';
-import type { Skill, MarketplaceSkill } from '../types/skill';
+import type { Skill, MarketplaceSkill, BuiltinSkillDefinition } from '../types/skill';
 
 type GatewaySkillStatus = {
   skillKey: string;
@@ -23,17 +23,26 @@ type GatewaySkillStatus = {
   source?: string;
   baseDir?: string;
   filePath?: string;
+  eligible?: boolean;
 };
 
 type GatewaySkillsStatusResult = {
   skills?: GatewaySkillStatus[];
 };
 
-type ClawHubListResult = {
+type QoderSkillListResult = {
   slug: string;
   version?: string;
   source?: string;
   baseDir?: string;
+};
+
+type PromptInjectedSkillResult = {
+  name: string;
+  description?: string;
+  source?: string;
+  baseDir?: string;
+  filePath?: string;
 };
 
 function mapErrorCodeToSkillErrorKey(
@@ -59,6 +68,7 @@ function mapErrorCodeToSkillErrorKey(
 
 interface SkillsState {
   skills: Skill[];
+  builtinSkills: BuiltinSkillDefinition[];
   searchResults: MarketplaceSkill[];
   loading: boolean;
   searching: boolean;
@@ -68,8 +78,8 @@ interface SkillsState {
 
   // Actions
   fetchSkills: () => Promise<void>;
-  searchSkills: (query: string) => Promise<void>;
-  installSkill: (slug: string, version?: string) => Promise<void>;
+  searchSkills: (query: string, options?: { category?: string; sort?: 'hot' | 'recent'; limit?: number }) => Promise<void>;
+  installSkill: (skill: MarketplaceSkill | string, version?: string) => Promise<void>;
   uninstallSkill: (slug: string) => Promise<void>;
   enableSkill: (skillId: string) => Promise<void>;
   disableSkill: (skillId: string) => Promise<void>;
@@ -79,6 +89,7 @@ interface SkillsState {
 
 export const useSkillsStore = create<SkillsState>((set, get) => ({
   skills: [],
+  builtinSkills: [],
   searchResults: [],
   loading: false,
   searching: false,
@@ -95,39 +106,54 @@ export const useSkillsStore = create<SkillsState>((set, get) => ({
       // 1. Fetch from Gateway (running skills)
       const gatewayData = await useGatewayStore.getState().rpc<GatewaySkillsStatusResult>('skills.status');
 
-      // 2. Fetch from ClawHub (installed on disk)
-      const clawhubResult = await hostApiFetch<{ success: boolean; results?: ClawHubListResult[]; error?: string }>('/api/clawhub/list');
+      // 2. Fetch Qoder-installed and locally installed skills from disk
+      const qoderSkillsResult = await hostApiFetch<{ success: boolean; results?: QoderSkillListResult[]; error?: string }>('/api/qoder-skills/list');
 
       // 3. Fetch configurations directly from Electron (since Gateway doesn't return them)
       const configResult = await hostApiFetch<Record<string, { apiKey?: string; env?: Record<string, string> }>>('/api/skills/configs');
+      const builtinResult = await hostApiFetch<{ success: boolean; results?: BuiltinSkillDefinition[]; error?: string }>('/api/skills/builtin');
+      const promptInjectedResult = await hostApiFetch<{ success: boolean; results?: PromptInjectedSkillResult[]; error?: string }>('/api/skills/prompt-injected');
+      const builtinSkills = builtinResult.success ? (builtinResult.results || []) : [];
+      const builtinBySlug = new Map(builtinSkills.map((skill) => [skill.slug, skill]));
+      const promptInjectedSkills = promptInjectedResult.success ? (promptInjectedResult.results || []) : [];
+      const promptInjectedByName = new Map(promptInjectedSkills.map((skill) => [skill.name, skill]));
+      const hasPromptInjectedSnapshot = promptInjectedByName.size > 0;
 
       let combinedSkills: Skill[] = [];
       const currentSkills = get().skills;
 
       // Map gateway skills info
       if (gatewayData.skills) {
-        combinedSkills = gatewayData.skills.map((s: GatewaySkillStatus) => {
+        const visibleGatewaySkills = hasPromptInjectedSnapshot
+          ? gatewayData.skills.filter((s: GatewaySkillStatus) => promptInjectedByName.has(s.skillKey) || promptInjectedByName.has(s.name || '') || promptInjectedByName.has(s.slug || ''))
+          : gatewayData.skills.filter((s: GatewaySkillStatus) => s.eligible !== false);
+
+        combinedSkills = visibleGatewaySkills.map((s: GatewaySkillStatus) => {
           // Merge with direct config if available
           const directConfig = configResult[s.skillKey] || {};
+          const promptSkill = promptInjectedByName.get(s.skillKey) || promptInjectedByName.get(s.name || '') || promptInjectedByName.get(s.slug || '');
+          const skillSlug = s.slug || s.skillKey;
+          const builtin = builtinBySlug.get(s.skillKey) || builtinBySlug.get(skillSlug);
 
           return {
             id: s.skillKey,
-            slug: s.slug || s.skillKey,
-            name: s.name || s.skillKey,
-            description: s.description || '',
+            slug: skillSlug,
+            name: builtin?.name || s.name || s.skillKey,
+            description: builtin?.description || promptSkill?.description || s.description || '',
             enabled: !s.disabled,
-            icon: s.emoji || '📦',
-            version: s.version || '1.0.0',
+            icon: builtin?.icon || s.emoji || 'package',
+            version: s.version || builtin?.version || '1.0.0',
             author: s.author,
             config: {
               ...(s.config || {}),
               ...directConfig,
             },
             isCore: s.bundled && s.always,
-            isBundled: s.bundled,
-            source: s.source,
-            baseDir: s.baseDir,
-            filePath: s.filePath,
+            isBundled: s.bundled || s.source === 'cclawd-builtin' || Boolean(builtin),
+            source: s.source || promptSkill?.source || (builtin ? 'cclawd-builtin' : undefined),
+            baseDir: s.baseDir || promptSkill?.baseDir,
+            filePath: s.filePath || promptSkill?.filePath,
+            useButton: builtin?.useButton,
           };
         });
       } else if (currentSkills.length > 0) {
@@ -135,39 +161,73 @@ export const useSkillsStore = create<SkillsState>((set, get) => ({
         combinedSkills = [...currentSkills];
       }
 
-      // Merge with ClawHub results
-      if (clawhubResult.success && clawhubResult.results) {
-        clawhubResult.results.forEach((cs: ClawHubListResult) => {
-          const existing = combinedSkills.find(s => s.id === cs.slug);
+      // Merge with local skill directory results
+      if (qoderSkillsResult.success && qoderSkillsResult.results) {
+        qoderSkillsResult.results.forEach((skillOnDisk: QoderSkillListResult) => {
+          if (hasPromptInjectedSnapshot && !promptInjectedByName.has(skillOnDisk.slug)) {
+            return;
+          }
+          const existing = combinedSkills.find(s => s.id === skillOnDisk.slug);
           if (existing) {
-            if (!existing.baseDir && cs.baseDir) {
-              existing.baseDir = cs.baseDir;
+            if (!existing.baseDir && skillOnDisk.baseDir) {
+              existing.baseDir = skillOnDisk.baseDir;
             }
-            if (!existing.source && cs.source) {
-              existing.source = cs.source;
+            if (!existing.source && skillOnDisk.source) {
+              existing.source = skillOnDisk.source;
             }
             return;
           }
-          const directConfig = configResult[cs.slug] || {};
+          const directConfig = configResult[skillOnDisk.slug] || {};
+          const builtin = builtinBySlug.get(skillOnDisk.slug);
+          const promptSkill = promptInjectedByName.get(skillOnDisk.slug);
           combinedSkills.push({
-            id: cs.slug,
-            slug: cs.slug,
-            name: cs.slug,
-            description: 'Recently installed, initializing...',
+            id: skillOnDisk.slug,
+            slug: skillOnDisk.slug,
+            name: builtin?.name || skillOnDisk.slug,
+            description: builtin?.description || promptSkill?.description || 'Recently installed, initializing...',
             enabled: false,
-            icon: '⌛',
-            version: cs.version || 'unknown',
+            icon: builtin?.icon || 'package',
+            version: skillOnDisk.version || builtin?.version || 'unknown',
             author: undefined,
             config: directConfig,
             isCore: false,
-            isBundled: false,
-            source: cs.source || 'openclaw-managed',
-            baseDir: cs.baseDir,
+            isBundled: skillOnDisk.source === 'cclawd-builtin' || Boolean(builtin),
+            source: skillOnDisk.source || 'openclaw-managed',
+            baseDir: skillOnDisk.baseDir || promptSkill?.baseDir,
+            filePath: promptSkill?.filePath,
+            useButton: builtin?.useButton,
           });
         });
       }
 
-      set({ skills: combinedSkills, loading: false });
+      if (hasPromptInjectedSnapshot) {
+        promptInjectedSkills.forEach((promptSkill) => {
+          const existing = combinedSkills.find((skill) => skill.id === promptSkill.name || skill.name === promptSkill.name || skill.slug === promptSkill.name);
+          if (existing) return;
+
+          const directConfig = configResult[promptSkill.name] || {};
+          const builtin = builtinBySlug.get(promptSkill.name);
+          combinedSkills.push({
+            id: promptSkill.name,
+            slug: promptSkill.name,
+            name: builtin?.name || promptSkill.name,
+            description: builtin?.description || promptSkill.description || '',
+            enabled: true,
+            icon: builtin?.icon || 'package',
+            version: builtin?.version || 'unknown',
+            author: undefined,
+            config: directConfig,
+            isCore: false,
+            isBundled: Boolean(builtin) || promptSkill.source === 'openclaw-bundled',
+            source: builtin ? 'cclawd-builtin' : promptSkill.source || 'openclaw-managed',
+            baseDir: promptSkill.baseDir,
+            filePath: promptSkill.filePath,
+            useButton: builtin?.useButton,
+          });
+        });
+      }
+
+      set({ skills: combinedSkills, builtinSkills, loading: false });
     } catch (error) {
       console.error('Failed to fetch skills:', error);
       const appError = normalizeAppError(error, { module: 'skills', operation: 'fetch' });
@@ -175,12 +235,12 @@ export const useSkillsStore = create<SkillsState>((set, get) => ({
     }
   },
 
-  searchSkills: async (query: string) => {
+  searchSkills: async (query: string, options?: { category?: string; sort?: 'hot' | 'recent'; limit?: number }) => {
     set({ searching: true, searchError: null });
     try {
-      const result = await hostApiFetch<{ success: boolean; results?: MarketplaceSkill[]; error?: string }>('/api/clawhub/search', {
+      const result = await hostApiFetch<{ success: boolean; results?: MarketplaceSkill[]; error?: string }>('/api/qoder-skills/search', {
         method: 'POST',
-        body: JSON.stringify({ query }),
+        body: JSON.stringify({ query, category: options?.category, sort: options?.sort, limit: options?.limit ?? 20 }),
       });
       if (result.success) {
         set({ searchResults: result.results || [] });
@@ -198,12 +258,21 @@ export const useSkillsStore = create<SkillsState>((set, get) => ({
     }
   },
 
-  installSkill: async (slug: string, version?: string) => {
+  installSkill: async (skill: MarketplaceSkill | string, version?: string) => {
+    const slug = typeof skill === 'string' ? skill : skill.slug;
+    const installPayload = typeof skill === 'string'
+      ? { slug, version }
+      : {
+        slug: skill.slug,
+        version: version || skill.version,
+        skillId: skill.skillId,
+        downloadUrl: skill.downloadUrl,
+      };
     set((state) => ({ installing: { ...state.installing, [slug]: true } }));
     try {
-      const result = await hostApiFetch<{ success: boolean; error?: string }>('/api/clawhub/install', {
+      const result = await hostApiFetch<{ success: boolean; error?: string }>('/api/qoder-skills/install', {
         method: 'POST',
-        body: JSON.stringify({ slug, version }),
+        body: JSON.stringify(installPayload),
       });
       if (!result.success) {
         const appError = normalizeAppError(new Error(result.error || 'Install failed'), {
@@ -229,7 +298,7 @@ export const useSkillsStore = create<SkillsState>((set, get) => ({
   uninstallSkill: async (slug: string) => {
     set((state) => ({ installing: { ...state.installing, [slug]: true } }));
     try {
-      const result = await hostApiFetch<{ success: boolean; error?: string }>('/api/clawhub/uninstall', {
+      const result = await hostApiFetch<{ success: boolean; error?: string }>('/api/qoder-skills/uninstall', {
         method: 'POST',
         body: JSON.stringify({ slug }),
       });

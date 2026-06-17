@@ -5,6 +5,7 @@
     "openFolder": "スキルフォルダを開く",
     "gatewayWarning": "ゲートウェイが稼働していません。アクティブなゲートウェイがないとスキルを読み込めません。",
     "tabs": {
+        "builtin": "内蔵",
         "installed": "インストール済み",
         "marketplace": "マーケットプレイス"
     },
@@ -17,9 +18,14 @@
     "searchMarketplace": "マーケットプレイスを検索...",
     "searchButton": "検索",
     "actions": {
+        "add": "追加",
         "enableVisible": "表示中を一括有効化",
         "disableVisible": "表示中を一括無効化",
         "installSkill": "スキルをインストール"
+    },
+    "hero": {
+        "title": "仕事向けに厳選されたスキル",
+        "subtitle": "文章作成、効率化、デザイン、データ分析などの業務シーンで Cclawd の能力を拡張します。"
     },
     "noSkills": "スキルが見つかりません",
     "noSkillsSearch": "別の検索語をお試しください",
@@ -65,7 +71,9 @@
             "extra": "追加ディレクトリ",
             "agentsPersonal": "個人 .agents",
             "agentsProject": "プロジェクト .agents",
-            "unknown": "不明なソース"
+            "unknown": "不明なソース",
+            "qoder": "Qoder",
+            "cclawdBuiltin": "内蔵"
         }
     },
     "toast": {
@@ -83,10 +91,10 @@
         "copiedPath": "パスをコピーしました",
         "failedCopyPath": "パスのコピーに失敗しました",
         "failedOpenActualFolder": "スキルの実際のフォルダを開けませんでした",
-        "searchTimeoutError": "検索がタイムアウトしました。ClawHub.aiで検索してZIPをダウンロードし、\"{{path}}\" に展開することも可能です",
-        "installTimeoutError": "インストールがタイムアウトしました。ClawHub.aiでZIPをダウンロードし、\"{{path}}\" に展開することも可能です",
-        "searchRateLimitError": "検索リクエストの制限を超過しました。ClawHub.aiで検索してZIPをダウンロードし、\"{{path}}\" に展開することも可能です",
-        "installRateLimitError": "インストールリクエストの制限を超過しました。ClawHub.aiからZIPをダウンロードし、\"{{path}}\" に展開することも可能です",
+        "searchTimeoutError": "検索がタイムアウトしました。Qoder中国サイトからZIPをダウンロードし、\"{{path}}\" に展開することも可能です",
+        "installTimeoutError": "インストールがタイムアウトしました。Qoder中国サイトからZIPをダウンロードし、\"{{path}}\" に展開することも可能です",
+        "searchRateLimitError": "検索リクエストの制限を超過しました。Qoder中国サイトからZIPをダウンロードし、\"{{path}}\" に展開することも可能です",
+        "installRateLimitError": "インストールリクエストの制限を超過しました。Qoder中国サイトからZIPをダウンロードし、\"{{path}}\" に展開することも可能です",
         "fetchTimeoutError": "スキルリストの取得がタイムアウトしました。ネットワークを確認してください。",
         "fetchRateLimitError": "スキルリスト取得のリクエスト制限を超過しました。後でお試しください。",
         "noBatchEnableTargets": "表示中のスキルはすべて有効です。",
@@ -95,17 +103,47 @@
         "batchDisabled": "{{count}} 件のスキルを無効化しました。",
         "batchPartial": "{{success}} / {{total}} 件を更新しました。一部失敗しています。"
     },
+    "builtin": {
+        "title": "内蔵スキル",
+        "use": "使用"
+    },
+    "installed": {
+        "loaded": "Main Agent に注入済み",
+        "emptyLoaded": "Main Agent に注入済みのスキルはありません。",
+        "fromMarketplace": "スキルマーケットから",
+        "local": "ローカルインストール",
+        "emptyMarketplace": "マーケットプレイス由来のスキルはありません。",
+        "emptyLocal": "ローカルスキルはありません。"
+    },
     "marketplace": {
         "title": "マーケットプレイス",
+        "official": "公式おすすめ",
         "installDialogTitle": "スキルをインストール",
-        "installDialogSubtitle": "初期表示は Explore、キーワード入力時は検索します。",
+        "installDialogSubtitle": "Qoder中国サイトのスキルを表示し、ローカルのスキルディレクトリへインストールします。",
         "sourceLabel": "ソース",
-        "sourceClawHub": "ClawHub",
-        "securityNote": "インストール前にスキルカードをクリックして、ClawHubでドキュメントとセキュリティ情報を確認してください。",
-        "manualInstallHint": "ネットワークに問題がありますか？いつでもClawHub.aiからスキルのZIPをダウンロードし、手動で \"{{path}}\" に展開してインストールできます。",
-        "searching": "ClawHubを検索中...",
+        "securityNote": "インストール前にスキルカードをクリックして、Qoder中国サイトでドキュメントとセキュリティ情報を確認してください。",
+        "manualInstallHint": "ネットワークに問題がありますか？Qoder中国サイトからスキルのZIPをダウンロードし、手動で \"{{path}}\" に展開してインストールできます。",
+        "searching": "Qoder中国サイトを検索中...",
         "noResults": "検索に一致するスキルが見つかりません。",
         "emptyPrompt": "新しいスキルを検索して機能を拡張しましょう。",
-        "searchError": "ClawHub検索に失敗しました。接続またはインストールを確認してください。"
+        "searchError": "Qoder中国サイトの検索に失敗しました。接続を確認してください。",
+        "sourceQoder": "Qoder中国サイト",
+        "downloads": "{{count}} 件のダウンロード",
+        "installed": "インストール済み",
+        "install": "インストール",
+        "sort": {
+            "hot": "並び替え：人気",
+            "recent": "最近"
+        },
+        "categories": {
+            "all": "すべて",
+            "contentCreation": "コンテンツ作成",
+            "dataAi": "データとAI",
+            "designUi": "デザインとUI",
+            "devops": "DevOpsとデプロイ",
+            "docsWriting": "文書とライティング",
+            "productivity": "効率化",
+            "researchAnalysis": "調査と分析"
+        }
     }
 }

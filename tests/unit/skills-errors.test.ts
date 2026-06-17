@@ -40,6 +40,18 @@ describe('skills store error mapping', () => {
     expect(useSkillsStore.getState().searchError).toBe('searchTimeoutError');
   });
 
+  it('limits marketplace searches to 20 results by default', async () => {
+    hostApiFetchMock.mockResolvedValueOnce({ success: true, results: [] });
+
+    const { useSkillsStore } = await import('@/stores/skills');
+    await useSkillsStore.getState().searchSkills('', { category: 'all', sort: 'hot' });
+
+    expect(hostApiFetchMock).toHaveBeenCalledWith('/api/qoder-skills/search', {
+      method: 'POST',
+      body: JSON.stringify({ query: '', category: 'all', sort: 'hot', limit: 20 }),
+    });
+  });
+
   it('maps installSkill timeout result into installTimeoutError', async () => {
     hostApiFetchMock.mockResolvedValueOnce({ success: false, error: 'request timeout' });
 

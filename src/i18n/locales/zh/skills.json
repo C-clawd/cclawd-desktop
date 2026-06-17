@@ -1,10 +1,11 @@
 {
-    "title": "技能Skills",
+    "title": "技能",
     "subtitle": "浏览和管理 AI 能力",
     "refresh": "刷新",
     "openFolder": "打开技能文件夹",
     "gatewayWarning": "网关未运行。没有活跃的网关，无法加载技能。",
     "tabs": {
+        "builtin": "内置",
         "installed": "已安装",
         "marketplace": "市场"
     },
@@ -17,9 +18,14 @@
     "searchMarketplace": "搜索市场...",
     "searchButton": "搜索",
     "actions": {
+        "add": "添加",
         "enableVisible": "批量启用可见项",
         "disableVisible": "批量禁用可见项",
         "installSkill": "安装技能"
+    },
+    "hero": {
+        "title": "为你精选的职场技能",
+        "subtitle": "涵盖写作、效率、设计、数据分析等办公场景，扩展 Cclawd 的能力。"
     },
     "noSkills": "未找到技能",
     "noSkillsSearch": "尝试不同的搜索词",
@@ -65,7 +71,9 @@
             "extra": "额外目录",
             "agentsPersonal": "个人 .agents",
             "agentsProject": "项目 .agents",
-            "unknown": "未知来源"
+            "unknown": "未知来源",
+            "qoder": "Qoder",
+            "cclawdBuiltin": "内置"
         }
     },
     "toast": {
@@ -83,10 +91,10 @@
         "copiedPath": "路径已复制",
         "failedCopyPath": "复制路径失败",
         "failedOpenActualFolder": "打开技能实际目录失败",
-        "searchTimeoutError": "搜索超时，请检查网络。您也可访问 ClawHub.ai 搜索并下载压缩包，解压到 \"{{path}}\"",
-        "installTimeoutError": "安装超时，请检查网络。您也可在 ClawHub.ai 下载该技能压缩包，解压到 \"{{path}}\"",
-        "searchRateLimitError": "搜索请求过于频繁。您也可访问 ClawHub.ai 搜索并下载压缩包，解压到 \"{{path}}\"",
-        "installRateLimitError": "安装请求过于频繁。您也可在 ClawHub.ai 下载该技能压缩包，解压到 \"{{path}}\"",
+        "searchTimeoutError": "搜索超时，请检查网络。您也可访问 Qoder 中国站搜索并下载压缩包，解压到 \"{{path}}\"",
+        "installTimeoutError": "安装超时，请检查网络。您也可在 Qoder 中国站下载该技能压缩包，解压到 \"{{path}}\"",
+        "searchRateLimitError": "搜索请求过于频繁。您也可访问 Qoder 中国站搜索并下载压缩包，解压到 \"{{path}}\"",
+        "installRateLimitError": "安装请求过于频繁。您也可在 Qoder 中国站下载该技能压缩包，解压到 \"{{path}}\"",
         "fetchTimeoutError": "获取技能列表超时，请检查网络。",
         "fetchRateLimitError": "获取技能列表请求过于频繁，请稍后再试。",
         "noBatchEnableTargets": "当前可见技能都已启用。",
@@ -95,17 +103,47 @@
         "batchDisabled": "已禁用 {{count}} 个技能。",
         "batchPartial": "已更新 {{success}} / {{total}} 个技能，部分操作失败。"
     },
+    "builtin": {
+        "title": "内置技能",
+        "use": "使用"
+    },
+    "installed": {
+        "loaded": "已注入 Main Agent 的技能",
+        "emptyLoaded": "暂无已注入 Main Agent 的技能。",
+        "fromMarketplace": "来自技能市场",
+        "local": "本地安装",
+        "emptyMarketplace": "暂无来自技能市场的技能。",
+        "emptyLocal": "暂无本地安装技能。"
+    },
     "marketplace": {
         "title": "市场",
+        "official": "官方精选",
         "installDialogTitle": "安装技能",
-        "installDialogSubtitle": "默认展示 Explore，输入关键词后执行搜索。",
+        "installDialogSubtitle": "市场展示 Qoder 中国站技能，点击安装后会下载到本地技能目录。",
         "sourceLabel": "来源",
-        "sourceClawHub": "ClawHub",
-        "securityNote": "安装前请点击技能卡片，在 ClawHub 上查看其文档和安全信息。",
-        "manualInstallHint": "遇到网络问题？您可以随时从 ClawHub.ai 下载技能压缩包，并将其解压至 \"{{path}}\" 目录来完成手动安装。",
-        "searching": "正在搜索 ClawHub...",
+        "securityNote": "安装前请点击技能卡片，在 Qoder 中国站查看其文档和安全信息。",
+        "manualInstallHint": "遇到网络问题？您可以随时从 Qoder 中国站下载技能压缩包，并将其解压至 \"{{path}}\" 目录来完成手动安装。",
+        "searching": "正在搜索 Qoder 中国站...",
         "noResults": "未找到匹配的技能。",
         "emptyPrompt": "搜索新技能以扩展您的能力。",
-        "searchError": "ClawHub 搜索失败。请检查您的连接或安装。"
+        "searchError": "Qoder 中国站搜索失败。请检查您的连接。",
+        "sourceQoder": "Qoder 中国站",
+        "downloads": "{{count}} 次下载",
+        "installed": "已安装",
+        "install": "安装",
+        "sort": {
+            "hot": "排序：热门",
+            "recent": "最近"
+        },
+        "categories": {
+            "all": "全部",
+            "contentCreation": "内容创作",
+            "dataAi": "数据与AI",
+            "designUi": "设计与UI",
+            "devops": "DevOps与部署",
+            "docsWriting": "文档与写作",
+            "productivity": "效率工具",
+            "researchAnalysis": "研究与分析"
+        }
     }
 }

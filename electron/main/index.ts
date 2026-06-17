@@ -16,6 +16,7 @@ import { warmupNetworkOptimization } from '../utils/uv-env';
 import { initTelemetry } from '../utils/telemetry';
 
 import { ClawHubService } from '../gateway/clawhub';
+import { QoderSkillService } from '../gateway/qoder-skills';
 import { ensureCCLAWDContext, repairCCLAWDOnlyBootstrapFiles } from '../utils/openclaw-workspace';
 import { autoInstallCliIfNeeded, generateCompletionCache, installCompletionToProfile } from '../utils/openclaw-cli';
 import { isQuitting, setQuitting } from './app-state';
@@ -35,7 +36,7 @@ import {
 import { createSignalQuitHandler } from './signal-quit';
 import { acquireProcessInstanceFileLock } from './process-instance-lock';
 import { getSetting } from '../utils/store';
-import { ensureBuiltinSkillsInstalled, ensurePreinstalledSkillsInstalled } from '../utils/skill-config';
+import { cleanupLegacyPreinstalledSkills, ensureBuiltinSkillsInstalled, ensurePreinstalledSkillsInstalled } from '../utils/skill-config';
 import { ensureAllBundledPluginsInstalled } from '../utils/plugin-install';
 import { startHostApiServer } from '../api/server';
 import { HostEventBus } from '../api/event-bus';
@@ -113,6 +114,7 @@ const gotTheLock = gotElectronLock && gotFileLock;
 let mainWindow: BrowserWindow | null = null;
 let gatewayManager!: GatewayManager;
 let clawHubService!: ClawHubService;
+let qoderSkillService!: QoderSkillService;
 let hostEventBus!: HostEventBus;
 let hostApiServer: Server | null = null;
 const mainWindowFocusState = createMainWindowFocusState();
@@ -304,6 +306,7 @@ async function initialize(): Promise<void> {
   hostApiServer = startHostApiServer({
     gatewayManager,
     clawHubService,
+    qoderSkillService,
     eventBus: hostEventBus,
     mainWindow: window,
   });
@@ -325,6 +328,11 @@ async function initialize(): Promise<void> {
   // to ~/.openclaw/skills/ so they are immediately available without manual install.
   void ensureBuiltinSkillsInstalled().catch((error) => {
     logger.warn('Failed to install built-in skills:', error);
+  });
+
+  // Remove old default skills from the pre-Qoder marketplace experience.
+  void cleanupLegacyPreinstalledSkills().catch((error) => {
+    logger.warn('Failed to clean legacy preinstalled skills:', error);
   });
 
   // Pre-deploy bundled third-party skills from resources/preinstalled-skills.
@@ -489,6 +497,7 @@ if (gotTheLock) {
 
   gatewayManager = new GatewayManager();
   clawHubService = new ClawHubService();
+  qoderSkillService = new QoderSkillService();
   hostEventBus = new HostEventBus();
 
   // When a second instance is launched, focus the existing window instead.
