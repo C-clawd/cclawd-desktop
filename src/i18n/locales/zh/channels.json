@@ -77,7 +77,7 @@
         "qrCode": "二维码",
         "token": "令牌",
         "scanQR": "使用 {{name}} 扫描此二维码",
-        "refreshCode": "刷新代码",
+        "refreshCode": "刷新二维码",
         "loadingConfig": "正在加载配置...",
         "existingHint": "您已配置过此消息渠道",
         "howToConnect": "如何连接",
