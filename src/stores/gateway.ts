@@ -182,7 +182,9 @@ function handleGatewayNotification(notification: { method?: string; params?: Rec
 
   // `phase: 'end'` fires per streaming message (including intermediate tool
   // rounds), NOT per-run. Only `completed` / `done` / `finished` terminate the
-  // run. We still honour `'end'` as a hint to refresh history opportunistically.
+  // run. Treat `'end'` as a throttled hint only; forcing a history reload for
+  // every tool/message round repeatedly replaces the transcript and makes the
+  // chat UI look like it is refreshing.
   const isPerMessageEnd = phase === 'end';
   const isRunCompletion = phase === 'completed' || phase === 'done' || phase === 'finished';
   const isRunFailure = phase === 'error' || phase === 'failed' || phase === 'aborted' || phase === 'cancelled';
@@ -204,7 +206,7 @@ function handleGatewayNotification(notification: { method?: string; params?: Rec
         const matchesActiveRun = runId != null && state.activeRunId != null && String(runId) === state.activeRunId;
 
         if (matchesCurrentSession || matchesActiveRun) {
-          if (resolvedSessionKey) {
+          if (resolvedSessionKey && isRunTerminal) {
             markHistoryReloadRequired(resolvedSessionKey);
           }
           if (isRunTerminal && state.sending) {
@@ -219,7 +221,7 @@ function handleGatewayNotification(notification: { method?: string; params?: Rec
               });
             });
           } else {
-            maybeLoadHistory(state, isRunTerminal || isPerMessageEnd);
+            maybeLoadHistory(state, isRunTerminal);
           }
         }
 

@@ -173,5 +173,35 @@ describe('chat session actions', () => {
     expect(h.read().sessionLastActivity['agent:main:cron:job-1']).toBe(1773281731621);
     expect(h.read().sessions.find((session) => session.key === 'agent:main:cron:job-1')?.updatedAt).toBe(1773281731621);
   });
+
+  it('loadSessions preserves the selected conversation when backend list omits it', async () => {
+    const { createSessionActions } = await import('@/stores/chat/session-actions');
+    const h = makeHarness({
+      currentSessionKey: 'agent:main:session-selected',
+      sessions: [{ key: 'agent:main:session-selected' }],
+      messages: [{ role: 'user', content: 'current chat' }],
+      sessionLabels: { 'agent:main:session-selected': 'Current chat' },
+      sessionLastActivity: { 'agent:main:session-selected': 1773281700000 },
+    });
+    const actions = createSessionActions(h.set as never, h.get as never);
+
+    invokeIpcMock.mockResolvedValueOnce({
+      success: true,
+      result: {
+        sessions: [
+          { key: 'agent:main:session-other', displayName: 'Other', updatedAt: 1773281731621 },
+        ],
+      },
+    });
+
+    await actions.loadSessions();
+
+    expect(h.read().currentSessionKey).toBe('agent:main:session-selected');
+    expect(h.read().sessions.map((session) => session.key)).toEqual([
+      'agent:main:session-other',
+      'agent:main:session-selected',
+    ]);
+    expect(h.read().loadHistory).not.toHaveBeenCalled();
+  });
 });
 

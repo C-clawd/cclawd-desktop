@@ -110,7 +110,13 @@ export function Chat() {
     const completions = messages
       .map((message) => parseSubagentCompletionInfo(message))
       .filter((value): value is NonNullable<typeof value> => value != null);
-    const missing = completions.filter((completion) => !childTranscripts[completion.sessionId]);
+    const missing = Array.from(
+      new Map(
+        completions
+          .filter((completion) => !childTranscripts[completion.sessionId])
+          .map((completion) => [completion.sessionId, completion]),
+      ).values(),
+    );
     if (missing.length === 0) return;
 
     let cancelled = false;
@@ -126,7 +132,7 @@ export function Chat() {
               sessionId: completion.sessionId,
               result,
             });
-            return null;
+            return { sessionId: completion.sessionId, messages: [] };
           }
           return { sessionId: completion.sessionId, messages: result.messages || [] };
         } catch (error) {
@@ -135,18 +141,20 @@ export function Chat() {
             sessionId: completion.sessionId,
             error,
           });
-          return null;
+          return { sessionId: completion.sessionId, messages: [] };
         }
       }),
     ).then((results) => {
       if (cancelled) return;
       setChildTranscripts((current) => {
+        let changed = false;
         const next = { ...current };
         for (const result of results) {
-          if (!result) continue;
+          if (current[result.sessionId]) continue;
           next[result.sessionId] = result.messages;
+          changed = true;
         }
-        return next;
+        return changed ? next : current;
       });
     });
 

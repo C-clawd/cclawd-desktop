@@ -22,6 +22,18 @@ function parseSessionUpdatedAtMs(value: unknown): number | undefined {
   return undefined;
 }
 
+function shouldAdoptBackendSession(
+  state: ReturnType<ChatGet>,
+  nextSessionKey: string,
+): boolean {
+  if (nextSessionKey !== DEFAULT_SESSION_KEY) return false;
+  if (state.sessions.some((session) => session.key === nextSessionKey)) return false;
+  if (state.messages.length > 0) return false;
+  if (state.sessionLabels[nextSessionKey]) return false;
+  if (state.sessionLastActivity[nextSessionKey]) return false;
+  return true;
+}
+
 export function createSessionActions(
   set: ChatSet,
   get: ChatGet,
@@ -67,7 +79,8 @@ export function createSessionActions(
             return true;
           });
 
-          const { currentSessionKey } = get();
+          const currentState = get();
+          const { currentSessionKey } = currentState;
           let nextSessionKey = currentSessionKey || DEFAULT_SESSION_KEY;
           if (!nextSessionKey.startsWith('agent:')) {
             const canonicalMatch = canonicalBySuffix.get(nextSessionKey);
@@ -76,9 +89,10 @@ export function createSessionActions(
             }
           }
           if (!dedupedSessions.find((s) => s.key === nextSessionKey) && dedupedSessions.length > 0) {
-            // Current session not found in the backend list
-            const isNewEmptySession = get().messages.length === 0;
-            if (!isNewEmptySession) {
+            // A sessions.list refresh must not steal focus from the user's
+            // selected conversation. Only the initial default placeholder may
+            // yield to the backend's first real session.
+            if (shouldAdoptBackendSession(currentState, nextSessionKey)) {
               nextSessionKey = dedupedSessions[0].key;
             }
           }

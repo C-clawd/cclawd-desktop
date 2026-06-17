@@ -245,6 +245,45 @@ function shouldAdoptHistoryStreamingCandidate(
   return candidateLen > getAssistantVisibleTextLength(currentStream);
 }
 
+function stableMessageContentKey(content: unknown): string {
+  if (typeof content === 'string') return content;
+  try {
+    return JSON.stringify(content);
+  } catch {
+    return String(content);
+  }
+}
+
+function attachedFilesKey(files: AttachedFileMeta[] | undefined): string {
+  if (!files || files.length === 0) return '';
+  return files
+    .map((file) => [
+      file.fileName,
+      file.mimeType,
+      file.fileSize,
+      file.preview ?? '',
+      file.filePath ?? '',
+      file.source ?? '',
+    ].join('\u0001'))
+    .join('\u0002');
+}
+
+function messagesHaveSameRenderableContent(a: RawMessage[], b: RawMessage[]): boolean {
+  if (a.length !== b.length) return false;
+  return a.every((msg, index) => {
+    const other = b[index];
+    return !!other
+      && msg.role === other.role
+      && (msg.id ?? '') === (other.id ?? '')
+      && (msg.timestamp ?? null) === (other.timestamp ?? null)
+      && (msg.toolCallId ?? '') === (other.toolCallId ?? '')
+      && (msg.toolName ?? '') === (other.toolName ?? '')
+      && !!msg.isError === !!other.isError
+      && stableMessageContentKey(msg.content) === stableMessageContentKey(other.content)
+      && attachedFilesKey(msg._attachedFiles) === attachedFilesKey(other._attachedFiles);
+  });
+}
+
 // ── Local image cache ─────────────────────────────────────────
 // The Gateway doesn't store image attachments in session content blocks,
 // so we cache them locally keyed by staged file path (which appears in the
@@ -806,6 +845,18 @@ function ensureSessionEntry(sessions: ChatSession[], sessionKey: string): ChatSe
   return [...sessions, { key: sessionKey, displayName: sessionKey }];
 }
 
+function shouldAdoptBackendSession(
+  state: Pick<ChatState, 'currentSessionKey' | 'messages' | 'sessions' | 'sessionLabels' | 'sessionLastActivity'>,
+  nextSessionKey: string,
+): boolean {
+  if (nextSessionKey !== DEFAULT_SESSION_KEY) return false;
+  if (state.sessions.some((session) => session.key === nextSessionKey)) return false;
+  if (state.messages.length > 0) return false;
+  if (state.sessionLabels[nextSessionKey]) return false;
+  if (state.sessionLastActivity[nextSessionKey]) return false;
+  return true;
+}
+
 function clearSessionEntryFromMap<T extends Record<string, unknown>>(entries: T, sessionKey: string): T {
   return Object.fromEntries(Object.entries(entries).filter(([key]) => key !== sessionKey)) as T;
 }
@@ -1175,7 +1226,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
             return true;
           });
 
-          const { currentSessionKey, sessions: localSessions } = get();
+          const currentState = get();
+          const { currentSessionKey } = currentState;
           let nextSessionKey = currentSessionKey || DEFAULT_SESSION_KEY;
           if (!nextSessionKey.startsWith('agent:')) {
             const canonicalMatch = canonicalBySuffix.get(nextSessionKey);
@@ -1184,10 +1236,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
             }
           }
           if (!dedupedSessions.find((s) => s.key === nextSessionKey) && dedupedSessions.length > 0) {
-            // Preserve only locally-created pending sessions. On initial boot the
-            // default ghost key (`agent:main:main`) should yield to real history.
-            const hasLocalPendingSession = localSessions.some((session) => session.key === nextSessionKey);
-            if (!hasLocalPendingSession) {
+            // A sessions.list refresh must not steal focus from the user's
+            // selected conversation. Only the initial default placeholder may
+            // yield to the backend's first real session.
+            if (shouldAdoptBackendSession(currentState, nextSessionKey)) {
               nextSessionKey = dedupedSessions[0].key;
             }
           }
@@ -1471,7 +1523,16 @@ export const useChatStore = create<ChatState>((set, get) => ({
         }
       }
 
-      set({ messages: finalMessages, thinkingLevel, loading: false });
+      const currentState = get();
+      const messagesChanged = !messagesHaveSameRenderableContent(currentState.messages, finalMessages);
+      const nextState: Partial<ChatState> = { loading: false };
+      if (messagesChanged) {
+        nextState.messages = finalMessages;
+      }
+      if (currentState.thinkingLevel !== thinkingLevel) {
+        nextState.thinkingLevel = thinkingLevel;
+      }
+      set(nextState);
 
       // When Gateway chat deltas are dropped (dropIfSlow), mirror the latest
       // in-progress assistant row from chat.history into streamingMessage so
