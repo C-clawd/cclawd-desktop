@@ -64,13 +64,6 @@ describe('Channels page status refresh', () => {
         };
       }
 
-      if (path === '/api/agents') {
-        return {
-          success: true,
-          agents: [],
-        };
-      }
-
       throw new Error(`Unexpected host API path: ${path}`);
     });
   });
@@ -88,9 +81,9 @@ describe('Channels page status refresh', () => {
 
     await waitFor(() => {
       expect(hostApiFetchMock).toHaveBeenCalledWith('/api/channels/accounts');
-      expect(hostApiFetchMock).toHaveBeenCalledWith('/api/agents');
     });
     expect(subscribeHostEventMock).toHaveBeenCalledWith('gateway:channel-status', expect.any(Function));
+    expect(screen.queryByText('account.bindAgentLabel')).not.toBeInTheDocument();
 
     await act(async () => {
       channelStatusHandler?.();
@@ -98,9 +91,7 @@ describe('Channels page status refresh', () => {
 
     await waitFor(() => {
       const channelFetchCalls = hostApiFetchMock.mock.calls.filter(([path]) => path === '/api/channels/accounts');
-      const agentFetchCalls = hostApiFetchMock.mock.calls.filter(([path]) => path === '/api/agents');
       expect(channelFetchCalls).toHaveLength(2);
-      expect(agentFetchCalls).toHaveLength(2);
     });
   });
 
@@ -111,7 +102,6 @@ describe('Channels page status refresh', () => {
 
     await waitFor(() => {
       expect(hostApiFetchMock).toHaveBeenCalledWith('/api/channels/accounts');
-      expect(hostApiFetchMock).toHaveBeenCalledWith('/api/agents');
     });
 
     gatewayState.status = { state: 'running', port: 18789 };
@@ -121,9 +111,7 @@ describe('Channels page status refresh', () => {
 
     await waitFor(() => {
       const channelFetchCalls = hostApiFetchMock.mock.calls.filter(([path]) => path === '/api/channels/accounts');
-      const agentFetchCalls = hostApiFetchMock.mock.calls.filter(([path]) => path === '/api/agents');
       expect(channelFetchCalls).toHaveLength(2);
-      expect(agentFetchCalls).toHaveLength(2);
     });
   });
 
@@ -152,14 +140,11 @@ describe('Channels page status refresh', () => {
         };
       }
 
-      if (path === '/api/agents') {
-        return {
-          success: true,
-          agents: [],
-        };
+      if (path === '/api/channels/wechat/cancel') {
+        return { success: true };
       }
 
-      if (path === '/api/channels/wechat/cancel') {
+      if (path === '/api/channels/wechat/start') {
         return { success: true };
       }
 
@@ -169,15 +154,111 @@ describe('Channels page status refresh', () => {
     render(<Channels />);
 
     await waitFor(() => {
-      expect(screen.getByText('WeChat')).toBeInTheDocument();
+      expect(screen.getByText('个人微信')).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole('button', { name: 'account.add' }));
+    expect(screen.queryByRole('button', { name: 'account.add' })).not.toBeInTheDocument();
+    expect(screen.getByText('account.singleAccountHint')).toBeInTheDocument();
+    expect(screen.queryByLabelText('account.customIdLabel')).not.toBeInTheDocument();
+  });
+
+  it('auto-generates a QR code when linking WeChat for the first time', async () => {
+    subscribeHostEventMock.mockImplementation(() => vi.fn());
+    hostApiFetchMock.mockImplementation(async (path: string) => {
+      if (path === '/api/channels/accounts') {
+        return {
+          success: true,
+          channels: [],
+        };
+      }
+
+      if (path === '/api/channels/wechat/cancel') {
+        return { success: true };
+      }
+
+      if (path === '/api/channels/wechat/start') {
+        return { success: true };
+      }
+
+      throw new Error(`Unexpected host API path: ${path}`);
+    });
+
+    render(<Channels />);
+
+    await waitFor(() => {
+      expect(screen.getByText('supportedChannels')).toBeInTheDocument();
+    });
+
+    expect(screen.queryByRole('button', { name: /Telegram/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /WhatsApp/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Discord/ })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /个人微信/ }));
 
     await waitFor(() => {
       expect(screen.getByText('dialog.configureTitle')).toBeInTheDocument();
     });
 
+    await waitFor(() => {
+      expect(hostApiFetchMock).toHaveBeenCalledWith('/api/channels/wechat/start', {
+        method: 'POST',
+        body: JSON.stringify({}),
+      });
+    });
+
+    expect(screen.queryByText('dialog.generateQRCode')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('account.customIdLabel')).not.toBeInTheDocument();
+  });
+
+  it('hides unsupported overseas channels from the production channel UI', async () => {
+    subscribeHostEventMock.mockImplementation(() => vi.fn());
+    hostApiFetchMock.mockImplementation(async (path: string) => {
+      if (path === '/api/channels/accounts') {
+        return {
+          success: true,
+          channels: [
+            {
+              channelType: 'telegram',
+              defaultAccountId: 'default',
+              status: 'connected',
+              accounts: [
+                {
+                  accountId: 'default',
+                  name: 'Telegram Bot',
+                  configured: true,
+                  status: 'connected',
+                  isDefault: true,
+                },
+              ],
+            },
+            {
+              channelType: 'dingtalk',
+              defaultAccountId: 'default',
+              status: 'connected',
+              accounts: [
+                {
+                  accountId: 'default',
+                  name: 'DingTalk Bot',
+                  configured: true,
+                  status: 'connected',
+                  isDefault: true,
+                },
+              ],
+            },
+          ],
+        };
+      }
+
+      throw new Error(`Unexpected host API path: ${path}`);
+    });
+
+    render(<Channels />);
+
+    await waitFor(() => {
+      expect(screen.getByText('钉钉')).toBeInTheDocument();
+    });
+
+    expect(screen.queryByText('Telegram')).not.toBeInTheDocument();
+    expect(screen.queryByText('Telegram Bot')).not.toBeInTheDocument();
   });
 });

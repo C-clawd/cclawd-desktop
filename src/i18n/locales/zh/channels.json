@@ -1,6 +1,6 @@
 {
     "title": "消息频道",
-    "subtitle": "统一管理消息频道、账号、账号与智能体的绑定关系，以及频道默认账号",
+    "subtitle": "统一管理消息频道、账号以及频道默认账号",
     "refresh": "刷新",
     "addChannel": "添加消息渠道",
     "stats": {
@@ -47,7 +47,8 @@
         "mainAccount": "主账号",
         "customIdLabel": "账号 ID",
         "customIdPlaceholder": "例如：feishu-sales-bot",
-        "customIdHint": "可自定义账号 ID，用于区分同一频道下的多个账号。",
+        "customIdHint": "当前版本每个消息渠道仅支持一个账号。",
+        "singleAccountHint": "当前版本每个消息渠道仅支持一个账号，如需更换请先删除当前账号后重新绑定。",
         "invalidId": "账号 ID 不能为空",
         "idLabel": "ID: {{id}}",
         "boundTo": "绑定对象：{{agent}}",
@@ -163,7 +164,7 @@
             "description": "通过腾讯官方 OpenClaw 插件扫码连接个人微信",
             "docsUrl": "https://icnnp7d0dymg.feishu.cn/wiki/GHYZwuPCriF0gWkXwkFcJ9zon3b",
             "instructions": [
-                "点击生成二维码，ClawX 会在 OpenClaw 中安装并启用官方微信插件",
+                "打开绑定窗口后，Cclawd 会自动生成二维码并启用官方微信插件",
                 "使用微信扫描下方二维码，并在手机上确认连接",
                 "连接成功后，微信里会自动出现新的「微信 ClawBot」对话",
                 "之后可再次通过扫码流程添加更多微信账号，或重新连接已有账号"
@@ -217,7 +218,7 @@
             ]
         },
         "feishu": {
-            "description": "通过飞书官方推出的 OpenClaw 插件连接飞书/Lark 机器人",
+            "description": "通过飞书官方推出的 OpenClaw 插件连接飞书机器人",
             "docsUrl": "https://icnnp7d0dymg.feishu.cn/wiki/GKn8wOvHnibpPNkNkPzcAvGlnzK#Py88dTltfoJc1jxAhIBcW3Pkn7b",
             "fields": {
                 "appId": {
@@ -369,20 +370,20 @@
             ]
         },
         "qqbot": {
-            "description": "通过 @sliverp/qqbot 插件连接 QQ 机器人",
+            "description": "通过 @sliverp/qqbot 插件连接 QQ",
             "docsUrl": "https://icnnp7d0dymg.feishu.cn/wiki/KPIJwlyiGiupMrkiS9ice39Zn2c",
             "fields": {
                 "appId": {
                     "label": "App ID",
-                    "placeholder": "您的 QQ 机器人 App ID"
+                    "placeholder": "您的 QQ App ID"
                 },
                 "clientSecret": {
                     "label": "Client Secret",
-                    "placeholder": "您的 QQ 机器人 Client Secret"
+                    "placeholder": "您的 QQ Client Secret"
                 }
             },
             "instructions": [
-                "前往 QQ 机器人开放平台注册应用",
+                "前往 QQ 开放平台注册应用",
                 "获取 App ID 和 Client Secret",
                 "在下方填写凭证信息"
             ]

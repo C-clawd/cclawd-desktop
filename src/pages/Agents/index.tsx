@@ -327,13 +327,13 @@ function ChannelLogo({ type }: { type: ChannelType }) {
     case 'whatsapp':
       return <img src={whatsappIcon} alt="WhatsApp" className="w-[20px] h-[20px] dark:invert" />;
     case 'wechat':
-      return <img src={wechatIcon} alt="WeChat" className="w-[20px] h-[20px] dark:invert" />;
+      return <img src={wechatIcon} alt="个人微信" className="w-[20px] h-[20px] dark:invert" />;
     case 'dingtalk':
-      return <img src={dingtalkIcon} alt="DingTalk" className="w-[20px] h-[20px] dark:invert" />;
+      return <img src={dingtalkIcon} alt="钉钉" className="w-[20px] h-[20px] dark:invert" />;
     case 'feishu':
-      return <img src={feishuIcon} alt="Feishu" className="w-[20px] h-[20px] dark:invert" />;
+      return <img src={feishuIcon} alt="飞书" className="w-[20px] h-[20px] dark:invert" />;
     case 'wecom':
-      return <img src={wecomIcon} alt="WeCom" className="w-[20px] h-[20px] dark:invert" />;
+      return <img src={wecomIcon} alt="企业微信" className="w-[20px] h-[20px] dark:invert" />;
     case 'qqbot':
       return <img src={qqIcon} alt="QQ" className="w-[20px] h-[20px] dark:invert" />;
     default:

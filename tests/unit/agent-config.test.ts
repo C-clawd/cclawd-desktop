@@ -284,7 +284,7 @@ describe('agent config lifecycle', () => {
     expect(snapshot.channelAccountOwners['telegram:default']).toBe('main');
   });
 
-  it('replaces previous account binding for the same agent and channel', async () => {
+  it('keeps multiple account bindings for the same agent and channel', async () => {
     await writeOpenClawJson({
       agents: {
         list: [
@@ -309,7 +309,7 @@ describe('agent config lifecycle', () => {
     await assignChannelAccountToAgent('main', 'feishu', 'alt');
 
     const snapshot = await listAgentsSnapshot();
-    expect(snapshot.channelAccountOwners['feishu:default']).toBeUndefined();
+    expect(snapshot.channelAccountOwners['feishu:default']).toBe('main');
     expect(snapshot.channelAccountOwners['feishu:alt']).toBe('main');
   });
 

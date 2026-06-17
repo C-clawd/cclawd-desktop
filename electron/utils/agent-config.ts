@@ -268,17 +268,12 @@ function upsertBindingsForChannel(
   agentId: string | null,
   accountId?: string,
 ): BindingConfig[] | undefined {
-  const normalizedAgentId = agentId ? normalizeAgentIdForBinding(agentId) : '';
   const nextBindings = Array.isArray(bindings)
     ? [...bindings as BindingConfig[]].filter((binding) => {
       if (!isChannelBinding(binding)) return true;
       if (binding.match?.channel !== channelType) return true;
-      // Keep a single account binding per (agent, channelType). Rebinding to
-      // another account should replace the previous one.
-      if (normalizedAgentId && normalizeAgentIdForBinding(binding.agentId || '') === normalizedAgentId) {
-        return false;
-      }
-      // Only remove binding that matches the exact accountId scope
+      // Account-scoped bindings are unique by (channel, accountId). This lets
+      // the main agent own multiple accounts under the same channel.
       if (accountId) {
         return binding.match?.accountId !== accountId;
       }

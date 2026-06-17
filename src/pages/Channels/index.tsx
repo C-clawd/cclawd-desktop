@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { RefreshCw, Trash2, AlertCircle, Plus } from 'lucide-react';
+import { RefreshCw, Trash2, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
@@ -16,7 +16,6 @@ import {
   getPrimaryChannels,
   type ChannelType,
 } from '@/types/channel';
-import { usesPluginManagedQrAccounts } from '@/lib/channel-alias';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 
@@ -44,11 +43,6 @@ interface ChannelGroupItem {
   defaultAccountId: string;
   status: 'connected' | 'connecting' | 'disconnected' | 'error';
   accounts: ChannelAccountItem[];
-}
-
-interface AgentItem {
-  id: string;
-  name: string;
 }
 
 interface DeleteTarget {
@@ -80,13 +74,10 @@ export function Channels() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [channelGroups, setChannelGroups] = useState<ChannelGroupItem[]>([]);
-  const [agents, setAgents] = useState<AgentItem[]>([]);
   const [showConfigModal, setShowConfigModal] = useState(false);
   const [selectedChannelType, setSelectedChannelType] = useState<ChannelType | null>(null);
   const [selectedAccountId, setSelectedAccountId] = useState<string | undefined>(undefined);
   const [allowExistingConfigInModal, setAllowExistingConfigInModal] = useState(true);
-  const [allowEditAccountIdInModal, setAllowEditAccountIdInModal] = useState(false);
-  const [existingAccountIdsForModal, setExistingAccountIdsForModal] = useState<string[]>([]);
   const [initialConfigValuesForModal, setInitialConfigValuesForModal] = useState<Record<string, string> | undefined>(undefined);
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
 
@@ -96,21 +87,13 @@ export function Channels() {
     setLoading(true);
     setError(null);
     try {
-      const [channelsRes, agentsRes] = await Promise.all([
-        hostApiFetch<{ success: boolean; channels?: ChannelGroupItem[]; error?: string }>('/api/channels/accounts'),
-        hostApiFetch<{ success: boolean; agents?: AgentItem[]; error?: string }>('/api/agents'),
-      ]);
+      const channelsRes = await hostApiFetch<{ success: boolean; channels?: ChannelGroupItem[]; error?: string }>('/api/channels/accounts');
 
       if (!channelsRes.success) {
         throw new Error(channelsRes.error || 'Failed to load channels');
       }
 
-      if (!agentsRes.success) {
-        throw new Error(agentsRes.error || 'Failed to load agents');
-      }
-
       setChannelGroups(channelsRes.channels || []);
-      setAgents(agentsRes.agents || []);
     } catch (fetchError) {
       setError(String(fetchError));
     } finally {
@@ -152,37 +135,15 @@ export function Channels() {
   }, [channelGroups]);
 
   const configuredGroups = useMemo(() => {
-    const known = displayedChannelTypes
+    return displayedChannelTypes
       .map((type) => groupedByType[type])
       .filter((group): group is ChannelGroupItem => Boolean(group));
-    const unknown = channelGroups.filter((group) => !displayedChannelTypes.includes(group.channelType as ChannelType));
-    return [...known, ...unknown];
-  }, [channelGroups, displayedChannelTypes, groupedByType]);
+  }, [displayedChannelTypes, groupedByType]);
 
   const unsupportedGroups = displayedChannelTypes.filter((type) => !configuredTypes.includes(type));
 
   const handleRefresh = () => {
     void fetchPageData();
-  };
-
-  const handleBindAgent = async (channelType: string, accountId: string, agentId: string) => {
-    try {
-      if (!agentId) {
-        await hostApiFetch<{ success: boolean; error?: string }>('/api/channels/binding', {
-          method: 'DELETE',
-          body: JSON.stringify({ channelType, accountId }),
-        });
-      } else {
-        await hostApiFetch<{ success: boolean; error?: string }>('/api/channels/binding', {
-          method: 'PUT',
-          body: JSON.stringify({ channelType, accountId, agentId }),
-        });
-      }
-      await fetchPageData();
-      toast.success(t('toast.bindingUpdated'));
-    } catch (bindError) {
-      toast.error(t('toast.configFailed', { error: String(bindError) }));
-    }
   };
 
   const handleDelete = async () => {
@@ -206,15 +167,6 @@ export function Channels() {
     } finally {
       setDeleteTarget(null);
     }
-  };
-
-  const createNewAccountId = (channelType: string, existingAccounts: string[]): string => {
-    // Generate a collision-safe default account id for user editing.
-    let nextAccountId = `${channelType}-${crypto.randomUUID().slice(0, 8)}`;
-    while (existingAccounts.includes(nextAccountId)) {
-      nextAccountId = `${channelType}-${crypto.randomUUID().slice(0, 8)}`;
-    }
-    return nextAccountId;
   };
 
   if (loading) {
@@ -288,6 +240,7 @@ export function Channels() {
                             {CHANNEL_NAMES[group.channelType as ChannelType] || group.channelType}
                           </h3>
                           <p className="text-[12px] text-muted-foreground">{group.channelType}</p>
+                          <p className="text-[12px] text-muted-foreground mt-1">{t('account.singleAccountHint')}</p>
                         </div>
                         <div
                           className={cn(
@@ -304,30 +257,6 @@ export function Channels() {
                       </div>
 
                       <div className="flex items-center gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-8 text-xs rounded-full"
-                          onClick={() => {
-                            const shouldUseGeneratedAccountId = !usesPluginManagedQrAccounts(group.channelType);
-                            const nextAccountId = shouldUseGeneratedAccountId
-                              ? createNewAccountId(
-                                group.channelType,
-                                group.accounts.map((item) => item.accountId),
-                              )
-                              : undefined;
-                            setSelectedChannelType(group.channelType as ChannelType);
-                            setSelectedAccountId(nextAccountId);
-                            setAllowExistingConfigInModal(false);
-                            setAllowEditAccountIdInModal(shouldUseGeneratedAccountId);
-                            setExistingAccountIdsForModal(group.accounts.map((item) => item.accountId));
-                            setInitialConfigValuesForModal(undefined);
-                            setShowConfigModal(true);
-                          }}
-                        >
-                          <Plus className="h-3.5 w-3.5 mr-1" />
-                          {t('account.add')}
-                        </Button>
                         <Button
                           size="icon"
                           variant="ghost"
@@ -359,19 +288,6 @@ export function Channels() {
                             </div>
 
                             <div className="flex items-center gap-2">
-                              <span className="text-xs text-muted-foreground">{t('account.bindAgentLabel')}</span>
-                              <select
-                                className="h-8 rounded-lg border border-black/10 dark:border-white/10 bg-background px-2 text-xs"
-                                value={account.agentId || ''}
-                                onChange={(event) => {
-                                  void handleBindAgent(group.channelType, account.accountId, event.target.value);
-                                }}
-                              >
-                                <option value="">{t('account.unassigned')}</option>
-                                {agents.map((agent) => (
-                                  <option key={agent.id} value={agent.id}>{agent.name}</option>
-                                ))}
-                              </select>
                               <Button
                                 size="sm"
                                 variant="outline"
@@ -391,8 +307,6 @@ export function Channels() {
                                       setSelectedChannelType(group.channelType as ChannelType);
                                       setSelectedAccountId(account.accountId);
                                       setAllowExistingConfigInModal(true);
-                                      setAllowEditAccountIdInModal(false);
-                                      setExistingAccountIdsForModal([]);
                                       setShowConfigModal(true);
                                     })();
                                   }}
@@ -435,8 +349,6 @@ export function Channels() {
                       setSelectedChannelType(type);
                       setSelectedAccountId(undefined);
                       setAllowExistingConfigInModal(true);
-                      setAllowEditAccountIdInModal(false);
-                      setExistingAccountIdsForModal([]);
                       setInitialConfigValuesForModal(undefined);
                       setShowConfigModal(true);
                     }}
@@ -474,8 +386,6 @@ export function Channels() {
           accountId={selectedAccountId}
           configuredTypes={configuredTypes}
           allowExistingConfig={allowExistingConfigInModal}
-          allowEditAccountId={allowEditAccountIdInModal}
-          existingAccountIds={existingAccountIdsForModal}
           initialConfigValues={initialConfigValuesForModal}
           showChannelName={false}
           onClose={() => {
@@ -483,8 +393,6 @@ export function Channels() {
             setSelectedChannelType(null);
             setSelectedAccountId(undefined);
             setAllowExistingConfigInModal(true);
-            setAllowEditAccountIdInModal(false);
-            setExistingAccountIdsForModal([]);
             setInitialConfigValuesForModal(undefined);
           }}
           onChannelSaved={async () => {
@@ -493,8 +401,6 @@ export function Channels() {
             setSelectedChannelType(null);
             setSelectedAccountId(undefined);
             setAllowExistingConfigInModal(true);
-            setAllowEditAccountIdInModal(false);
-            setExistingAccountIdsForModal([]);
             setInitialConfigValuesForModal(undefined);
           }}
         />
@@ -525,13 +431,13 @@ function ChannelLogo({ type }: { type: ChannelType }) {
     case 'whatsapp':
       return <img src={whatsappIcon} alt="WhatsApp" className="w-[22px] h-[22px] dark:invert" />;
     case 'wechat':
-      return <img src={wechatIcon} alt="WeChat" className="w-[22px] h-[22px] dark:invert" />;
+      return <img src={wechatIcon} alt="个人微信" className="w-[22px] h-[22px] dark:invert" />;
     case 'dingtalk':
-      return <img src={dingtalkIcon} alt="DingTalk" className="w-[22px] h-[22px] dark:invert" />;
+      return <img src={dingtalkIcon} alt="钉钉" className="w-[22px] h-[22px] dark:invert" />;
     case 'feishu':
-      return <img src={feishuIcon} alt="Feishu" className="w-[22px] h-[22px] dark:invert" />;
+      return <img src={feishuIcon} alt="飞书" className="w-[22px] h-[22px] dark:invert" />;
     case 'wecom':
-      return <img src={wecomIcon} alt="WeCom" className="w-[22px] h-[22px] dark:invert" />;
+      return <img src={wecomIcon} alt="企业微信" className="w-[22px] h-[22px] dark:invert" />;
     case 'qqbot':
       return <img src={qqIcon} alt="QQ" className="w-[22px] h-[22px] dark:invert" />;
     default:

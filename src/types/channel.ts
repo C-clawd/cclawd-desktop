@@ -103,20 +103,20 @@ export const CHANNEL_ICONS: Record<ChannelType, string> = {
  */
 export const CHANNEL_NAMES: Record<ChannelType, string> = {
   whatsapp: 'WhatsApp',
-  wechat: 'WeChat',
-  dingtalk: 'DingTalk',
+  wechat: '个人微信',
+  dingtalk: '钉钉',
   telegram: 'Telegram',
   discord: 'Discord',
   signal: 'Signal',
-  feishu: 'Feishu / Lark',
-  wecom: 'WeCom',
+  feishu: '飞书',
+  wecom: '企业微信',
   imessage: 'iMessage',
   matrix: 'Matrix',
   line: 'LINE',
   msteams: 'Microsoft Teams',
   googlechat: 'Google Chat',
   mattermost: 'Mattermost',
-  qqbot: 'QQ Bot',
+  qqbot: 'QQ',
 };
 
 /**
@@ -125,7 +125,7 @@ export const CHANNEL_NAMES: Record<ChannelType, string> = {
 export const CHANNEL_META: Record<ChannelType, ChannelMeta> = {
   qqbot: {
     id: 'qqbot',
-    name: 'QQ Bot',
+    name: 'QQ',
     icon: '🐧',
     description: 'channels:meta.qqbot.description',
     connectionType: 'token',
@@ -155,7 +155,7 @@ export const CHANNEL_META: Record<ChannelType, ChannelMeta> = {
   },
   dingtalk: {
     id: 'dingtalk',
-    name: 'DingTalk',
+    name: '钉钉',
     icon: '💬',
     description: 'channels:meta.dingtalk.description',
     connectionType: 'token',
@@ -207,7 +207,7 @@ export const CHANNEL_META: Record<ChannelType, ChannelMeta> = {
   },
   wecom: {
     id: 'wecom',
-    name: 'WeCom',
+    name: '企业微信',
     icon: '💼',
     description: 'channels:meta.wecom.description',
     connectionType: 'token',
@@ -328,7 +328,7 @@ export const CHANNEL_META: Record<ChannelType, ChannelMeta> = {
   },
   wechat: {
     id: 'wechat',
-    name: 'WeChat',
+    name: '个人微信',
     icon: '💬',
     description: 'channels:meta.wechat.description',
     connectionType: 'qr',
@@ -366,7 +366,7 @@ export const CHANNEL_META: Record<ChannelType, ChannelMeta> = {
   },
   feishu: {
     id: 'feishu',
-    name: 'Feishu / Lark',
+    name: '飞书',
     icon: '🐦',
     description: 'channels:meta.feishu.description',
     connectionType: 'token',
@@ -580,7 +580,7 @@ export const CHANNEL_META: Record<ChannelType, ChannelMeta> = {
  * Get primary supported channels (non-plugin, commonly used)
  */
 export function getPrimaryChannels(): ChannelType[] {
-  return ['telegram', 'discord', 'whatsapp', 'wechat', 'dingtalk', 'feishu', 'wecom', 'qqbot'];
+  return ['dingtalk', 'feishu', 'wechat', 'wecom', 'qqbot'];
 }
 
 /**

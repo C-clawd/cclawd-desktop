@@ -87,6 +87,7 @@ export function ChannelConfigModal({
   const [loadingConfig, setLoadingConfig] = useState(false);
   const [isExistingConfig, setIsExistingConfig] = useState(false);
   const firstInputRef = useRef<HTMLInputElement>(null);
+  const autoStartedQrRef = useRef<Set<string>>(new Set());
   const [validationResult, setValidationResult] = useState<{
     valid: boolean;
     errors: string[];
@@ -337,7 +338,7 @@ export function ChannelConfigModal({
     }
   };
 
-  const handleConnect = async () => {
+  const handleConnect = useCallback(async () => {
     if (!selectedType || !meta) return;
 
     setConnecting(true);
@@ -435,7 +436,43 @@ export function ChannelConfigModal({
       toast.error(t('toast.configFailed', { error: String(error) }));
       setConnecting(false);
     }
-  };
+  }, [
+    accountId,
+    accountIdInput,
+    configValues,
+    existingAccountIds,
+    finishSave,
+    meta,
+    onClose,
+    resolvedAccountId,
+    selectedType,
+    shouldUseCredentialValidation,
+    showAccountIdEditor,
+    t,
+  ]);
+
+  useEffect(() => {
+    if (selectedType !== 'wechat') return;
+    if (meta?.connectionType !== 'qr') return;
+    if (loadingConfig || connecting || qrCode || isExistingConfig) return;
+    if (allowExistingConfig && configuredTypes.includes(selectedType)) return;
+
+    const autoStartKey = `${selectedType}:${resolvedAccountId || '__new__'}`;
+    if (autoStartedQrRef.current.has(autoStartKey)) return;
+    autoStartedQrRef.current.add(autoStartKey);
+    void handleConnect();
+  }, [
+    allowExistingConfig,
+    configuredTypes,
+    connecting,
+    handleConnect,
+    isExistingConfig,
+    loadingConfig,
+    meta?.connectionType,
+    qrCode,
+    resolvedAccountId,
+    selectedType,
+  ]);
 
   const isFormValid = () => {
     if (!meta) return false;
@@ -564,6 +601,11 @@ export function ChannelConfigModal({
                   {t('dialog.refreshCode')}
                 </Button>
               </div>
+            </div>
+          ) : connecting && meta?.connectionType === 'qr' ? (
+            <div className="flex flex-col items-center justify-center py-16 rounded-2xl bg-background dark:bg-muted border border-black/10 dark:border-white/10">
+              <Loader2 className="h-7 w-7 animate-spin text-muted-foreground" />
+              <p className="mt-3 text-[14px] text-muted-foreground">{t('dialog.generatingQR')}</p>
             </div>
           ) : loadingConfig ? (
             <div className="flex items-center justify-center py-10 rounded-2xl bg-background dark:bg-muted border border-black/10 dark:border-white/10">
@@ -765,13 +807,13 @@ function ChannelLogo({ type }: { type: ChannelType }) {
     case 'whatsapp':
       return <img src={whatsappIcon} alt="WhatsApp" className="w-[22px] h-[22px] dark:invert" />;
     case 'wechat':
-      return <img src={wechatIcon} alt="WeChat" className="w-[22px] h-[22px] dark:invert" />;
+      return <img src={wechatIcon} alt="个人微信" className="w-[22px] h-[22px] dark:invert" />;
     case 'dingtalk':
-      return <img src={dingtalkIcon} alt="DingTalk" className="w-[22px] h-[22px] dark:invert" />;
+      return <img src={dingtalkIcon} alt="钉钉" className="w-[22px] h-[22px] dark:invert" />;
     case 'feishu':
-      return <img src={feishuIcon} alt="Feishu" className="w-[22px] h-[22px] dark:invert" />;
+      return <img src={feishuIcon} alt="飞书" className="w-[22px] h-[22px] dark:invert" />;
     case 'wecom':
-      return <img src={wecomIcon} alt="WeCom" className="w-[22px] h-[22px] dark:invert" />;
+      return <img src={wecomIcon} alt="企业微信" className="w-[22px] h-[22px] dark:invert" />;
     case 'qqbot':
       return <img src={qqIcon} alt="QQ" className="w-[22px] h-[22px] dark:invert" />;
     default:

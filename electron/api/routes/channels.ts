@@ -35,6 +35,7 @@ import {
   OPENCLAW_WECHAT_CHANNEL_TYPE,
   UI_WECHAT_CHANNEL_TYPE,
   buildQrChannelEventName,
+  normalizeOpenClawAccountId,
   toOpenClawChannelType,
   toUiChannelType,
 } from '../../utils/channel-alias';
@@ -50,6 +51,10 @@ import { parseJsonBody, sendJson } from '../route-utils';
 
 const WECHAT_QR_TIMEOUT_MS = 8 * 60 * 1000;
 const activeQrLogins = new Map<string, string>();
+const MAIN_AGENT_ID = 'main';
+const DEFAULT_ACCOUNT_ID = 'default';
+const SINGLE_CHANNEL_ACCOUNT_ERROR =
+  'Current single-agent mode supports only one account per channel. Delete the existing account before linking another one.';
 
 interface WebLoginStartResult {
   qrcodeUrl?: string;
@@ -130,7 +135,9 @@ async function awaitWeChatQrLogin(
       return;
     }
 
-    const normalizedAccountId = await saveWeChatAccountState(result.accountId, {
+    const normalizedAccountId = normalizeOpenClawAccountId(result.accountId);
+    await assertCanUseSingleChannelAccount(UI_WECHAT_CHANNEL_TYPE, normalizedAccountId);
+    await saveWeChatAccountState(result.accountId, {
       token: result.botToken,
       baseUrl: result.baseUrl,
       userId: result.userId,
@@ -223,26 +230,56 @@ function isSameConfigValues(
   return true;
 }
 
-async function ensureScopedChannelBinding(channelType: string, accountId?: string): Promise<void> {
+async function assertCanUseSingleChannelAccount(channelType: string, accountId?: string): Promise<void> {
   const storedChannelType = resolveStoredChannelType(channelType);
-  // Multi-agent safety: only bind when the caller explicitly scopes the account.
-  // Global channel saves (no accountId) must not override routing to "main".
-  if (!accountId) return;
+  const [configuredAccounts, configuredChannels] = await Promise.all([
+    listConfiguredChannelAccounts(),
+    listConfiguredChannels(),
+  ]);
+  const accountIds = configuredAccounts[storedChannelType]?.accountIds ?? [];
+  const requestedAccountId = accountId?.trim() || DEFAULT_ACCOUNT_ID;
+  if (accountIds.length > 0) {
+    if (accountIds.includes(requestedAccountId)) return;
+    throw new Error(SINGLE_CHANNEL_ACCOUNT_ERROR);
+  }
+
+  if (!configuredChannels.includes(storedChannelType)) return;
+  if (requestedAccountId === DEFAULT_ACCOUNT_ID) return;
+
+  throw new Error(SINGLE_CHANNEL_ACCOUNT_ERROR);
+}
+
+async function ensureScopedChannelBinding(channelType: string, accountId?: string): Promise<void> {
+  const normalizedAccountId = accountId?.trim() || DEFAULT_ACCOUNT_ID;
+  const storedChannelType = resolveStoredChannelType(channelType);
   const agents = await listAgentsSnapshot();
-  if (!agents.agents || agents.agents.length === 0) return;
+  if (agents.agents?.some((entry) => entry.id === MAIN_AGENT_ID)) {
+    await assignChannelAccountToAgent(MAIN_AGENT_ID, storedChannelType, normalizedAccountId);
+  }
+}
 
-  // Keep backward compatibility for the legacy default account.
-  if (accountId === 'default') {
-    if (agents.agents.some((entry) => entry.id === 'main')) {
-      await assignChannelAccountToAgent('main', storedChannelType, 'default');
-    }
-    return;
+async function ensureMainBindingsForAccounts(
+  channelType: string,
+  accountIds: string[],
+  owners: Record<string, string>,
+  hasMainAgent: boolean,
+): Promise<{ owners: Record<string, string>; changed: boolean }> {
+  const nextOwners = { ...owners };
+  const uniqueAccountIds = Array.from(new Set(accountIds.map((item) => item.trim()).filter(Boolean)));
+  if (!hasMainAgent || uniqueAccountIds.length === 0) {
+    return { owners: nextOwners, changed: false };
   }
 
-  // Legacy compatibility: if accountId matches an existing agentId, keep auto-binding.
-  if (agents.agents.some((entry) => entry.id === accountId)) {
-    await assignChannelAccountToAgent(accountId, storedChannelType, accountId);
+  let changed = false;
+  for (const accountId of uniqueAccountIds) {
+    const key = `${channelType}:${accountId}`;
+    if (nextOwners[key] === MAIN_AGENT_ID) continue;
+    await assignChannelAccountToAgent(MAIN_AGENT_ID, channelType, accountId);
+    nextOwners[key] = MAIN_AGENT_ID;
+    changed = true;
   }
+
+  return { owners: nextOwners, changed };
 }
 
 interface GatewayChannelStatusPayload {
@@ -338,6 +375,19 @@ async function buildChannelAccountsView(ctx: HostApiContext): Promise<ChannelAcc
       .filter((accountId): accountId is string => typeof accountId === 'string' && accountId.trim().length > 0);
     const accountIds = Array.from(new Set([...channelAccountsFromConfig, ...runtimeAccountIds, defaultAccountId]));
 
+    const {
+      owners: channelAccountOwners,
+      changed: channelBindingsChanged,
+    } = await ensureMainBindingsForAccounts(
+      rawChannelType,
+      accountIds,
+      agentsSnapshot.channelAccountOwners,
+      agentsSnapshot.agents?.some((entry) => entry.id === MAIN_AGENT_ID) === true,
+    );
+    if (channelBindingsChanged) {
+      scheduleGatewayChannelSaveRefresh(ctx, rawChannelType, `channel:autoBindMain:${rawChannelType}`);
+    }
+
     const accounts: ChannelAccountView[] = accountIds.map((accountId) => {
       const runtime = runtimeAccounts.find((item) => item.accountId === accountId);
       const runtimeSnapshot: ChannelRuntimeAccountSnapshot = runtime ?? {};
@@ -352,7 +402,7 @@ async function buildChannelAccountsView(ctx: HostApiContext): Promise<ChannelAcc
         lastError: typeof runtime?.lastError === 'string' ? runtime.lastError : undefined,
         status,
         isDefault: accountId === defaultAccountId,
-        agentId: agentsSnapshot.channelAccountOwners[`${rawChannelType}:${accountId}`],
+        agentId: channelAccountOwners[`${rawChannelType}:${accountId}`],
       };
     }).sort((left, right) => {
       if (left.accountId === defaultAccountId) return -1;
@@ -407,8 +457,8 @@ export async function handleChannelRoutes(
 
   if (url.pathname === '/api/channels/binding' && req.method === 'PUT') {
     try {
-      const body = await parseJsonBody<{ channelType: string; accountId: string; agentId: string }>(req);
-      await assignChannelAccountToAgent(body.agentId, resolveStoredChannelType(body.channelType), body.accountId);
+      const body = await parseJsonBody<{ channelType: string; accountId: string }>(req);
+      await assignChannelAccountToAgent(MAIN_AGENT_ID, resolveStoredChannelType(body.channelType), body.accountId);
       scheduleGatewayChannelSaveRefresh(ctx, body.channelType, `channel:setBinding:${body.channelType}`);
       sendJson(res, 200, { success: true });
     } catch (error) {
@@ -452,7 +502,9 @@ export async function handleChannelRoutes(
   if (url.pathname === '/api/channels/whatsapp/start' && req.method === 'POST') {
     try {
       const body = await parseJsonBody<{ accountId: string }>(req);
-      await whatsAppLoginManager.start(body.accountId);
+      const accountId = body.accountId?.trim() || DEFAULT_ACCOUNT_ID;
+      await assertCanUseSingleChannelAccount('whatsapp', accountId);
+      await whatsAppLoginManager.start(accountId);
       sendJson(res, 200, { success: true });
     } catch (error) {
       sendJson(res, 500, { success: false, error: String(error) });
@@ -482,6 +534,7 @@ export async function handleChannelRoutes(
       }
 
       await cleanupDanglingWeChatPluginState();
+      await assertCanUseSingleChannelAccount(UI_WECHAT_CHANNEL_TYPE, requestedAccountId);
       const startResult = await startWeChatQrLogin(ctx, requestedAccountId);
       if (!startResult.qrcodeUrl || !startResult.sessionKey) {
         throw new Error(startResult.message || 'Failed to generate WeChat QR code');
@@ -557,6 +610,7 @@ export async function handleChannelRoutes(
           return true;
         }
       }
+      await assertCanUseSingleChannelAccount(body.channelType, body.accountId);
       const existingValues = await getChannelFormValues(body.channelType, body.accountId);
       if (isSameConfigValues(existingValues, body.config)) {
         await ensureScopedChannelBinding(body.channelType, body.accountId);
