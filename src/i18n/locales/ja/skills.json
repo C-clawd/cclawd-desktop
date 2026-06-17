@@ -79,7 +79,7 @@
     "toast": {
         "enabled": "スキルを有効にしました",
         "disabled": "スキルを無効にしました",
-        "installed": "スキルをインストールして有効にしました",
+        "installed": "スキルをインストールし、有効リストに追加しました",
         "uninstalled": "スキルのアンインストールに成功しました",
         "openedEditor": "エディターで開きました",
         "failedEditor": "エディターを開けませんでした",
@@ -108,8 +108,8 @@
         "use": "使用"
     },
     "installed": {
-        "loaded": "Main Agent に注入済み",
-        "emptyLoaded": "Main Agent に注入済みのスキルはありません。",
+        "loaded": "ローカルにインストール済みのスキル",
+        "emptyLoaded": "ローカルにインストール済みのスキルはありません。",
         "fromMarketplace": "スキルマーケットから",
         "local": "ローカルインストール",
         "emptyMarketplace": "マーケットプレイス由来のスキルはありません。",

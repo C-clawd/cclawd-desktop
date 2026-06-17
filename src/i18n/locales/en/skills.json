@@ -79,7 +79,7 @@
     "toast": {
         "enabled": "Skill enabled",
         "disabled": "Skill disabled",
-        "installed": "Skill installed and enabled",
+        "installed": "Skill installed and added to the enabled list",
         "uninstalled": "Skill uninstalled successfully",
         "openedEditor": "Opened in editor",
         "failedEditor": "Failed to open editor",
@@ -108,8 +108,8 @@
         "use": "Use"
     },
     "installed": {
-        "loaded": "Loaded into Main Agent",
-        "emptyLoaded": "No skills are loaded into Main Agent.",
+        "loaded": "Locally installed skills",
+        "emptyLoaded": "No locally installed skills.",
         "fromMarketplace": "From skill marketplace",
         "local": "Local installs",
         "emptyMarketplace": "No marketplace skills installed.",

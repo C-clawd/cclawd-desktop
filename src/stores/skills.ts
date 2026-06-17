@@ -110,25 +110,20 @@ export const useSkillsStore = create<SkillsState>((set, get) => ({
       const qoderSkillsResult = await hostApiFetch<{ success: boolean; results?: QoderSkillListResult[]; error?: string }>('/api/qoder-skills/list');
 
       // 3. Fetch configurations directly from Electron (since Gateway doesn't return them)
-      const configResult = await hostApiFetch<Record<string, { apiKey?: string; env?: Record<string, string> }>>('/api/skills/configs');
+      const configResult = await hostApiFetch<Record<string, { enabled?: boolean; apiKey?: string; env?: Record<string, string> }>>('/api/skills/configs');
       const builtinResult = await hostApiFetch<{ success: boolean; results?: BuiltinSkillDefinition[]; error?: string }>('/api/skills/builtin');
       const promptInjectedResult = await hostApiFetch<{ success: boolean; results?: PromptInjectedSkillResult[]; error?: string }>('/api/skills/prompt-injected');
       const builtinSkills = builtinResult.success ? (builtinResult.results || []) : [];
       const builtinBySlug = new Map(builtinSkills.map((skill) => [skill.slug, skill]));
       const promptInjectedSkills = promptInjectedResult.success ? (promptInjectedResult.results || []) : [];
       const promptInjectedByName = new Map(promptInjectedSkills.map((skill) => [skill.name, skill]));
-      const hasPromptInjectedSnapshot = promptInjectedByName.size > 0;
 
       let combinedSkills: Skill[] = [];
       const currentSkills = get().skills;
 
       // Map gateway skills info
       if (gatewayData.skills) {
-        const visibleGatewaySkills = hasPromptInjectedSnapshot
-          ? gatewayData.skills.filter((s: GatewaySkillStatus) => promptInjectedByName.has(s.skillKey) || promptInjectedByName.has(s.name || '') || promptInjectedByName.has(s.slug || ''))
-          : gatewayData.skills.filter((s: GatewaySkillStatus) => s.eligible !== false);
-
-        combinedSkills = visibleGatewaySkills.map((s: GatewaySkillStatus) => {
+        combinedSkills = gatewayData.skills.map((s: GatewaySkillStatus) => {
           // Merge with direct config if available
           const directConfig = configResult[s.skillKey] || {};
           const promptSkill = promptInjectedByName.get(s.skillKey) || promptInjectedByName.get(s.name || '') || promptInjectedByName.get(s.slug || '');
@@ -164,9 +159,6 @@ export const useSkillsStore = create<SkillsState>((set, get) => ({
       // Merge with local skill directory results
       if (qoderSkillsResult.success && qoderSkillsResult.results) {
         qoderSkillsResult.results.forEach((skillOnDisk: QoderSkillListResult) => {
-          if (hasPromptInjectedSnapshot && !promptInjectedByName.has(skillOnDisk.slug)) {
-            return;
-          }
           const existing = combinedSkills.find(s => s.id === skillOnDisk.slug);
           if (existing) {
             if (!existing.baseDir && skillOnDisk.baseDir) {
@@ -185,7 +177,7 @@ export const useSkillsStore = create<SkillsState>((set, get) => ({
             slug: skillOnDisk.slug,
             name: builtin?.name || skillOnDisk.slug,
             description: builtin?.description || promptSkill?.description || 'Recently installed, initializing...',
-            enabled: false,
+            enabled: directConfig.enabled !== false,
             icon: builtin?.icon || 'package',
             version: skillOnDisk.version || builtin?.version || 'unknown',
             author: undefined,
@@ -200,7 +192,7 @@ export const useSkillsStore = create<SkillsState>((set, get) => ({
         });
       }
 
-      if (hasPromptInjectedSnapshot) {
+      if (promptInjectedSkills.length > 0) {
         promptInjectedSkills.forEach((promptSkill) => {
           const existing = combinedSkills.find((skill) => skill.id === promptSkill.name || skill.name === promptSkill.name || skill.slug === promptSkill.name);
           if (existing) return;

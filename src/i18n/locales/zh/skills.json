@@ -79,7 +79,7 @@
     "toast": {
         "enabled": "技能已启用",
         "disabled": "技能已禁用",
-        "installed": "技能已安装并启用",
+        "installed": "技能已安装，并已加入启用列表",
         "uninstalled": "技能已成功卸载",
         "openedEditor": "已在编辑器中打开",
         "failedEditor": "无法打开编辑器",
@@ -108,8 +108,8 @@
         "use": "使用"
     },
     "installed": {
-        "loaded": "已注入 Main Agent 的技能",
-        "emptyLoaded": "暂无已注入 Main Agent 的技能。",
+        "loaded": "本地已安装技能",
+        "emptyLoaded": "暂无本地已安装技能。",
         "fromMarketplace": "来自技能市场",
         "local": "本地安装",
         "emptyMarketplace": "暂无来自技能市场的技能。",

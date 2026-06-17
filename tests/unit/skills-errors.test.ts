@@ -58,4 +58,44 @@ describe('skills store error mapping', () => {
     const { useSkillsStore } = await import('@/stores/skills');
     await expect(useSkillsStore.getState().installSkill('demo-skill')).rejects.toThrow('installTimeoutError');
   });
+
+  it('keeps newly installed disk skills visible before the prompt snapshot refreshes', async () => {
+    rpcMock.mockResolvedValueOnce({ skills: [] });
+    hostApiFetchMock
+      .mockResolvedValueOnce({
+        success: true,
+        results: [
+          {
+            slug: 'market-research-reports',
+            version: '1.0.0',
+            source: 'qoder-marketplace',
+            baseDir: 'C:\\Users\\test\\.openclaw\\skills\\market-research-reports',
+          },
+        ],
+      })
+      .mockResolvedValueOnce({})
+      .mockResolvedValueOnce({ success: true, results: [] })
+      .mockResolvedValueOnce({
+        success: true,
+        results: [
+          {
+            name: 'frontend-design',
+            baseDir: 'C:\\Users\\test\\.openclaw\\skills\\frontend-design',
+          },
+        ],
+      });
+
+    const { useSkillsStore } = await import('@/stores/skills');
+    await useSkillsStore.getState().fetchSkills();
+
+    expect(useSkillsStore.getState().skills).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: 'market-research-reports',
+          slug: 'market-research-reports',
+          source: 'qoder-marketplace',
+        }),
+      ]),
+    );
+  });
 });
