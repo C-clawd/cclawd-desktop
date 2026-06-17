@@ -231,9 +231,9 @@ export async function ensureCclawdGuardPluginEnabled(): Promise<void> {
         ? { ...(existingEntry.config as Record<string, unknown>) }
         : {}
     ) as Record<string, unknown>;
-    const envCoreUrl = process.env.CCLAWD_GUARD_BASE_URL?.trim() || '';
     const existingCoreUrl = typeof pluginConfig.coreUrl === 'string' ? pluginConfig.coreUrl.trim() : '';
-    const configuredCoreUrl = envCoreUrl || existingCoreUrl || DEFAULT_GUARD_CORE_URL;
+    const envCoreUrl = process.env.CCLAWD_GUARD_BASE_URL?.trim() || '';
+    const configuredCoreUrl = existingCoreUrl || envCoreUrl || DEFAULT_GUARD_CORE_URL;
     pluginConfig.coreUrl = configuredCoreUrl.replace(/\/+$/, '');
     existingEntry.config = pluginConfig;
     entries[CCLAWD_MFA_AUTH_PLUGIN_ID] = existingEntry;

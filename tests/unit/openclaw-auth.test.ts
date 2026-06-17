@@ -1,6 +1,6 @@
 import { mkdir, readFile, rm, writeFile } from 'fs/promises';
 import { join } from 'path';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { testHome, testUserData } = vi.hoisted(() => {
   const suffix = Math.random().toString(36).slice(2);
@@ -38,6 +38,11 @@ async function writeOpenClawJson(config: unknown): Promise<void> {
 
 async function readAuthProfiles(agentId: string): Promise<Record<string, unknown>> {
   const content = await readFile(join(testHome, '.openclaw', 'agents', agentId, 'agent', 'auth-profiles.json'), 'utf8');
+  return JSON.parse(content) as Record<string, unknown>;
+}
+
+async function readOpenClawJson(): Promise<Record<string, unknown>> {
+  const content = await readFile(join(testHome, '.openclaw', 'openclaw.json'), 'utf8');
   return JSON.parse(content) as Record<string, unknown>;
 }
 
@@ -109,5 +114,56 @@ describe('saveProviderKeyToOpenClaw', () => {
     );
 
     logSpy.mockRestore();
+  });
+});
+
+describe('ensureCclawdGuardPluginEnabled', () => {
+  beforeEach(async () => {
+    vi.resetModules();
+    vi.restoreAllMocks();
+    delete process.env.CCLAWD_GUARD_BASE_URL;
+    await rm(testHome, { recursive: true, force: true });
+    await rm(testUserData, { recursive: true, force: true });
+  });
+
+  afterEach(() => {
+    delete process.env.CCLAWD_GUARD_BASE_URL;
+  });
+
+  it('does not overwrite an existing guard coreUrl with CCLAWD_GUARD_BASE_URL', async () => {
+    process.env.CCLAWD_GUARD_BASE_URL = 'http://127.0.0.1:53666/cclawd-guard-core';
+    await writeOpenClawJson({
+      plugins: {
+        entries: {
+          'cclawd-guard': {
+            enabled: true,
+            config: {
+              coreUrl: 'https://cclawd-console-test.dbhl.cn/cclawd-guard-core',
+            },
+          },
+        },
+      },
+    });
+
+    const { ensureCclawdGuardPluginEnabled } = await import('@electron/utils/openclaw-auth');
+    await ensureCclawdGuardPluginEnabled();
+
+    const config = await readOpenClawJson();
+    const plugins = config.plugins as { entries: Record<string, { config: { coreUrl: string } }> };
+    expect(plugins.entries['cclawd-guard'].config.coreUrl).toBe(
+      'https://cclawd-console-test.dbhl.cn/cclawd-guard-core',
+    );
+  });
+
+  it('uses CCLAWD_GUARD_BASE_URL only when guard coreUrl is missing', async () => {
+    process.env.CCLAWD_GUARD_BASE_URL = 'http://127.0.0.1:53666/cclawd-guard-core';
+    await writeOpenClawJson({});
+
+    const { ensureCclawdGuardPluginEnabled } = await import('@electron/utils/openclaw-auth');
+    await ensureCclawdGuardPluginEnabled();
+
+    const config = await readOpenClawJson();
+    const plugins = config.plugins as { entries: Record<string, { config: { coreUrl: string } }> };
+    expect(plugins.entries['cclawd-guard'].config.coreUrl).toBe('http://127.0.0.1:53666/cclawd-guard-core');
   });
 });

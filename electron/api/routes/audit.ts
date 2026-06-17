@@ -46,8 +46,8 @@ function readGuardBaseUrlFromOpenClawConfig(): string {
 }
 
 const GUARD_BASE_URL = (
-  process.env.CCLAWD_GUARD_BASE_URL?.trim()
-  || readGuardBaseUrlFromOpenClawConfig()
+  readGuardBaseUrlFromOpenClawConfig()
+  || process.env.CCLAWD_GUARD_BASE_URL?.trim()
   || DEFAULT_GUARD_CORE_URL
 ).replace(/\/$/, '');
 const SHARED_CREDENTIALS_FILE = path.join(
