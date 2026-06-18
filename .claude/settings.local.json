@@ -12,7 +12,12 @@
       "Bash(pnpm run typecheck:*)",
       "Bash(pnpm run test)",
       "Bash(git stash:*)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(for c in a417d4e f4d6478 dea38c0 160160e 35ae535 654468b 1ed9f77 d189857)",
+      "Bash(do echo \"===== $c =====\")",
+      "Bash(grep:*)",
+      "Bash(pnpm install)",
+      "Bash(ls:*)"
     ]
   }
 }

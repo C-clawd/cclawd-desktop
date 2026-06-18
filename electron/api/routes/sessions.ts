@@ -131,5 +131,62 @@ export async function handleSessionRoutes(
     return true;
   }
 
+  if (url.pathname === '/api/sessions/rename' && req.method === 'POST') {
+    try {
+      const body = await parseJsonBody<{ sessionKey: string; label: string }>(req);
+      const sessionKey = body.sessionKey;
+      const rawLabel = body.label;
+      if (!sessionKey || !sessionKey.startsWith('agent:')) {
+        sendJson(res, 400, { success: false, error: `Invalid sessionKey: ${sessionKey}` });
+        return true;
+      }
+      if (typeof rawLabel !== 'string' || !rawLabel.trim()) {
+        sendJson(res, 400, { success: false, error: 'Label cannot be empty' });
+        return true;
+      }
+      const parts = sessionKey.split(':');
+      if (parts.length < 3) {
+        sendJson(res, 400, { success: false, error: `sessionKey has too few parts: ${sessionKey}` });
+        return true;
+      }
+      const agentId = parts[1];
+      if (!SAFE_SESSION_SEGMENT.test(agentId)) {
+        sendJson(res, 400, { success: false, error: 'Invalid agent identifier' });
+        return true;
+      }
+      const label = rawLabel.trim();
+      const sessionsDir = join(getOpenClawConfigDir(), 'agents', agentId, 'sessions');
+      const sessionsJsonPath = join(sessionsDir, 'sessions.json');
+      const fsP = await import('node:fs/promises');
+      const raw = await fsP.readFile(sessionsJsonPath, 'utf8');
+      const sessionsJson = JSON.parse(raw) as Record<string, unknown>;
+
+      let found = false;
+      if (Array.isArray(sessionsJson.sessions)) {
+        for (const entry of sessionsJson.sessions as Array<Record<string, unknown>>) {
+          if (entry.key === sessionKey || entry.sessionKey === sessionKey) {
+            entry.label = label;
+            found = true;
+          }
+        }
+      }
+      const flatEntry = sessionsJson[sessionKey];
+      if (flatEntry && typeof flatEntry === 'object') {
+        (flatEntry as Record<string, unknown>).label = label;
+        found = true;
+      }
+
+      if (!found) {
+        sendJson(res, 404, { success: false, error: `Session not found: ${sessionKey}` });
+        return true;
+      }
+      await fsP.writeFile(sessionsJsonPath, JSON.stringify(sessionsJson, null, 2), 'utf8');
+      sendJson(res, 200, { success: true });
+    } catch (error) {
+      sendJson(res, 500, { success: false, error: String(error) });
+    }
+    return true;
+  }
+
   return false;
 }

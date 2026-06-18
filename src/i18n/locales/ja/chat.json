@@ -1,4 +1,5 @@
 {
+    "scrollToLatest": "最下部に戻る",
     "gatewayNotRunning": "ゲートウェイが停止中",
     "gatewayRequired": "チャットを利用するには OpenClaw ゲートウェイが実行されている必要があります。自動的に起動するか、設定から起動できます。",
     "welcome": {
@@ -45,6 +46,9 @@
         "clearTarget": "送信先 Agent をクリア",
         "targetChip": "@{{agent}}",
         "agentPickerTitle": "次のメッセージを別の Agent に直接送信します",
+        "pickSkill": "スキルを選択",
+        "skillPickerTitle": "有効なスキルをメッセージに挿入します",
+        "noEnabledSkills": "有効なスキルがありません",
         "gatewayDisconnectedPlaceholder": "ゲートウェイ未接続...",
         "send": "送信",
         "stop": "停止",

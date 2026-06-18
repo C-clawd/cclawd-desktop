@@ -2463,4 +2463,62 @@ function registerSessionHandlers(): void {
       return { success: false, error: String(err) };
     }
   });
+
+  // Update a session's display label in sessions.json. Supports both the
+  // array shape ({ sessions: [{ key, ... }] }) and the flat object shape
+  // ({ [sessionKey]: { ... } }) used by the OpenClaw Gateway.
+  ipcMain.handle('session:rename', async (_, sessionKey: string, label: string) => {
+    try {
+      if (!sessionKey || !sessionKey.startsWith('agent:')) {
+        return { success: false, error: `Invalid sessionKey: ${sessionKey}` };
+      }
+      if (typeof label !== 'string' || !label.trim()) {
+        return { success: false, error: 'Label cannot be empty' };
+      }
+      const parts = sessionKey.split(':');
+      if (parts.length < 3) {
+        return { success: false, error: `sessionKey has too few parts: ${sessionKey}` };
+      }
+      const agentId = parts[1];
+      const trimmedLabel = label.trim();
+      const sessionsJsonPath = join(getOpenClawConfigDir(), 'agents', agentId, 'sessions', 'sessions.json');
+      const fsP = await import('fs/promises');
+
+      let sessionsJson: Record<string, unknown> = {};
+      try {
+        const raw = await fsP.readFile(sessionsJsonPath, 'utf8');
+        sessionsJson = JSON.parse(raw) as Record<string, unknown>;
+      } catch (e) {
+        logger.warn(`[session:rename] Could not read sessions.json: ${String(e)}`);
+        return { success: false, error: `Could not read sessions.json: ${String(e)}` };
+      }
+
+      let found = false;
+      if (Array.isArray(sessionsJson.sessions)) {
+        for (const entry of sessionsJson.sessions as Array<Record<string, unknown>>) {
+          if (entry.key === sessionKey || entry.sessionKey === sessionKey) {
+            entry.label = trimmedLabel;
+            found = true;
+          }
+        }
+      }
+      const flatEntry = sessionsJson[sessionKey];
+      if (flatEntry && typeof flatEntry === 'object') {
+        (flatEntry as Record<string, unknown>).label = trimmedLabel;
+        found = true;
+      }
+
+      if (!found) {
+        logger.warn(`[session:rename] Session not found: ${sessionKey}`);
+        return { success: false, error: `Session not found: ${sessionKey}` };
+      }
+
+      await fsP.writeFile(sessionsJsonPath, JSON.stringify(sessionsJson, null, 2), 'utf8');
+      logger.info(`[session:rename] Renamed "${sessionKey}" → "${trimmedLabel}"`);
+      return { success: true };
+    } catch (err) {
+      logger.error(`[session:rename] Unexpected error for ${sessionKey}:`, err);
+      return { success: false, error: String(err) };
+    }
+  });
 }

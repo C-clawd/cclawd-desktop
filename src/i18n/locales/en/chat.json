@@ -1,4 +1,5 @@
 {
+    "scrollToLatest": "Back to bottom",
     "gatewayNotRunning": "Gateway Not Running",
     "gatewayRequired": "The OpenClaw Gateway needs to be running to use chat. It will start automatically, or you can start it from Settings.",
     "welcome": {
@@ -45,6 +46,9 @@
         "clearTarget": "Clear target agent",
         "targetChip": "@{{agent}}",
         "agentPickerTitle": "Route the next message to another agent",
+        "pickSkill": "Choose skill",
+        "skillPickerTitle": "Insert an enabled skill into your message",
+        "noEnabledSkills": "No enabled skills",
         "gatewayDisconnectedPlaceholder": "Gateway not connected...",
         "send": "Send",
         "stop": "Stop",

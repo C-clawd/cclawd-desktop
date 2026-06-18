@@ -7,7 +7,7 @@
  * are sent with the message (no base64 over WebSocket).
  */
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { SendHorizontal, Square, X, Paperclip, FileText, Film, Music, FileArchive, File, Loader2, AtSign } from 'lucide-react';
+import { SendHorizontal, Square, X, Paperclip, FileText, Film, Music, FileArchive, File, Loader2, AtSign, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { hostApiFetch } from '@/lib/host-api';
@@ -16,7 +16,9 @@ import { cn } from '@/lib/utils';
 import { useGatewayStore } from '@/stores/gateway';
 import { useAgentsStore } from '@/stores/agents';
 import { useChatStore } from '@/stores/chat';
+import { useSkillsStore } from '@/stores/skills';
 import type { AgentSummary } from '@/types/agent';
+import type { Skill } from '@/types/skill';
 import { useTranslation } from 'react-i18next';
 
 // ── Types ────────────────────────────────────────────────────────
@@ -90,12 +92,21 @@ export function ChatInput({ onSend, onStop, disabled = false, sending = false, i
   const [attachments, setAttachments] = useState<FileAttachment[]>([]);
   const [targetAgentId, setTargetAgentId] = useState<string | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [skillPickerOpen, setSkillPickerOpen] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const pickerRef = useRef<HTMLDivElement>(null);
+  const skillPickerRef = useRef<HTMLDivElement>(null);
   const isComposingRef = useRef(false);
   const gatewayStatus = useGatewayStore((s) => s.status);
   const agents = useAgentsStore((s) => s.agents);
   const currentAgentId = useChatStore((s) => s.currentAgentId);
+  const skills = useSkillsStore((s) => s.skills);
+  const fetchSkills = useSkillsStore((s) => s.fetchSkills);
+  const enabledSkills = useMemo(
+    () => (skills ?? []).filter((skill) => skill.enabled),
+    [skills],
+  );
+  const showSkillPicker = enabledSkills.length > 0 || skillPickerOpen;
   const currentAgentName = useMemo(
     () => (agents ?? []).find((agent) => agent.id === currentAgentId)?.name ?? currentAgentId,
     [agents, currentAgentId],
@@ -150,6 +161,37 @@ export function ChatInput({ onSend, onStop, disabled = false, sending = false, i
       document.removeEventListener('mousedown', handlePointerDown);
     };
   }, [pickerOpen]);
+
+  // Load skills once so the skill picker can list enabled skills.
+  useEffect(() => {
+    if ((skills ?? []).length === 0) {
+      void fetchSkills();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (!skillPickerOpen) return;
+    const handlePointerDown = (event: MouseEvent) => {
+      if (!skillPickerRef.current?.contains(event.target as Node)) {
+        setSkillPickerOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handlePointerDown);
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+    };
+  }, [skillPickerOpen]);
+
+  const insertSkillToken = useCallback((skill: Skill) => {
+    const token = `/${skill.slug || skill.name}`;
+    setInput((prev) => {
+      const needsSpace = prev.length > 0 && !prev.endsWith(' ') && !prev.endsWith('\n');
+      return `${prev}${needsSpace ? ' ' : ''}${token} `;
+    });
+    setSkillPickerOpen(false);
+    textareaRef.current?.focus();
+  }, []);
 
   // ── File staging via native dialog ─────────────────────────────
 
@@ -475,6 +517,46 @@ export function ChatInput({ onSend, onStop, disabled = false, sending = false, i
               </div>
             )}
 
+            {showSkillPicker && (
+              <div ref={skillPickerRef} className="relative shrink-0">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className={cn(
+                    'h-10 w-10 rounded-full text-muted-foreground hover:bg-black/5 dark:hover:bg-white/10 hover:text-foreground transition-colors',
+                    skillPickerOpen && 'bg-primary/10 text-primary hover:bg-primary/20'
+                  )}
+                  onClick={() => setSkillPickerOpen((open) => !open)}
+                  disabled={disabled || sending}
+                  title={t('composer.pickSkill')}
+                >
+                  <Sparkles className="h-4 w-4" />
+                </Button>
+                {skillPickerOpen && (
+                  <div className="absolute left-0 bottom-full z-20 mb-2 w-72 overflow-hidden rounded-2xl border border-black/10 bg-white p-1.5 shadow-xl dark:border-white/10 dark:bg-card">
+                    <div className="px-3 py-2 text-[11px] font-medium text-muted-foreground/80">
+                      {t('composer.skillPickerTitle')}
+                    </div>
+                    {enabledSkills.length === 0 ? (
+                      <div className="px-3 py-3 text-[13px] text-muted-foreground">
+                        {t('composer.noEnabledSkills')}
+                      </div>
+                    ) : (
+                      <div className="max-h-64 overflow-y-auto">
+                        {enabledSkills.map((skill) => (
+                          <SkillPickerItem
+                            key={skill.id}
+                            skill={skill}
+                            onSelect={() => insertSkillToken(skill)}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Textarea */}
             <div className="flex-1 relative">
               <Textarea
@@ -631,6 +713,32 @@ function AgentPickerItem({
       <span className="text-[11px] text-muted-foreground">
         {agent.modelDisplay}
       </span>
+    </button>
+  );
+}
+
+function SkillPickerItem({
+  skill,
+  onSelect,
+}: {
+  skill: Skill;
+  onSelect: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      className="flex w-full flex-col items-start rounded-xl px-3 py-2 text-left transition-colors hover:bg-black/5 dark:hover:bg-white/5"
+    >
+      <span className="flex items-center gap-1.5 text-[14px] font-medium text-foreground">
+        {skill.icon && <span className="shrink-0">{skill.icon}</span>}
+        <span className="truncate">{skill.name}</span>
+      </span>
+      {skill.description && (
+        <span className="line-clamp-2 text-[11px] text-muted-foreground">
+          {skill.description}
+        </span>
+      )}
     </button>
   );
 }

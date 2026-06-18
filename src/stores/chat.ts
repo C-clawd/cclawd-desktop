@@ -1390,6 +1390,39 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
   },
 
+  // ── Rename session ──
+
+  renameSession: async (key: string, label: string) => {
+    const normalized = label.trim();
+    if (!normalized) {
+      throw new Error('Session label cannot be empty');
+    }
+    // Persist the label in sessions.json on disk so it survives a restart /
+    // sessions.list refresh, mirroring the deleteSession HTTP route style.
+    try {
+      const result = await hostApiFetch<{
+        success: boolean;
+        error?: string;
+      }>('/api/sessions/rename', {
+        method: 'POST',
+        body: JSON.stringify({ sessionKey: key, label: normalized }),
+      });
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to rename session');
+      }
+    } catch (err) {
+      console.error(`[renameSession] request failed for ${key}:`, err);
+      throw err;
+    }
+
+    set((s) => ({
+      sessions: s.sessions.map((session) =>
+        session.key === key ? { ...session, label: normalized } : session,
+      ),
+      sessionLabels: { ...s.sessionLabels, [key]: normalized },
+    }));
+  },
+
   // ── New session ──
 
   newSession: () => {
