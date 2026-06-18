@@ -142,6 +142,7 @@ export async function handleProviderRoutes(
         sendJson(res, 200, { success: true });
         return true;
       }
+      const wasDefault = (await providerService.getDefaultAccountId()) === accountId;
       await providerService.deleteAccount(accountId);
       await syncDeletedProviderToRuntime(
         existing ? providerAccountToConfig(existing) : null,
@@ -149,6 +150,15 @@ export async function handleProviderRoutes(
         ctx.gatewayManager,
         runtimeProviderKey,
       );
+      // deleteAccount reassigns the default to a replacement provider when the
+      // deleted one was the default; push that new default to the runtime so it
+      // takes effect immediately instead of leaving the gateway without one.
+      if (wasDefault) {
+        const replacementDefault = await providerService.getDefaultAccountId();
+        if (replacementDefault) {
+          await syncDefaultProviderToRuntime(replacementDefault, ctx.gatewayManager);
+        }
+      }
       sendJson(res, 200, { success: true });
     } catch (error) {
       sendJson(res, 500, { success: false, error: String(error) });

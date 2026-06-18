@@ -183,6 +183,26 @@ export async function getAllProviders(): Promise<ProviderConfig[]> {
 }
 
 /**
+ * Pick a replacement default provider after the current default is deleted.
+ * Prefers enabled providers, then the most recently updated, then a stable id
+ * order. Returns undefined when no other provider remains.
+ */
+function selectReplacementDefaultProvider(
+  providers: Record<string, ProviderConfig>,
+  deletedProviderId: string,
+): ProviderConfig | undefined {
+  return Object.values(providers)
+    .filter((provider) => provider.id !== deletedProviderId)
+    .sort((left, right) => {
+      if (left.enabled !== right.enabled) {
+        return left.enabled ? -1 : 1;
+      }
+      const updatedAtOrder = (right.updatedAt ?? '').localeCompare(left.updatedAt ?? '');
+      return updatedAtOrder !== 0 ? updatedAtOrder : left.id.localeCompare(right.id);
+    })[0];
+}
+
+/**
  * Delete a provider configuration and its API key
  */
 export async function deleteProvider(providerId: string): Promise<boolean> {
@@ -198,10 +218,17 @@ export async function deleteProvider(providerId: string): Promise<boolean> {
     s.set('providers', providers);
     await deleteProviderAccount(providerId);
 
-    // Clear default if this was the default
+    // If this was the default, reassign to a replacement provider when one
+    // exists (instead of leaving the app with no default at all).
     if (s.get('defaultProvider') === providerId) {
-      s.delete('defaultProvider');
-      s.delete('defaultProviderAccountId');
+      const replacement = selectReplacementDefaultProvider(providers, providerId);
+      if (replacement) {
+        s.set('defaultProvider', replacement.id);
+        await setDefaultProviderAccount(replacement.id);
+      } else {
+        s.delete('defaultProvider');
+        s.delete('defaultProviderAccountId');
+      }
     }
 
     return true;

@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef } from "react";
 import { useStickToBottom } from "use-stick-to-bottom";
 
+const ESCAPE_FROM_LOCK_OFFSET_PX = 70;
+
 /**
  * A wrapper around useStickToBottom that ensures the initial scroll
  * to bottom happens instantly without any visible animation.
@@ -22,7 +24,8 @@ export function useStickToBottomInstant(resetKey?: string, active = false) {
     resize: "instant",
   });
 
-  const { scrollRef, contentRef, escapedFromLock } = result;
+  const { scrollRef, contentRef, escapedFromLock, stopScroll } = result;
+  const scrollEscapeCleanupRef = useRef<(() => void) | null>(null);
 
   // Keep the latest "should we pin?" inputs available inside the ResizeObserver
   // callback without re-creating the observer on every render.
@@ -69,10 +72,42 @@ export function useStickToBottomInstant(resetKey?: string, active = false) {
     [contentRef, pinToBottom],
   );
 
+  const combinedScrollRef = useCallback(
+    (element: HTMLElement | null) => {
+      scrollRef(element);
+
+      scrollEscapeCleanupRef.current?.();
+      scrollEscapeCleanupRef.current = null;
+
+      if (!element) return;
+
+      let lastScrollTop = element.scrollTop;
+      const handleScroll = () => {
+        // Only relevant while a run is actively pinning to the bottom.
+        if (!activeRef.current) return;
+
+        const scrollTop = element.scrollTop;
+        const distanceFromBottom = element.scrollHeight - element.clientHeight - scrollTop;
+        // Match the library's escape semantics: upward manual scroll only.
+        // Calling stopScroll while scrolling *down* (e.g. scroll-to-latest smooth
+        // animation) would cancel the animation before it reaches the bottom.
+        if (distanceFromBottom > ESCAPE_FROM_LOCK_OFFSET_PX && scrollTop < lastScrollTop) {
+          stopScroll();
+        }
+        lastScrollTop = scrollTop;
+      };
+      element.addEventListener("scroll", handleScroll, { passive: true });
+      scrollEscapeCleanupRef.current = () => element.removeEventListener("scroll", handleScroll);
+    },
+    [scrollRef, stopScroll],
+  );
+
   useEffect(() => {
     return () => {
       pinObserverRef.current?.disconnect();
       pinObserverRef.current = null;
+      scrollEscapeCleanupRef.current?.();
+      scrollEscapeCleanupRef.current = null;
     };
   }, []);
 
@@ -111,5 +146,5 @@ export function useStickToBottomInstant(resetKey?: string, active = false) {
     return () => cancelAnimationFrame(frame1);
   }, [scrollRef, resetKey]);
 
-  return { ...result, contentRef: combinedContentRef };
+  return { ...result, scrollRef: combinedScrollRef, contentRef: combinedContentRef };
 }
