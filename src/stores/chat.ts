@@ -898,6 +898,7 @@ function buildSessionSwitchPatch(
     error: null,
     pendingFinal: false,
     lastUserMessageAt: null,
+    pendingUserMessage: null,
     pendingToolImages: [],
   };
 }
@@ -1170,6 +1171,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   streamingTools: [],
   pendingFinal: false,
   lastUserMessageAt: null,
+  pendingUserMessage: null,
   pendingToolImages: [],
 
   sessions: [],
@@ -1374,6 +1376,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         error: null,
         pendingFinal: false,
         lastUserMessageAt: null,
+        pendingUserMessage: null,
         pendingToolImages: [],
         currentSessionKey: next?.key ?? DEFAULT_SESSION_KEY,
         currentAgentId: getAgentIdFromSessionKey(next?.key ?? DEFAULT_SESSION_KEY),
@@ -1462,6 +1465,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       error: null,
       pendingFinal: false,
       lastUserMessageAt: null,
+      pendingUserMessage: null,
       pendingToolImages: [],
     }));
   },
@@ -1547,12 +1551,16 @@ export const useChatStore = create<ChatState>((set, get) => ({
         );
         if (!hasRecentUser) {
           const currentMsgs = get().messages;
-          const optimistic = [...currentMsgs].reverse().find(
+          const optimistic = get().pendingUserMessage ?? [...currentMsgs].reverse().find(
             (m) => m.role === 'user' && m.timestamp && Math.abs(toMs(m.timestamp) - userMsMs) < 5000,
           );
           if (optimistic) {
             finalMessages = [...enrichedMessages, optimistic];
           }
+        } else if (get().pendingUserMessage) {
+          // Backend history now echoes the user message — the fallback bubble
+          // is no longer needed, so drop the standalone pending copy.
+          set({ pendingUserMessage: null });
         }
       }
 
@@ -1570,17 +1578,31 @@ export const useChatStore = create<ChatState>((set, get) => ({
       // When Gateway chat deltas are dropped (dropIfSlow), mirror the latest
       // in-progress assistant row from chat.history into streamingMessage so
       // the UI updates between poll ticks instead of only jumping messages[].
+      //
+      // IMPORTANT: only mirror once the backend history actually contains our
+      // just-sent user message. Until the new user turn is echoed, the last
+      // real user boundary in `filteredMessages` is the PREVIOUS user message,
+      // so `findLatestAssistantSinceLastUser` would return the prior run's
+      // answer — causing the new run's card to render stale content from the
+      // previous conversation.
       if (isCurrentSession() && get().sending) {
-        const historyCandidate = findLatestAssistantSinceLastUser(filteredMessages);
-        const currentStream = get().streamingMessage as RawMessage | null;
-        if (historyCandidate && shouldAdoptHistoryStreamingCandidate(historyCandidate, currentStream)) {
-          const updates = collectToolUpdates(historyCandidate, 'delta');
-          set((s) => ({
-            streamingMessage: normalizeStreamingMessage(historyCandidate),
-            streamingTools: updates.length > 0
-              ? upsertToolStatuses(s.streamingTools, updates)
-              : s.streamingTools,
-          }));
+        const sendUserMsgAt = get().lastUserMessageAt;
+        const backendHasNewUserMsg = !sendUserMsgAt || filteredMessages.some(
+          (m) => m.role === 'user' && m.timestamp
+            && Math.abs(toMs(m.timestamp) - toMs(sendUserMsgAt)) < 5000,
+        );
+        if (backendHasNewUserMsg) {
+          const historyCandidate = findLatestAssistantSinceLastUser(filteredMessages);
+          const currentStream = get().streamingMessage as RawMessage | null;
+          if (historyCandidate && shouldAdoptHistoryStreamingCandidate(historyCandidate, currentStream)) {
+            const updates = collectToolUpdates(historyCandidate, 'delta');
+            set((s) => ({
+              streamingMessage: normalizeStreamingMessage(historyCandidate),
+              streamingTools: updates.length > 0
+                ? upsertToolStatuses(s.streamingTools, updates)
+                : s.streamingTools,
+            }));
+          }
         }
       }
 
@@ -1767,6 +1789,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     };
     set((s) => ({
       messages: [...s.messages, userMsg],
+      pendingUserMessage: userMsg,
       sending: true,
       error: null,
       streamingText: '',

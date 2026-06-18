@@ -70,6 +70,7 @@ export function Chat() {
   const streamingMessage = useChatStore((s) => s.streamingMessage);
   const streamingTools = useChatStore((s) => s.streamingTools);
   const pendingFinal = useChatStore((s) => s.pendingFinal);
+  const pendingUserMessage = useChatStore((s) => s.pendingUserMessage);
   const sendMessage = useChatStore((s) => s.sendMessage);
   const abortRun = useChatStore((s) => s.abortRun);
   const clearError = useChatStore((s) => s.clearError);
@@ -196,6 +197,29 @@ export function Chat() {
 
   const isEmpty = messages.length === 0 && !sending;
   const showScrollToLatest = !isEmpty && !isAtBottom;
+
+  // Fallback rendering for the just-sent user message. The store also injects
+  // an optimistic copy into `messages[]`, but that array is rebuilt on every
+  // `loadHistory` reload (and cleared on session switch), so the user's own
+  // input can momentarily vanish until the backend echoes it back. This
+  // standalone copy is held in dedicated state and shown only while the run is
+  // active AND the message isn't already present in `messages[]`.
+  const showPendingUserBubble = (() => {
+    if (!sending || !pendingUserMessage) return false;
+    const pendingText = extractText(pendingUserMessage).trim();
+    const pendingAt = pendingUserMessage.timestamp
+      ? (pendingUserMessage.timestamp < 1e12 ? pendingUserMessage.timestamp * 1000 : pendingUserMessage.timestamp)
+      : 0;
+    const alreadyShown = messages.some((m) => {
+      if (m.role !== 'user') return false;
+      if (pendingUserMessage.id && m.id === pendingUserMessage.id) return true;
+      if (!pendingAt || !m.timestamp) return false;
+      const mAt = m.timestamp < 1e12 ? m.timestamp * 1000 : m.timestamp;
+      return Math.abs(mAt - pendingAt) < 10_000 && extractText(m).trim() === pendingText;
+    });
+    return !alreadyShown;
+  })();
+
   const subagentCompletionInfos = messages.map((message) => parseSubagentCompletionInfo(message));
   // Build an index of the *next* real user message after each position.
   // Gateway history may contain `role: 'user'` messages that are actually
@@ -579,6 +603,15 @@ export function Chat() {
                     </div>
                     );
                   })}
+
+                  {/* Fallback bubble for the just-sent user message when it is
+                      not (yet) present in messages[] — guarantees the user's
+                      input shows instantly and never vanishes during reloads. */}
+                  {showPendingUserBubble && pendingUserMessage && (
+                    <div className="space-y-3" data-testid="chat-pending-user-message">
+                      <ChatMessage message={pendingUserMessage} />
+                    </div>
+                  )}
 
                   {/* Streaming message — render when reply text is separated from graph,
                       OR when there's streaming content without an active graph */}

@@ -72,6 +72,14 @@ export interface ChatState {
   streamingTools: ToolStatus[];
   pendingFinal: boolean;
   lastUserMessageAt: number | null;
+  /**
+   * The just-sent user message, held independently of `messages[]` so that a
+   * concurrent `loadHistory` reload (or a session-switch that clears
+   * `messages`) can never make the user's own input disappear before the
+   * backend echoes it back. Rendered as a fallback bubble while the run is
+   * active and the message isn't yet present in `messages[]`.
+   */
+  pendingUserMessage: RawMessage | null;
   /** Images collected from tool results, attached to the next assistant message */
   pendingToolImages: AttachedFileMeta[];
 
