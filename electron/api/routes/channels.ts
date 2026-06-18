@@ -45,11 +45,18 @@ import {
   startWeChatLoginSession,
   waitForWeChatLoginSession,
 } from '../../utils/wechat-login';
+import {
+  cancelDingTalkLoginSession,
+  startDingTalkLoginSession,
+  waitForDingTalkLoginSession,
+} from '../../utils/dingtalk-login';
 import { whatsAppLoginManager } from '../../utils/whatsapp-login';
 import type { HostApiContext } from '../context';
 import { parseJsonBody, sendJson } from '../route-utils';
 
 const WECHAT_QR_TIMEOUT_MS = 8 * 60 * 1000;
+const DINGTALK_QR_TIMEOUT_MS = 10 * 60 * 1000;
+const UI_DINGTALK_CHANNEL_TYPE = 'dingtalk';
 const activeQrLogins = new Map<string, string>();
 const MAIN_AGENT_ID = 'main';
 const DEFAULT_ACCOUNT_ID = 'default';
@@ -165,6 +172,58 @@ async function awaitWeChatQrLogin(
       activeQrLogins.delete(loginKey);
     }
     await cancelWeChatLoginSession(sessionKey);
+  }
+}
+
+async function awaitDingTalkQrLogin(
+  ctx: HostApiContext,
+  sessionKey: string,
+  loginKey: string,
+  accountId?: string,
+): Promise<void> {
+  try {
+    const result = await waitForDingTalkLoginSession({
+      sessionKey,
+      timeoutMs: DINGTALK_QR_TIMEOUT_MS,
+    });
+
+    if (!isActiveQrLogin(loginKey, sessionKey)) {
+      return;
+    }
+
+    if (!result.connected || !result.clientId || !result.clientSecret) {
+      emitChannelEvent(ctx, UI_DINGTALK_CHANNEL_TYPE, 'error', result.message || 'DingTalk authorization did not complete');
+      return;
+    }
+
+    const normalizedAccountId = normalizeOpenClawAccountId(accountId || DEFAULT_ACCOUNT_ID);
+    await assertCanUseSingleChannelAccount(UI_DINGTALK_CHANNEL_TYPE, normalizedAccountId);
+    await saveChannelConfig(
+      UI_DINGTALK_CHANNEL_TYPE,
+      { clientId: result.clientId, clientSecret: result.clientSecret },
+      normalizedAccountId,
+    );
+    await ensureScopedChannelBinding(UI_DINGTALK_CHANNEL_TYPE, normalizedAccountId);
+    scheduleGatewayChannelSaveRefresh(ctx, UI_DINGTALK_CHANNEL_TYPE, `dingtalk:loginSuccess:${normalizedAccountId}`);
+
+    if (!isActiveQrLogin(loginKey, sessionKey)) {
+      return;
+    }
+
+    emitChannelEvent(ctx, UI_DINGTALK_CHANNEL_TYPE, 'success', {
+      accountId: normalizedAccountId,
+      message: result.message,
+    });
+  } catch (error) {
+    if (!isActiveQrLogin(loginKey, sessionKey)) {
+      return;
+    }
+    emitChannelEvent(ctx, UI_DINGTALK_CHANNEL_TYPE, 'error', String(error));
+  } finally {
+    if (isActiveQrLogin(loginKey, sessionKey)) {
+      activeQrLogins.delete(loginKey);
+    }
+    await cancelDingTalkLoginSession(sessionKey);
   }
 }
 
@@ -563,6 +622,55 @@ export async function handleChannelRoutes(
       clearActiveQrLogin(UI_WECHAT_CHANNEL_TYPE, accountId);
       if (sessionKey) {
         await cancelWeChatLoginSession(sessionKey);
+      }
+      sendJson(res, 200, { success: true });
+    } catch (error) {
+      sendJson(res, 500, { success: false, error: String(error) });
+    }
+    return true;
+  }
+
+  if (url.pathname === '/api/channels/dingtalk/start' && req.method === 'POST') {
+    try {
+      const body = await parseJsonBody<{ accountId?: string }>(req);
+      const requestedAccountId = body.accountId?.trim() || undefined;
+
+      const installResult = await ensureDingTalkPluginInstalled();
+      if (!installResult.installed) {
+        sendJson(res, 500, { success: false, error: installResult.warning || 'DingTalk plugin install failed' });
+        return true;
+      }
+
+      await assertCanUseSingleChannelAccount(UI_DINGTALK_CHANNEL_TYPE, requestedAccountId);
+      const startResult = await startDingTalkLoginSession({ force: true });
+      if (!startResult.qrcodeUrl || !startResult.sessionKey) {
+        throw new Error(startResult.message || 'Failed to generate DingTalk QR code');
+      }
+
+      const loginKey = setActiveQrLogin(UI_DINGTALK_CHANNEL_TYPE, startResult.sessionKey, requestedAccountId);
+      emitChannelEvent(ctx, UI_DINGTALK_CHANNEL_TYPE, 'qr', {
+        qr: startResult.qrcodeUrl,
+        raw: startResult.qrcodeUrl,
+        userCode: startResult.userCode,
+        sessionKey: startResult.sessionKey,
+      });
+      void awaitDingTalkQrLogin(ctx, startResult.sessionKey, loginKey, requestedAccountId);
+      sendJson(res, 200, { success: true });
+    } catch (error) {
+      sendJson(res, 500, { success: false, error: String(error) });
+    }
+    return true;
+  }
+
+  if (url.pathname === '/api/channels/dingtalk/cancel' && req.method === 'POST') {
+    try {
+      const body = await parseJsonBody<{ accountId?: string }>(req);
+      const accountId = body.accountId?.trim() || undefined;
+      const loginKey = buildQrLoginKey(UI_DINGTALK_CHANNEL_TYPE, accountId);
+      const sessionKey = activeQrLogins.get(loginKey);
+      clearActiveQrLogin(UI_DINGTALK_CHANNEL_TYPE, accountId);
+      if (sessionKey) {
+        await cancelDingTalkLoginSession(sessionKey);
       }
       sendJson(res, 200, { success: true });
     } catch (error) {

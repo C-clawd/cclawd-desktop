@@ -97,6 +97,9 @@
         "generateQRCode": "生成二维码",
         "updateAndReconnect": "更新并重新连接",
         "saveAndConnect": "保存并连接",
+        "manualConfig": "手动配置",
+        "manualModeHint": "手动填写应用凭证，或返回扫码自动创建。",
+        "backToScan": "返回扫码",
         "envVar": "环境变量: {{var}}"
     },
     "meta": {
@@ -171,7 +174,7 @@
             ]
         },
         "dingtalk": {
-            "description": "通过 OpenClaw 消息渠道插件连接钉钉（Stream 模式）",
+            "description": "扫码一键创建钉钉应用并连接（Stream 模式）",
             "docsUrl": "https://icnnp7d0dymg.feishu.cn/wiki/Y5eNwiSiZidkLskrwtJc1rUln0b#doxcnr8KfaA2mNPeQUeHO83eDPh",
             "fields": {
                 "clientId": {
@@ -196,10 +199,10 @@
                 }
             },
             "instructions": [
-                "先在 OpenClaw 安装并启用 dingtalk 插件",
-                "在钉钉开发者后台创建企业内部应用并开启 Stream 模式",
-                "填写 Client ID 和 Client Secret（必填）",
-                "根据你的应用配置按需填写 Robot Code / Corp ID / Agent ID"
+                "打开绑定窗口后，Cclawd 会自动生成二维码并安装钉钉插件",
+                "使用钉钉扫描下方二维码，并在手机上确认授权创建应用",
+                "授权成功后会自动获取 Client ID / Client Secret 并完成连接",
+                "如需手动填写应用凭证，可点击二维码下方的「手动配置」"
             ]
         },
         "signal": {

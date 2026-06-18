@@ -61,6 +61,10 @@ const labelClasses = 'text-[14px] text-foreground/80 font-bold';
 const outlineButtonClasses = 'h-9 text-[13px] font-medium rounded-full px-4 border-black/10 dark:border-white/10 bg-transparent hover:bg-black/5 dark:hover:bg-white/5 shadow-none text-foreground/80 hover:text-foreground';
 const primaryButtonClasses = 'h-9 text-[13px] font-medium rounded-full px-4 shadow-none';
 
+// QR channels that should kick off the scan flow automatically when opened
+// (scan-first onboarding). Other QR channels wait for an explicit user action.
+const AUTO_START_QR_CHANNELS = new Set<ChannelType>(['wechat', 'dingtalk']);
+
 export function ChannelConfigModal({
   initialSelectedType = null,
   configuredTypes = [],
@@ -86,6 +90,7 @@ export function ChannelConfigModal({
   const [validating, setValidating] = useState(false);
   const [loadingConfig, setLoadingConfig] = useState(false);
   const [isExistingConfig, setIsExistingConfig] = useState(false);
+  const [manualMode, setManualMode] = useState(false);
   const firstInputRef = useRef<HTMLInputElement>(null);
   const autoStartedQrRef = useRef<Set<string>>(new Set());
   const [validationResult, setValidationResult] = useState<{
@@ -95,6 +100,11 @@ export function ChannelConfigModal({
   } | null>(null);
 
   const meta: ChannelMeta | null = selectedType ? CHANNEL_META[selectedType] : null;
+  // When a QR channel exposes config fields (e.g. DingTalk), the user can switch
+  // to a manual credential form. While in manual mode we treat the channel like a
+  // token channel so the QR auto-start / display logic is bypassed.
+  const supportsManualFallback = (meta?.connectionType === 'qr') && (meta?.configFields.length ?? 0) > 0;
+  const isQrMode = meta?.connectionType === 'qr' && !manualMode;
   const shouldUseCredentialValidation = selectedType !== 'feishu';
   const usesManagedQrAccounts = usesPluginManagedQrAccounts(selectedType);
   const showAccountIdEditor = allowEditAccountId && !usesManagedQrAccounts;
@@ -107,6 +117,10 @@ export function ChannelConfigModal({
   useEffect(() => {
     setSelectedType(initialSelectedType);
   }, [initialSelectedType]);
+
+  useEffect(() => {
+    setManualMode(false);
+  }, [selectedType]);
 
   useEffect(() => {
     setAccountIdInput(accountId || '');
@@ -360,7 +374,7 @@ export function ChannelConfigModal({
         }
       }
 
-      if (meta.connectionType === 'qr') {
+      if (meta.connectionType === 'qr' && !manualMode) {
         await hostApiFetch(`/api/channels/${encodeURIComponent(selectedType)}/start`, {
           method: 'POST',
           body: JSON.stringify(resolvedAccountId ? { accountId: resolvedAccountId } : {}),
@@ -442,6 +456,7 @@ export function ChannelConfigModal({
     configValues,
     existingAccountIds,
     finishSave,
+    manualMode,
     meta,
     onClose,
     resolvedAccountId,
@@ -452,8 +467,9 @@ export function ChannelConfigModal({
   ]);
 
   useEffect(() => {
-    if (selectedType !== 'wechat') return;
+    if (!selectedType || !AUTO_START_QR_CHANNELS.has(selectedType)) return;
     if (meta?.connectionType !== 'qr') return;
+    if (manualMode) return;
     if (loadingConfig || connecting || qrCode || isExistingConfig) return;
     if (allowExistingConfig && configuredTypes.includes(selectedType)) return;
 
@@ -468,6 +484,7 @@ export function ChannelConfigModal({
     handleConnect,
     isExistingConfig,
     loadingConfig,
+    manualMode,
     meta?.connectionType,
     qrCode,
     resolvedAccountId,
@@ -488,6 +505,26 @@ export function ChannelConfigModal({
   const toggleSecretVisibility = (key: string) => {
     setShowSecrets((prev) => ({ ...prev, [key]: !prev[key] }));
   };
+
+  const enterManualMode = useCallback(() => {
+    if (selectedType) {
+      hostApiFetch(`/api/channels/${encodeURIComponent(selectedType)}/cancel`, {
+        method: 'POST',
+        body: JSON.stringify(resolvedAccountId ? { accountId: resolvedAccountId } : {}),
+      }).catch(() => { });
+    }
+    setQrCode(null);
+    setConnecting(false);
+    setManualMode(true);
+  }, [resolvedAccountId, selectedType]);
+
+  const exitManualMode = useCallback(() => {
+    setManualMode(false);
+    setValidationResult(null);
+    if (selectedType) {
+      autoStartedQrRef.current.delete(`${selectedType}:${resolvedAccountId || '__new__'}`);
+    }
+  }, [resolvedAccountId, selectedType]);
 
   return (
     <div
@@ -600,12 +637,30 @@ export function ChannelConfigModal({
                 >
                   {t('dialog.refreshCode')}
                 </Button>
+                {supportsManualFallback && (
+                  <Button
+                    variant="ghost"
+                    className={cn(outlineButtonClasses, 'border-0')}
+                    onClick={enterManualMode}
+                  >
+                    {t('dialog.manualConfig')}
+                  </Button>
+                )}
               </div>
             </div>
-          ) : connecting && meta?.connectionType === 'qr' ? (
+          ) : connecting && isQrMode ? (
             <div className="flex flex-col items-center justify-center py-16 rounded-2xl bg-background dark:bg-muted border border-black/10 dark:border-white/10">
               <Loader2 className="h-7 w-7 animate-spin text-muted-foreground" />
               <p className="mt-3 text-[14px] text-muted-foreground">{t('dialog.generatingQR')}</p>
+              {supportsManualFallback && (
+                <Button
+                  variant="ghost"
+                  className={cn(outlineButtonClasses, 'border-0 mt-4')}
+                  onClick={enterManualMode}
+                >
+                  {t('dialog.manualConfig')}
+                </Button>
+              )}
             </div>
           ) : loadingConfig ? (
             <div className="flex items-center justify-center py-10 rounded-2xl bg-background dark:bg-muted border border-black/10 dark:border-white/10">
@@ -614,6 +669,18 @@ export function ChannelConfigModal({
             </div>
           ) : (
             <div className="space-y-6">
+              {manualMode && supportsManualFallback && (
+                <div className="flex items-center justify-between gap-3 bg-blue-500/10 text-blue-600 dark:text-blue-400 p-4 rounded-2xl text-[13.5px] border border-blue-500/20">
+                  <span>{t('dialog.manualModeHint')}</span>
+                  <Button
+                    variant="ghost"
+                    className={cn(outlineButtonClasses, 'border-0 shrink-0 h-8')}
+                    onClick={exitManualMode}
+                  >
+                    {t('dialog.backToScan')}
+                  </Button>
+                </div>
+              )}
               {isExistingConfig && (
                 <div className="bg-blue-500/10 text-blue-600 dark:text-blue-400 p-4 rounded-2xl text-[13.5px] flex items-center gap-2 border border-blue-500/20">
                   <CheckCircle className="h-4 w-4 shrink-0" />
@@ -769,9 +836,9 @@ export function ChannelConfigModal({
                     {connecting ? (
                       <>
                         <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        {meta?.connectionType === 'qr' ? t('dialog.generatingQR') : t('dialog.validatingAndSaving')}
+                        {isQrMode ? t('dialog.generatingQR') : t('dialog.validatingAndSaving')}
                       </>
-                    ) : meta?.connectionType === 'qr' ? (
+                    ) : isQrMode ? (
                       t('dialog.generateQRCode')
                     ) : (
                       <>

@@ -158,7 +158,7 @@ export const CHANNEL_META: Record<ChannelType, ChannelMeta> = {
     name: '钉钉',
     icon: '💬',
     description: 'channels:meta.dingtalk.description',
-    connectionType: 'token',
+    connectionType: 'qr',
     docsUrl: 'channels:meta.dingtalk.docsUrl',
     configFields: [
       {

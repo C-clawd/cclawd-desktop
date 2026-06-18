@@ -97,6 +97,9 @@
         "generateQRCode": "QRコードを生成",
         "updateAndReconnect": "更新して再接続",
         "saveAndConnect": "保存して接続",
+        "manualConfig": "手動設定",
+        "manualModeHint": "アプリの認証情報を手動で入力するか、QR スキャンで自動作成に戻ります。",
+        "backToScan": "スキャンに戻る",
         "envVar": "環境変数: {{var}}"
     },
     "meta": {
@@ -171,7 +174,7 @@
             ]
         },
         "dingtalk": {
-            "description": "OpenClaw のチャンネルプラグイン経由で DingTalk に接続します（Stream モード）",
+            "description": "QR をスキャンして DingTalk アプリを作成し、ワンステップで接続します（Stream モード）",
             "docsUrl": "https://icnnp7d0dymg.feishu.cn/wiki/Y5eNwiSiZidkLskrwtJc1rUln0b#doxcnDgA78n43DbkiQjI1OqUA7b",
             "fields": {
                 "clientId": {
@@ -196,10 +199,10 @@
                 }
             },
             "instructions": [
-                "まず OpenClaw に dingtalk プラグインをインストールして有効化します",
-                "DingTalk 開発者コンソールで社内アプリを作成し Stream モードを有効にします",
-                "Client ID と Client Secret を入力します（必須）",
-                "必要に応じて Robot Code / Corp ID / Agent ID を入力します"
+                "このダイアログを開くと、Cclawd が自動的に QR コードを生成し DingTalk プラグインをインストールします",
+                "DingTalk で QR コードをスキャンし、スマートフォンでアプリ作成を承認します",
+                "成功すると Client ID / Client Secret が自動取得され、接続が完了します",
+                "認証情報を手動で入力したい場合は、QR コードの下にある「手動設定」をクリックします"
             ]
         },
         "signal": {

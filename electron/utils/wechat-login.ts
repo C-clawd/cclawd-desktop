@@ -1,12 +1,10 @@
-import { createRequire } from 'node:module';
 import { randomUUID } from 'node:crypto';
 import { chmod, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { existsSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import { deflateSync } from 'node:zlib';
 import { normalizeOpenClawAccountId } from './channel-alias';
-import { resolveOpenClawRuntimeModulePath } from './runtime-package-resolution';
+import { renderQrPngDataUrl } from './qr-image';
 
 export const DEFAULT_WECHAT_BASE_URL = 'https://ilinkai.weixin.qq.com';
 const DEFAULT_ILINK_BOT_TYPE = '3';
@@ -17,42 +15,6 @@ const OPENCLAW_DIR = join(homedir(), '.openclaw');
 const WECHAT_STATE_DIR = join(OPENCLAW_DIR, 'openclaw-weixin');
 const WECHAT_ACCOUNT_INDEX_FILE = join(WECHAT_STATE_DIR, 'accounts.json');
 const WECHAT_ACCOUNTS_DIR = join(WECHAT_STATE_DIR, 'accounts');
-const require = createRequire(import.meta.url);
-
-type QrCodeMatrix = {
-  addData(input: string): void;
-  make(): void;
-  getModuleCount(): number;
-  isDark(row: number, col: number): boolean;
-};
-
-type QrCodeConstructor = new (typeNumber: number, errorCorrectionLevel: unknown) => QrCodeMatrix;
-type QrErrorCorrectLevelModule = {
-  L: unknown;
-};
-
-type QrRenderDeps = {
-  QRCode: QrCodeConstructor;
-  QRErrorCorrectLevel: QrErrorCorrectLevelModule;
-};
-
-let qrRenderDeps: QrRenderDeps | null = null;
-
-function getQrRenderDeps(): QrRenderDeps {
-  if (qrRenderDeps) {
-    return qrRenderDeps;
-  }
-
-  const qrCodeModulePath = resolveOpenClawRuntimeModulePath('qrcode-terminal/vendor/QRCode/index.js');
-  const qrErrorCorrectLevelPath = resolveOpenClawRuntimeModulePath(
-    'qrcode-terminal/vendor/QRCode/QRErrorCorrectLevel.js',
-  );
-  qrRenderDeps = {
-    QRCode: require(qrCodeModulePath),
-    QRErrorCorrectLevel: require(qrErrorCorrectLevelPath),
-  };
-  return qrRenderDeps;
-}
 
 type ActiveLogin = {
   sessionKey: string;
@@ -91,119 +53,6 @@ export type WeChatLoginWaitResult = {
 };
 
 const activeLogins = new Map<string, ActiveLogin>();
-
-function createQrMatrix(input: string) {
-  const { QRCode, QRErrorCorrectLevel } = getQrRenderDeps();
-  const qr = new QRCode(-1, QRErrorCorrectLevel.L);
-  qr.addData(input);
-  qr.make();
-  return qr;
-}
-
-function fillPixel(
-  buf: Buffer,
-  x: number,
-  y: number,
-  width: number,
-  r: number,
-  g: number,
-  b: number,
-  a = 255,
-) {
-  const idx = (y * width + x) * 4;
-  buf[idx] = r;
-  buf[idx + 1] = g;
-  buf[idx + 2] = b;
-  buf[idx + 3] = a;
-}
-
-function crcTable() {
-  const table = new Uint32Array(256);
-  for (let i = 0; i < 256; i += 1) {
-    let c = i;
-    for (let k = 0; k < 8; k += 1) {
-      c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
-    }
-    table[i] = c >>> 0;
-  }
-  return table;
-}
-
-const CRC_TABLE = crcTable();
-
-function crc32(buf: Buffer) {
-  let crc = 0xffffffff;
-  for (let i = 0; i < buf.length; i += 1) {
-    crc = CRC_TABLE[(crc ^ buf[i]) & 0xff] ^ (crc >>> 8);
-  }
-  return (crc ^ 0xffffffff) >>> 0;
-}
-
-function pngChunk(type: string, data: Buffer) {
-  const typeBuf = Buffer.from(type, 'ascii');
-  const len = Buffer.alloc(4);
-  len.writeUInt32BE(data.length, 0);
-  const crc = crc32(Buffer.concat([typeBuf, data]));
-  const crcBuf = Buffer.alloc(4);
-  crcBuf.writeUInt32BE(crc, 0);
-  return Buffer.concat([len, typeBuf, data, crcBuf]);
-}
-
-function encodePngRgba(buffer: Buffer, width: number, height: number) {
-  const stride = width * 4;
-  const raw = Buffer.alloc((stride + 1) * height);
-  for (let row = 0; row < height; row += 1) {
-    const rawOffset = row * (stride + 1);
-    raw[rawOffset] = 0;
-    buffer.copy(raw, rawOffset + 1, row * stride, row * stride + stride);
-  }
-  const compressed = deflateSync(raw);
-  const signature = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
-  const ihdr = Buffer.alloc(13);
-  ihdr.writeUInt32BE(width, 0);
-  ihdr.writeUInt32BE(height, 4);
-  ihdr[8] = 8;
-  ihdr[9] = 6;
-  ihdr[10] = 0;
-  ihdr[11] = 0;
-  ihdr[12] = 0;
-
-  return Buffer.concat([
-    signature,
-    pngChunk('IHDR', ihdr),
-    pngChunk('IDAT', compressed),
-    pngChunk('IEND', Buffer.alloc(0)),
-  ]);
-}
-
-async function renderQrPngDataUrl(
-  input: string,
-  opts: { scale?: number; marginModules?: number } = {},
-): Promise<string> {
-  const { scale = 6, marginModules = 4 } = opts;
-  const qr = createQrMatrix(input);
-  const modules = qr.getModuleCount();
-  const size = (modules + marginModules * 2) * scale;
-  const buf = Buffer.alloc(size * size * 4, 255);
-
-  for (let row = 0; row < modules; row += 1) {
-    for (let col = 0; col < modules; col += 1) {
-      if (!qr.isDark(row, col)) continue;
-      const startX = (col + marginModules) * scale;
-      const startY = (row + marginModules) * scale;
-      for (let y = 0; y < scale; y += 1) {
-        const pixelY = startY + y;
-        for (let x = 0; x < scale; x += 1) {
-          const pixelX = startX + x;
-          fillPixel(buf, pixelX, pixelY, size, 0, 0, 0, 255);
-        }
-      }
-    }
-  }
-
-  const png = encodePngRgba(buf, size, size);
-  return `data:image/png;base64,${png.toString('base64')}`;
-}
 
 function isLoginFresh(login: ActiveLogin): boolean {
   return Date.now() - login.startedAt < ACTIVE_LOGIN_TTL_MS;
