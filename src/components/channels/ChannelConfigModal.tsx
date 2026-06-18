@@ -63,7 +63,7 @@ const primaryButtonClasses = 'h-9 text-[13px] font-medium rounded-full px-4 shad
 
 // QR channels that should kick off the scan flow automatically when opened
 // (scan-first onboarding). Other QR channels wait for an explicit user action.
-const AUTO_START_QR_CHANNELS = new Set<ChannelType>(['wechat', 'dingtalk']);
+const AUTO_START_QR_CHANNELS = new Set<ChannelType>(['wechat', 'dingtalk', 'feishu']);
 
 export function ChannelConfigModal({
   initialSelectedType = null,

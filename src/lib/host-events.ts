@@ -21,6 +21,9 @@ const HOST_EVENT_TO_IPC_CHANNEL: Record<string, string> = {
   'channel:dingtalk-qr': 'channel:dingtalk-qr',
   'channel:dingtalk-success': 'channel:dingtalk-success',
   'channel:dingtalk-error': 'channel:dingtalk-error',
+  'channel:feishu-qr': 'channel:feishu-qr',
+  'channel:feishu-success': 'channel:feishu-success',
+  'channel:feishu-error': 'channel:feishu-error',
 };
 
 function getEventSource(): EventSource {

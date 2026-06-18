@@ -221,7 +221,7 @@
             "docsUrl": "https://docs.openclaw.ai/channels/signal"
         },
         "feishu": {
-            "description": "WebSocket 経由で Feishu/Lark ボットに接続します",
+            "description": "QR をスキャンして Feishu/Lark アプリを作成し、ワンステップで接続します（開発者コンソール不要）",
             "docsUrl": "https://icnnp7d0dymg.feishu.cn/wiki/GKn8wOvHnibpPNkNkPzcAvGlnzK#GdHUdp9t9oqyegxwV8ScLvVGn1c",
             "fields": {
                 "appId": {
@@ -234,10 +234,10 @@
                 }
             },
             "instructions": [
-                "ドキュメントを読み、Feishu Open Platform に移動します",
-                "新しいアプリケーションを作成します",
-                "App ID と App Secret を取得します",
-                "イベント購読を設定します"
+                "このダイアログを開くと、Cclawd が自動的に QR コードを生成し Feishu プラグインをインストールします",
+                "Feishu または Lark で QR コードをスキャンし、スマートフォンでアプリ作成を承認します",
+                "成功すると App ID / App Secret が自動取得され、接続が完了します",
+                "認証情報を手動で入力したい場合は、QR コードの下にある「手動設定」をクリックします"
             ]
         },
         "wecom": {

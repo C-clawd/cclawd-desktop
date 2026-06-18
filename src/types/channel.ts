@@ -369,7 +369,7 @@ export const CHANNEL_META: Record<ChannelType, ChannelMeta> = {
     name: '飞书',
     icon: '🐦',
     description: 'channels:meta.feishu.description',
-    connectionType: 'token',
+    connectionType: 'qr',
     docsUrl: 'channels:meta.feishu.docsUrl',
     configFields: [
       {

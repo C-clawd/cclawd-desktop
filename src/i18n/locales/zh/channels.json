@@ -221,7 +221,7 @@
             ]
         },
         "feishu": {
-            "description": "通过飞书官方推出的 OpenClaw 插件连接飞书机器人",
+            "description": "扫码一键创建飞书应用并连接（无需手动前往开发者后台）",
             "docsUrl": "https://icnnp7d0dymg.feishu.cn/wiki/GKn8wOvHnibpPNkNkPzcAvGlnzK#Py88dTltfoJc1jxAhIBcW3Pkn7b",
             "fields": {
                 "appId": {
@@ -234,11 +234,10 @@
                 }
             },
             "instructions": [
-                "前往 飞书开放平台 (open.feishu.cn) 并创建企业自建应用",
-                "在应用详情页获取 App ID 和 App Secret 并填入下方",
-                "确保应用已开通“机器人”能力",
-                "保存配置后，根据网关提示扫码完成机器人创建",
-                "详细步骤请参考飞书官方文档"
+                "打开绑定窗口后，Cclawd 会自动生成二维码并安装飞书插件",
+                "使用飞书或 Lark 扫描下方二维码，并在手机上确认授权创建应用",
+                "授权成功后会自动获取 App ID / App Secret 并完成连接",
+                "如需手动填写应用凭证，可点击二维码下方的「手动配置」"
             ]
         },
         "wecom": {

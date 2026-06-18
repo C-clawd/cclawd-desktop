@@ -50,13 +50,20 @@ import {
   startDingTalkLoginSession,
   waitForDingTalkLoginSession,
 } from '../../utils/dingtalk-login';
+import {
+  cancelFeishuLoginSession,
+  startFeishuLoginSession,
+  waitForFeishuLoginSession,
+} from '../../utils/feishu-login';
 import { whatsAppLoginManager } from '../../utils/whatsapp-login';
 import type { HostApiContext } from '../context';
 import { parseJsonBody, sendJson } from '../route-utils';
 
 const WECHAT_QR_TIMEOUT_MS = 8 * 60 * 1000;
 const DINGTALK_QR_TIMEOUT_MS = 10 * 60 * 1000;
+const FEISHU_QR_TIMEOUT_MS = 10 * 60 * 1000;
 const UI_DINGTALK_CHANNEL_TYPE = 'dingtalk';
+const UI_FEISHU_CHANNEL_TYPE = 'feishu';
 const activeQrLogins = new Map<string, string>();
 const MAIN_AGENT_ID = 'main';
 const DEFAULT_ACCOUNT_ID = 'default';
@@ -224,6 +231,58 @@ async function awaitDingTalkQrLogin(
       activeQrLogins.delete(loginKey);
     }
     await cancelDingTalkLoginSession(sessionKey);
+  }
+}
+
+async function awaitFeishuQrLogin(
+  ctx: HostApiContext,
+  sessionKey: string,
+  loginKey: string,
+  accountId?: string,
+): Promise<void> {
+  try {
+    const result = await waitForFeishuLoginSession({
+      sessionKey,
+      timeoutMs: FEISHU_QR_TIMEOUT_MS,
+    });
+
+    if (!isActiveQrLogin(loginKey, sessionKey)) {
+      return;
+    }
+
+    if (!result.connected || !result.appId || !result.appSecret) {
+      emitChannelEvent(ctx, UI_FEISHU_CHANNEL_TYPE, 'error', result.message || 'Feishu authorization did not complete');
+      return;
+    }
+
+    const normalizedAccountId = normalizeOpenClawAccountId(accountId || DEFAULT_ACCOUNT_ID);
+    await assertCanUseSingleChannelAccount(UI_FEISHU_CHANNEL_TYPE, normalizedAccountId);
+    await saveChannelConfig(
+      UI_FEISHU_CHANNEL_TYPE,
+      { appId: result.appId, appSecret: result.appSecret },
+      normalizedAccountId,
+    );
+    await ensureScopedChannelBinding(UI_FEISHU_CHANNEL_TYPE, normalizedAccountId);
+    scheduleGatewayChannelSaveRefresh(ctx, UI_FEISHU_CHANNEL_TYPE, `feishu:loginSuccess:${normalizedAccountId}`);
+
+    if (!isActiveQrLogin(loginKey, sessionKey)) {
+      return;
+    }
+
+    emitChannelEvent(ctx, UI_FEISHU_CHANNEL_TYPE, 'success', {
+      accountId: normalizedAccountId,
+      message: result.message,
+    });
+  } catch (error) {
+    if (!isActiveQrLogin(loginKey, sessionKey)) {
+      return;
+    }
+    emitChannelEvent(ctx, UI_FEISHU_CHANNEL_TYPE, 'error', String(error));
+  } finally {
+    if (isActiveQrLogin(loginKey, sessionKey)) {
+      activeQrLogins.delete(loginKey);
+    }
+    await cancelFeishuLoginSession(sessionKey);
   }
 }
 
@@ -671,6 +730,55 @@ export async function handleChannelRoutes(
       clearActiveQrLogin(UI_DINGTALK_CHANNEL_TYPE, accountId);
       if (sessionKey) {
         await cancelDingTalkLoginSession(sessionKey);
+      }
+      sendJson(res, 200, { success: true });
+    } catch (error) {
+      sendJson(res, 500, { success: false, error: String(error) });
+    }
+    return true;
+  }
+
+  if (url.pathname === '/api/channels/feishu/start' && req.method === 'POST') {
+    try {
+      const body = await parseJsonBody<{ accountId?: string }>(req);
+      const requestedAccountId = body.accountId?.trim() || undefined;
+
+      const installResult = await ensureFeishuPluginInstalled();
+      if (!installResult.installed) {
+        sendJson(res, 500, { success: false, error: installResult.warning || 'Feishu plugin install failed' });
+        return true;
+      }
+
+      await assertCanUseSingleChannelAccount(UI_FEISHU_CHANNEL_TYPE, requestedAccountId);
+      const startResult = await startFeishuLoginSession({ force: true });
+      if (!startResult.qrcodeUrl || !startResult.sessionKey) {
+        throw new Error(startResult.message || 'Failed to generate Feishu QR code');
+      }
+
+      const loginKey = setActiveQrLogin(UI_FEISHU_CHANNEL_TYPE, startResult.sessionKey, requestedAccountId);
+      emitChannelEvent(ctx, UI_FEISHU_CHANNEL_TYPE, 'qr', {
+        qr: startResult.qrcodeUrl,
+        raw: startResult.qrcodeUrl,
+        verificationUri: startResult.verificationUri,
+        sessionKey: startResult.sessionKey,
+      });
+      void awaitFeishuQrLogin(ctx, startResult.sessionKey, loginKey, requestedAccountId);
+      sendJson(res, 200, { success: true });
+    } catch (error) {
+      sendJson(res, 500, { success: false, error: String(error) });
+    }
+    return true;
+  }
+
+  if (url.pathname === '/api/channels/feishu/cancel' && req.method === 'POST') {
+    try {
+      const body = await parseJsonBody<{ accountId?: string }>(req);
+      const accountId = body.accountId?.trim() || undefined;
+      const loginKey = buildQrLoginKey(UI_FEISHU_CHANNEL_TYPE, accountId);
+      const sessionKey = activeQrLogins.get(loginKey);
+      clearActiveQrLogin(UI_FEISHU_CHANNEL_TYPE, accountId);
+      if (sessionKey) {
+        await cancelFeishuLoginSession(sessionKey);
       }
       sendJson(res, 200, { success: true });
     } catch (error) {

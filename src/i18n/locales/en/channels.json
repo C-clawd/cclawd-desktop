@@ -221,7 +221,7 @@
             ]
         },
         "feishu": {
-            "description": "Connect Feishu/Lark bot via WebSocket",
+            "description": "Scan to create a Feishu/Lark app and connect in one step (no developer console needed)",
             "docsUrl": "https://icnnp7d0dymg.feishu.cn/wiki/GKn8wOvHnibpPNkNkPzcAvGlnzK#GdHUdp9t9oqyegxwV8ScLvVGn1c",
             "fields": {
                 "appId": {
@@ -234,10 +234,10 @@
                 }
             },
             "instructions": [
-                "Read the documentation, then go to Feishu Open Platform",
-                "Create a new application",
-                "Get App ID and App Secret",
-                "Configure event subscription"
+                "After opening this dialog, Cclawd generates a QR code and installs the Feishu plugin automatically",
+                "Scan the QR code with Feishu or Lark and confirm app creation on your phone",
+                "On success the App ID / App Secret are fetched automatically and the connection completes",
+                "To enter the app credentials yourself, click \"Manual Setup\" below the QR code"
             ]
         },
         "wecom": {
