@@ -5,13 +5,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { tmpdir } from 'node:os';
-import { createRequire } from 'node:module';
 import { shell } from 'electron';
+import extractZip from 'extract-zip';
 import { getOpenClawConfigDir, ensureDir } from '../utils/paths';
 import { proxyAwareFetch } from '../utils/proxy-fetch';
-
-const require = createRequire(import.meta.url);
-const extractZip = require('extract-zip') as typeof import('extract-zip');
 
 const QODER_MARKETPLACE_BASE_URL = 'https://qoder.com.cn';
 const QODER_SKILLS_API = `${QODER_MARKETPLACE_BASE_URL}/api/v1/marketplace/skills`;
