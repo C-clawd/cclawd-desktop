@@ -8,6 +8,10 @@
             "title": "环境检查",
             "description": "验证系统要求"
         },
+        "role": {
+            "title": "选择岗位标签",
+            "description": "根据你的日常工作安装推荐技能"
+        },
         "provider": {
             "title": "AI 提供商",
             "description": "配置你的 AI 服务"
@@ -89,6 +93,14 @@
         "invalid": "无效的 API 密钥",
         "storedLocally": "你的 API 密钥存储在本地机器上。"
     },
+    "role": {
+        "loading": "正在加载岗位推荐...",
+        "loadFailed": "加载岗位推荐失败",
+        "baseTitle": "全员基础办公能力",
+        "baseDescription": "将默认启用 {{count}} 个基础办公技能，包括 Word、Excel、PPT、PDF 和技能发现。",
+        "skillCount": "将安装 {{count}} 个岗位推荐技能",
+        "defaultName": "通用办公"
+    },
     "channel": {
         "title": "连接消息渠道",
         "subtitle": "选择要连接 AI 助手的平台。你可以稍后在设置中添加更多消息渠道。",
@@ -111,6 +123,7 @@
             "failed": "失败"
         },
         "error": "设置错误：",
+        "partialFailed": "{{count}} 个岗位技能安装失败，可稍后在技能页重试。",
         "restart": "尝试重新启动应用",
         "wait": "这可能需要一点时间...",
         "skip": "跳过此步骤"
@@ -119,7 +132,10 @@
         "title": "设置完成！",
         "subtitle": "Cclawd 已配置并准备就绪。现在你可以开始与 AI 助手聊天了。",
         "provider": "AI 提供商",
+        "role": "岗位标签",
         "components": "组件",
+        "roleSkillSummary": "启用 {{enabled}} 个技能，安装 {{installed}} 个，跳过 {{skipped}} 个已安装项",
+        "partialFailed": "{{count}} 个岗位技能安装失败，可稍后在技能页重试。",
         "gateway": "网关",
         "running": "运行中",
         "footer": "你可以在设置中自定义技能并连接消息渠道"

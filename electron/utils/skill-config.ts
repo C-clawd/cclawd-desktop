@@ -116,7 +116,7 @@ async function writeConfig(config: OpenClawConfig): Promise<void> {
     await writeJsonFileAtomic(OPENCLAW_CONFIG_PATH, config);
 }
 
-async function setSkillsEnabled(skillKeys: string[], enabled: boolean): Promise<void> {
+export async function setSkillsEnabled(skillKeys: string[], enabled: boolean): Promise<void> {
     if (skillKeys.length === 0) {
         return;
     }

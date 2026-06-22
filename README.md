@@ -167,10 +167,11 @@ pnpm dev
 When you launch Cclawd for the first time, the **Setup Wizard** will guide you through:
 
 1. **Language & Region** - Configure your preferred locale
-2. **AI Provider** - Add providers with API keys or OAuth (for providers that support browser/device login)
-3. **Real-Person Verification** - Enter your name and ID card number, scan the generated QR code, and let Cclawd save `MFA_AUTH_API_KEY` to OpenClaw `.env` automatically. On first-time setup success, Cclawd also ensures the `cclawd-guard` plugin is enabled in `~/.openclaw/openclaw.json`.
-4. **Skill Bundles** - Select pre-configured skills for common use cases
-5. **Verification** - Test your configuration before entering the main interface
+2. **Real-Person Verification** - Enter your name and ID card number, scan the generated QR code, and let Cclawd save `MFA_AUTH_API_KEY` to OpenClaw `.env` automatically. On first-time setup success, Cclawd also ensures the `cclawd-guard` plugin is enabled in `~/.openclaw/openclaw.json`.
+3. **Environment Check** - Verify the local runtime and Gateway components
+4. **Role-Based Skills** - Choose a work role such as general office, administration, party publicity, finance audit, legal compliance, or project management; Cclawd enables core office skills and installs recommended marketplace skills for that role
+5. **AI Provider** - Add providers with API keys or OAuth (for providers that support browser/device login)
+6. **Verification** - Test your configuration before entering the main interface
 
 The wizard preselects your system language when it is supported, and falls back to English otherwise.
 

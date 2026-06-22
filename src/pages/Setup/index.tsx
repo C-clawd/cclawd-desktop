@@ -9,7 +9,6 @@ import {
   Check,
   ChevronDown,
   ChevronLeft,
-  ChevronRight,
   Loader2,
   AlertCircle,
   Eye,
@@ -45,9 +44,10 @@ const STEP = {
   WELCOME: 0,
   REAL_PERSON: 1,
   RUNTIME: 2,
-  PROVIDER: 3,
-  INSTALLING: 4,
-  COMPLETE: 5,
+  ROLE: 3,
+  PROVIDER: 4,
+  INSTALLING: 5,
+  COMPLETE: 6,
 } as const;
 
 const getSteps = (t: TFunction, enableRealPerson: boolean): SetupStep[] => {
@@ -74,6 +74,11 @@ const getSteps = (t: TFunction, enableRealPerson: boolean): SetupStep[] => {
       description: t('steps.runtime.description'),
     },
     {
+      id: 'role',
+      title: t('steps.role.title'),
+      description: t('steps.role.description'),
+    },
+    {
       id: 'provider',
       title: t('steps.provider.title'),
       description: t('steps.provider.description'),
@@ -98,6 +103,45 @@ interface DefaultSkill {
   id: string;
   name: string;
   description: string;
+}
+
+interface RolePresetSkill {
+  slug: string;
+  source: 'builtin' | 'qoder';
+  name: string;
+  nameZh: string;
+  description?: string;
+  descriptionZh?: string;
+  autoEnable?: boolean;
+}
+
+interface RolePreset {
+  id: string;
+  name: string;
+  nameZh: string;
+  description: string;
+  descriptionZh: string;
+  workflows?: string[];
+  skills: RolePresetSkill[];
+}
+
+interface RolePresetManifest {
+  success?: boolean;
+  version: number;
+  baseSkills: RolePresetSkill[];
+  roles: RolePreset[];
+  error?: string;
+}
+
+interface RolePresetInstallResult {
+  success: boolean;
+  version?: number;
+  roleIds?: string[];
+  installed?: string[];
+  enabled?: string[];
+  skipped?: string[];
+  failed?: Array<{ slug: string; error: string }>;
+  error?: string;
 }
 
 const getDefaultSkills = (t: TFunction): DefaultSkill[] => [
@@ -160,6 +204,9 @@ export function Setup() {
   const [apiKey, setApiKey] = useState('');
   // Installation state for the Installing step
   const [installedSkills, setInstalledSkills] = useState<string[]>([]);
+  const [selectedRoleIds, setSelectedRoleIds] = useState<string[]>(['general-office']);
+  const [rolePresets, setRolePresets] = useState<RolePreset[]>([]);
+  const [installedRoleSkillResult, setInstalledRoleSkillResult] = useState<RolePresetInstallResult | null>(null);
   // Runtime check status
   const [runtimeChecksPassed, setRuntimeChecksPassed] = useState(false);
   const [realPersonConfigured, setRealPersonConfigured] = useState(false);
@@ -177,6 +224,10 @@ export function Setup() {
   const isLastStep = safeStepIndex === steps.length - 1;
 
   const markSetupComplete = useSettingsStore((state) => state.markSetupComplete);
+  const setUserRoleTags = useSettingsStore((state) => state.setUserRoleTags);
+  const handleSelectRole = useCallback((roleId: string) => {
+    setSelectedRoleIds([roleId]);
+  }, []);
 
   // Derive canProceed based on current step - computed directly to avoid useEffect
   const canProceed = useMemo(() => {
@@ -187,6 +238,8 @@ export function Setup() {
         return realPersonConfigured;
       case 'runtime':
         return runtimeChecksPassed;
+      case 'role':
+        return selectedRoleIds.length > 0;
       case 'provider':
         return providerConfigured;
       case 'installing':
@@ -196,7 +249,7 @@ export function Setup() {
       default:
         return true;
     }
-  }, [step.id, providerConfigured, realPersonConfigured, runtimeChecksPassed]);
+  }, [step.id, providerConfigured, realPersonConfigured, runtimeChecksPassed, selectedRoleIds.length]);
 
   const handleNext = async () => {
     if (isLastStep) {
@@ -205,6 +258,9 @@ export function Setup() {
       toast.success(t('complete.title'));
       navigate('/');
     } else {
+      if (step.id === 'role') {
+        setUserRoleTags(selectedRoleIds);
+      }
       setCurrentStep((i) => i + 1);
     }
   };
@@ -223,8 +279,9 @@ export function Setup() {
   };
 
   // Auto-proceed when installation is complete
-  const handleInstallationComplete = useCallback((skills: string[]) => {
+  const handleInstallationComplete = useCallback((skills: string[], result?: RolePresetInstallResult) => {
     setInstalledSkills(skills);
+    setInstalledRoleSkillResult(result || null);
     // Auto-proceed to next step after a short delay
     setTimeout(() => {
       setCurrentStep((i) => i + 1);
@@ -301,6 +358,13 @@ export function Setup() {
             <div className={cn("rounded-xl bg-card text-card-foreground border shadow-sm", step.id === 'welcome' ? "" : "p-6")} style={{borderColor:'#DDE3F1', boxShadow:' 0px 2px 4px 0px rgba(19,28,41,0.05)'}}>
               {step.id === 'welcome' && <WelcomeContent onNext={handleNext} />}
               {step.id === 'runtime' && <RuntimeContent onStatusChange={setRuntimeChecksPassed} />}
+              {step.id === 'role' && (
+                <RoleSelectionContent
+                  selectedRoleIds={selectedRoleIds}
+                  onSelectRole={handleSelectRole}
+                  onPresetsLoaded={setRolePresets}
+                />
+              )}
               {step.id === 'provider' && (
                 <ProviderContent
                   providers={providers}
@@ -317,6 +381,7 @@ export function Setup() {
               {step.id === 'installing' && (
                 <InstallingContent
                   skills={getDefaultSkills(t)}
+                  roleIds={selectedRoleIds}
                   onComplete={handleInstallationComplete}
                   onSkip={() => setCurrentStep((i) => i + 1)}
                 />
@@ -325,6 +390,9 @@ export function Setup() {
                 <CompleteContent
                   selectedProvider={selectedProvider}
                   installedSkills={installedSkills}
+                  selectedRoleIds={selectedRoleIds}
+                  rolePresets={rolePresets}
+                  roleSkillResult={installedRoleSkillResult}
                 />
               )}
 
@@ -373,8 +441,6 @@ interface WelcomeContentProps {
 }
 
 function WelcomeContent({ onNext }: WelcomeContentProps) {
-  const { t } = useTranslation('setup');
-
   return (
     <div className="flex gap-0 h-full max-h-[576px] min-h-[576px]">
       {/* Left side - Robot illustration */}
@@ -402,6 +468,142 @@ function WelcomeContent({ onNext }: WelcomeContentProps) {
         <Button onClick={onNext} className="min-w-[120px]">
           开始配置
         </Button>
+      </div>
+    </div>
+  );
+}
+
+interface RoleSelectionContentProps {
+  selectedRoleIds: string[];
+  onSelectRole: (roleId: string) => void;
+  onPresetsLoaded: (roles: RolePreset[]) => void;
+}
+
+function getLocalizedSkillName(skill: RolePresetSkill): string {
+  return skill.nameZh || skill.name || skill.slug;
+}
+
+function RoleSelectionContent({ selectedRoleIds, onSelectRole, onPresetsLoaded }: RoleSelectionContentProps) {
+  const { t } = useTranslation('setup');
+  const [roles, setRoles] = useState<RolePreset[]>([]);
+  const [baseSkillCount, setBaseSkillCount] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    void (async () => {
+      setLoading(true);
+      setErrorMessage(null);
+      try {
+        const result = await hostApiFetch<RolePresetManifest>('/api/skills/role-presets');
+        if (result?.success === false) {
+          throw new Error(result.error || 'Failed to load role presets');
+        }
+        if (!active) return;
+        const loadedRoles = Array.isArray(result.roles) ? result.roles : [];
+        setRoles(loadedRoles);
+        setBaseSkillCount(Array.isArray(result.baseSkills) ? result.baseSkills.length : 0);
+        onPresetsLoaded(loadedRoles);
+        if (loadedRoles.length > 0 && selectedRoleIds.length === 0) {
+          onSelectRole(loadedRoles[0].id);
+        }
+      } catch (error) {
+        if (!active) return;
+        setErrorMessage(String(error));
+        toast.error(t('role.loadFailed'));
+      } finally {
+        if (active) setLoading(false);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [onPresetsLoaded, onSelectRole, selectedRoleIds.length, t]);
+
+  if (loading) {
+    return (
+      <div className="flex min-h-[320px] items-center justify-center">
+        <div className="flex items-center gap-2 text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          <span>{t('role.loading')}</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (errorMessage) {
+    return (
+      <div className="space-y-4 rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
+        <div className="flex items-start gap-2">
+          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+          <div>
+            <p className="font-medium">{t('role.loadFailed')}</p>
+            <p className="mt-1 break-words text-xs opacity-80">{errorMessage}</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-5">
+      <div className="rounded-lg border bg-muted/40 p-4">
+        <p className="text-sm font-medium">{t('role.baseTitle')}</p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          {t('role.baseDescription', { count: baseSkillCount })}
+        </p>
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-2">
+        {roles.map((role) => {
+          const selected = selectedRoleIds.includes(role.id);
+          return (
+            <button
+              key={role.id}
+              type="button"
+              onClick={() => onSelectRole(role.id)}
+              className={cn(
+                'rounded-lg border p-4 text-left transition-colors',
+                selected
+                  ? 'border-primary bg-primary/5 shadow-sm'
+                  : 'border-border bg-background hover:bg-muted/50'
+              )}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <h3 className="text-base font-semibold text-foreground">{role.nameZh || role.name}</h3>
+                  <p className="mt-1 text-sm leading-5 text-muted-foreground">{role.descriptionZh || role.description}</p>
+                </div>
+                <span className={cn(
+                  'mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border',
+                  selected ? 'border-primary bg-primary text-primary-foreground' : 'border-muted-foreground/40'
+                )}>
+                  {selected && <Check className="h-3.5 w-3.5" />}
+                </span>
+              </div>
+
+              {Array.isArray(role.workflows) && role.workflows.length > 0 && (
+                <div className="mt-3 flex flex-wrap gap-1.5">
+                  {role.workflows.slice(0, 5).map((workflow) => (
+                    <span key={workflow} className="rounded-full bg-muted px-2 py-1 text-[11px] text-muted-foreground">
+                      {workflow}
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              <div className="mt-3 border-t pt-3">
+                <p className="text-xs text-muted-foreground">
+                  {t('role.skillCount', { count: role.skills.length })}
+                </p>
+                <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+                  {role.skills.slice(0, 4).map(getLocalizedSkillName).join('、')}
+                </p>
+              </div>
+            </button>
+          );
+        })}
       </div>
     </div>
   );
@@ -444,7 +646,6 @@ type RealPersonAuthResetResponse = {
 
 function RealPersonAuthContent({ onConfiguredChange }: RealPersonAuthContentProps) {
   const { t } = useTranslation('setup');
-  const [envPath, setEnvPath] = useState('');
   const [name, setName] = useState('');
   const [idCard, setIdCard] = useState('');
   const [showIdCard, setShowIdCard] = useState(false);
@@ -477,7 +678,6 @@ function RealPersonAuthContent({ onConfiguredChange }: RealPersonAuthContentProp
       if (response?.success === false) {
         throw new Error(response.error || 'Failed to load .env');
       }
-      setEnvPath(response.path || '');
       const hasSavedKey = Array.isArray(response.entries)
         && response.entries.some((entry) => entry.key === 'MFA_AUTH_API_KEY' && entry.value.trim().length > 0);
       if (hasSavedKey) {
@@ -2072,11 +2272,12 @@ interface SkillInstallState {
 
 interface InstallingContentProps {
   skills: DefaultSkill[];
-  onComplete: (installedSkills: string[]) => void;
+  roleIds: string[];
+  onComplete: (installedSkills: string[], result?: RolePresetInstallResult) => void;
   onSkip: () => void;
 }
 
-function InstallingContent({ skills, onComplete, onSkip }: InstallingContentProps) {
+function InstallingContent({ skills, roleIds, onComplete, onSkip }: InstallingContentProps) {
   const { t } = useTranslation('setup');
   const [skillStates, setSkillStates] = useState<SkillInstallState[]>(
     skills.map((s) => ({ ...s, status: 'pending' as InstallStatus }))
@@ -2102,17 +2303,41 @@ function InstallingContent({ skills, onComplete, onSkip }: InstallingContentProp
           error?: string
         };
 
-        if (result.success) {
-          setSkillStates(prev => prev.map(s => ({ ...s, status: 'completed' })));
-          setOverallProgress(100);
-
-          await new Promise((resolve) => setTimeout(resolve, 800));
-          onComplete(skills.map(s => s.id));
-        } else {
+        if (!result.success) {
           setSkillStates(prev => prev.map(s => ({ ...s, status: 'failed' })));
           setErrorMessage(result.error || 'Unknown error during installation');
           toast.error('Environment setup failed');
+          return;
         }
+
+        setSkillStates(prev => prev.map(s => ({ ...s, status: 'completed' })));
+        setOverallProgress(60);
+
+        const roleResult = await hostApiFetch<RolePresetInstallResult>('/api/skills/install-role-preset', {
+          method: 'POST',
+          body: JSON.stringify({
+            roleIds,
+            includeBaseSkills: true,
+          }),
+        });
+
+        if (roleResult?.success === false && !roleResult.failed?.length) {
+          throw new Error(roleResult.error || 'Role skill installation failed');
+        }
+
+        if (roleResult?.success === false && roleResult.failed?.length) {
+          setErrorMessage(t('installing.partialFailed', { count: roleResult.failed.length }));
+          toast.error(t('installing.partialFailed', { count: roleResult.failed.length }));
+        }
+
+        setOverallProgress(100);
+
+        await new Promise((resolve) => setTimeout(resolve, 800));
+        onComplete([
+          ...skills.map(s => s.id),
+          ...(roleResult.enabled || []),
+          ...(roleResult.installed || []),
+        ], roleResult);
       } catch (err) {
         setSkillStates(prev => prev.map(s => ({ ...s, status: 'failed' })));
         setErrorMessage(String(err));
@@ -2121,7 +2346,7 @@ function InstallingContent({ skills, onComplete, onSkip }: InstallingContentProp
     };
 
     runRealInstall();
-  }, [skills, onComplete]);
+  }, [roleIds, skills, onComplete, t]);
 
   const getStatusIcon = (status: InstallStatus) => {
     switch (status) {
@@ -2245,17 +2470,31 @@ function InstallingContent({ skills, onComplete, onSkip }: InstallingContentProp
 interface CompleteContentProps {
   selectedProvider: string | null;
   installedSkills: string[];
+  selectedRoleIds: string[];
+  rolePresets: RolePreset[];
+  roleSkillResult: RolePresetInstallResult | null;
 }
 
-function CompleteContent({ selectedProvider, installedSkills }: CompleteContentProps) {
+function CompleteContent({ selectedProvider, installedSkills, selectedRoleIds, rolePresets, roleSkillResult }: CompleteContentProps) {
   const { t } = useTranslation(['setup', 'settings']);
   const gatewayStatus = useGatewayStore((state) => state.status);
 
   const providerData = providers.find((p) => p.id === selectedProvider);
+  const selectedRoleNames = rolePresets
+    .filter((role) => selectedRoleIds.includes(role.id))
+    .map((role) => role.nameZh || role.name)
+    .join('、');
   const installedSkillNames = getDefaultSkills(t)
     .filter((s: DefaultSkill) => installedSkills.includes(s.id))
     .map((s: DefaultSkill) => s.name)
     .join(', ');
+  const roleSkillSummary = roleSkillResult
+    ? t('complete.roleSkillSummary', {
+      installed: roleSkillResult.installed?.length || 0,
+      enabled: roleSkillResult.enabled?.length || 0,
+      skipped: roleSkillResult.skipped?.length || 0,
+    })
+    : '';
 
   return (
     <div className="text-center space-y-6">
@@ -2282,14 +2521,28 @@ function CompleteContent({ selectedProvider, installedSkills }: CompleteContentP
           </span>
         </div>
         <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+          <div className="flex items-center gap-1">
+            <img src={fzjIcon} alt="" className="max-h-[18px] object-contain rounded-l-xl" />
+            <span>{t('complete.role')}</span>
+          </div>
+          <span className="text-success">
+            {selectedRoleNames || t('role.defaultName')}
+          </span>
+        </div>
+        <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
          <div className="flex items-center gap-1">
            <img src={fzjIcon} alt="" className="max-h-[18px] object-contain rounded-l-xl" />
            <span>{t('complete.components')}</span>
          </div>
           <span className="text-success">
-            {installedSkillNames || `${installedSkills.length} ${t('installing.status.installed')}`}
+            {roleSkillSummary || installedSkillNames || `${installedSkills.length} ${t('installing.status.installed')}`}
           </span>
         </div>
+        {roleSkillResult?.failed?.length ? (
+          <div className="rounded-lg border border-yellow-500/30 bg-yellow-500/10 p-3 text-sm text-yellow-700 dark:text-yellow-200">
+            {t('complete.partialFailed', { count: roleSkillResult.failed.length })}
+          </div>
+        ) : null}
         <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
           <div className="flex items-center gap-1">
             <img src={fwgIcon} alt="" className="max-h-[18px] object-contain rounded-l-xl" />

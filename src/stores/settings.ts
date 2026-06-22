@@ -50,6 +50,9 @@ interface SettingsState {
   // Setup
   setupComplete: boolean;
   initialized: boolean;
+  userRoleTags: string[];
+  installedRolePresetVersion: number;
+  installedRolePresetAt: number;
 
   // Feature Flags
   realPersonAuthEnabled: boolean;
@@ -74,7 +77,9 @@ interface SettingsState {
   setAutoDownloadUpdate: (value: boolean) => void;
   setSidebarCollapsed: (value: boolean) => void;
   setDevModeUnlocked: (value: boolean) => void;
+  setPeriodicAuthEnabled: (value: boolean) => void;
   markSetupComplete: () => void;
+  setUserRoleTags: (value: string[]) => void;
   resetSettings: () => void;
   setRealPersonAuthEnabled: (value: boolean) => void;
 }
@@ -105,6 +110,9 @@ const defaultSettings = {
   trialStartAt: 0,
   setupComplete: false,
   initialized: false,
+  userRoleTags: [],
+  installedRolePresetVersion: 0,
+  installedRolePresetAt: 0,
   realPersonAuthEnabled: false,
 };
 
@@ -217,6 +225,13 @@ export const useSettingsStore = create<SettingsState>()(
         }).catch(() => { });
       },
       markSetupComplete: () => set({ setupComplete: true }),
+      setUserRoleTags: (userRoleTags) => {
+        set({ userRoleTags });
+        void hostApiFetch('/api/settings/userRoleTags', {
+          method: 'PUT',
+          body: JSON.stringify({ value: userRoleTags }),
+        }).catch(() => { });
+      },
       resetSettings: () => set(defaultSettings),
     }),
     {

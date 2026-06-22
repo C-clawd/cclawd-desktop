@@ -1,0 +1,498 @@
+{
+  "version": 1,
+  "baseSkills": [
+    {
+      "slug": "docx",
+      "source": "builtin",
+      "name": "DOCX",
+      "nameZh": "Word 文档",
+      "description": "Create, read, edit, and review Word documents.",
+      "descriptionZh": "创建、读取、编辑和审阅 Word 文档。",
+      "autoEnable": true
+    },
+    {
+      "slug": "xlsx",
+      "source": "builtin",
+      "name": "XLSX",
+      "nameZh": "Excel 表格",
+      "description": "Work with spreadsheets, formulas, charts, and tabular data.",
+      "descriptionZh": "处理电子表格、公式、图表和台账数据。",
+      "autoEnable": true
+    },
+    {
+      "slug": "pptx",
+      "source": "builtin",
+      "name": "PPTX",
+      "nameZh": "PPT 演示",
+      "description": "Create, read, and edit presentation files.",
+      "descriptionZh": "创建、读取和编辑演示文稿。",
+      "autoEnable": true
+    },
+    {
+      "slug": "pdf",
+      "source": "builtin",
+      "name": "PDF",
+      "nameZh": "PDF 处理",
+      "description": "Read, extract, merge, split, and process PDF files.",
+      "descriptionZh": "读取、提取、合并、拆分和处理 PDF 文件。",
+      "autoEnable": true
+    },
+    {
+      "slug": "find-skills",
+      "source": "builtin",
+      "name": "Find Skills",
+      "nameZh": "技能发现",
+      "description": "Find specialized skills when a task needs extra capability.",
+      "descriptionZh": "在任务需要专用能力时查找合适技能。",
+      "autoEnable": true
+    },
+    {
+      "slug": "install-skill-dependency",
+      "source": "builtin",
+      "name": "Install Skill Dependency",
+      "nameZh": "技能依赖修复",
+      "description": "Diagnose and install missing dependencies for skills.",
+      "descriptionZh": "诊断并安装技能所需的缺失依赖。",
+      "autoEnable": true
+    },
+    {
+      "slug": "vm-error-recovery",
+      "source": "builtin",
+      "name": "Environment Recovery",
+      "nameZh": "环境诊断恢复",
+      "description": "Diagnose runtime, gateway, plugin, and skill loading issues.",
+      "descriptionZh": "诊断运行时、网关、插件和技能加载问题。",
+      "autoEnable": true
+    }
+  ],
+  "roles": [
+    {
+      "id": "general-office",
+      "name": "General Office",
+      "nameZh": "通用办公",
+      "description": "Daily document, meeting, report, presentation, PDF, and spreadsheet work.",
+      "descriptionZh": "适合日常文档、会议、报告、PPT、PDF 和表格处理。",
+      "workflows": ["文档转换", "会议摘要", "周报撰写", "PPT 生成", "Excel 分析"],
+      "skills": [
+        {
+          "slug": "documents",
+          "source": "qoder",
+          "name": "Documents",
+          "nameZh": "文档",
+          "descriptionZh": "读写、转换和分析 Office 文档。",
+          "autoEnable": true
+        },
+        {
+          "slug": "markdown-converter",
+          "source": "qoder",
+          "name": "Markdown Converter",
+          "nameZh": "Markdown 转换",
+          "descriptionZh": "将 PDF、Word、PPT、Excel 等转换为 Markdown。",
+          "autoEnable": true
+        },
+        {
+          "slug": "pdf-extractor",
+          "source": "qoder",
+          "name": "PDF Extractor",
+          "nameZh": "PDF 提取器",
+          "descriptionZh": "从 PDF 中提取文本、表格和图像。",
+          "autoEnable": true
+        },
+        {
+          "slug": "meeting-summary",
+          "source": "qoder",
+          "name": "Meeting Summary",
+          "nameZh": "会议摘要",
+          "descriptionZh": "生成包含讨论要点和行动项的会议摘要。",
+          "autoEnable": true
+        },
+        {
+          "slug": "weekly-report-writer",
+          "source": "qoder",
+          "name": "Weekly Report Writer",
+          "nameZh": "周报撰写",
+          "descriptionZh": "根据材料和进展生成周报。",
+          "autoEnable": true
+        },
+        {
+          "slug": "qoderwork-ppt",
+          "source": "qoder",
+          "name": "QoderWork PPT",
+          "nameZh": "QoderWork 演示文稿",
+          "descriptionZh": "根据主题生成可编辑 .pptx 文件。",
+          "autoEnable": true
+        },
+        {
+          "slug": "excel-analysis",
+          "source": "qoder",
+          "name": "Excel Analysis",
+          "nameZh": "Excel 分析",
+          "descriptionZh": "分析 Excel 表格、生成透视表和图表。",
+          "autoEnable": true
+        }
+      ]
+    },
+    {
+      "id": "administration",
+      "name": "Administration / Office",
+      "nameZh": "综合行政 / 办公室",
+      "description": "Meeting minutes, notices, internal communication, weekly reports, file organization, and reminders.",
+      "descriptionZh": "适合会议纪要、通知邮件、内部沟通、周报、文件整理和任务提醒。",
+      "workflows": ["会议纪要", "通知邮件", "文件整理", "任务提醒", "周报汇总"],
+      "skills": [
+        {
+          "slug": "meeting-summary",
+          "source": "qoder",
+          "name": "Meeting Summary",
+          "nameZh": "会议摘要",
+          "descriptionZh": "生成会议摘要和行动项。",
+          "autoEnable": true
+        },
+        {
+          "slug": "meeting-notes-cn",
+          "source": "qoder",
+          "name": "Chinese Meeting Notes",
+          "nameZh": "会议纪要整理",
+          "descriptionZh": "整理中文会议纪要。",
+          "autoEnable": true
+        },
+        {
+          "slug": "meeting-minutes-generator",
+          "source": "qoder",
+          "name": "Meeting Minutes Generator",
+          "nameZh": "会议纪要生成器",
+          "descriptionZh": "生成结构化会议纪要。",
+          "autoEnable": true
+        },
+        {
+          "slug": "internal-comms",
+          "source": "qoder",
+          "name": "Internal Communications",
+          "nameZh": "内部通讯",
+          "descriptionZh": "撰写内部邮件和沟通内容。",
+          "autoEnable": true
+        },
+        {
+          "slug": "email-writer",
+          "source": "qoder",
+          "name": "Email Writer",
+          "nameZh": "邮件撰写",
+          "descriptionZh": "撰写正式邮件、通知和回复。",
+          "autoEnable": true
+        },
+        {
+          "slug": "weekly-report-writer",
+          "source": "qoder",
+          "name": "Weekly Report Writer",
+          "nameZh": "周报撰写",
+          "descriptionZh": "生成每周工作总结。",
+          "autoEnable": true
+        },
+        {
+          "slug": "file-organizer",
+          "source": "qoder",
+          "name": "File Organizer",
+          "nameZh": "文件整理",
+          "descriptionZh": "整理、分类和命名文件。",
+          "autoEnable": true
+        },
+        {
+          "slug": "task-reminder",
+          "source": "qoder",
+          "name": "Task Reminder",
+          "nameZh": "任务提醒",
+          "descriptionZh": "管理提醒和待办事项。",
+          "autoEnable": true
+        }
+      ]
+    },
+    {
+      "id": "party-publicity",
+      "name": "Party Building & Publicity",
+      "nameZh": "党建宣传",
+      "description": "Study materials, publicity drafts, presentations, visual summaries, and themed documents.",
+      "descriptionZh": "适合学习材料、宣传稿、PPT、图文摘要和主题化材料。",
+      "workflows": ["宣传稿", "学习材料", "PPT 制作", "信息图", "主题化排版"],
+      "skills": [
+        {
+          "slug": "content-research-writer",
+          "source": "qoder",
+          "name": "Content Research Writer",
+          "nameZh": "内容研究撰写",
+          "descriptionZh": "结合研究和引用撰写高质量内容。",
+          "autoEnable": true
+        },
+        {
+          "slug": "qoderwork-ppt",
+          "source": "qoder",
+          "name": "QoderWork PPT",
+          "nameZh": "QoderWork 演示文稿",
+          "descriptionZh": "生成可编辑 .pptx 演示文稿。",
+          "autoEnable": true
+        },
+        {
+          "slug": "baoyu-slide-deck",
+          "source": "qoder",
+          "name": "Baoyu Slide Deck",
+          "nameZh": "宝玉幻灯片制作",
+          "descriptionZh": "根据内容生成专业幻灯片。",
+          "autoEnable": true
+        },
+        {
+          "slug": "notion-infographic",
+          "source": "qoder",
+          "name": "Notion Infographic",
+          "nameZh": "Notion 信息图",
+          "descriptionZh": "将文稿转为信息图组图。",
+          "autoEnable": true
+        },
+        {
+          "slug": "baoyu-infographic",
+          "source": "qoder",
+          "name": "Baoyu Infographic",
+          "nameZh": "宝玉信息图",
+          "descriptionZh": "生成视觉摘要和数据海报。",
+          "autoEnable": true
+        },
+        {
+          "slug": "theme-factory",
+          "source": "qoder",
+          "name": "Theme Factory",
+          "nameZh": "主题工厂",
+          "descriptionZh": "为文档、报告和 PPT 应用主题样式。",
+          "autoEnable": true
+        },
+        {
+          "slug": "copywriting",
+          "source": "qoder",
+          "name": "Copywriting",
+          "nameZh": "文案写作",
+          "descriptionZh": "撰写标题、宣传文案和号召性内容。",
+          "autoEnable": true
+        }
+      ]
+    },
+    {
+      "id": "finance-audit",
+      "name": "Finance & Audit",
+      "nameZh": "财务审计",
+      "description": "Excel analysis, invoice processing, reconciliation, finance reports, and audit support.",
+      "descriptionZh": "适合 Excel 分析、发票处理、对账、财务报告和审计辅助。",
+      "workflows": ["Excel 分析", "发票整理", "发票对账", "财务报告", "审计核对"],
+      "skills": [
+        {
+          "slug": "excel-analysis",
+          "source": "qoder",
+          "name": "Excel Analysis",
+          "nameZh": "Excel 分析",
+          "descriptionZh": "分析 Excel 表格并生成图表。",
+          "autoEnable": true
+        },
+        {
+          "slug": "spreadsheet-analyst",
+          "source": "qoder",
+          "name": "Spreadsheet Analyst",
+          "nameZh": "电子表格分析师",
+          "descriptionZh": "分析电子表格和台账数据。",
+          "autoEnable": true
+        },
+        {
+          "slug": "spreadsheet-tie-out",
+          "source": "qoder",
+          "name": "Spreadsheet Tie Out",
+          "nameZh": "电子表格核对",
+          "descriptionZh": "辅助进行表格核对和勾稽。",
+          "autoEnable": true
+        },
+        {
+          "slug": "invoice-organizer",
+          "source": "qoder",
+          "name": "Invoice Organizer",
+          "nameZh": "发票整理器",
+          "descriptionZh": "整理发票和收据文件。",
+          "autoEnable": true
+        },
+        {
+          "slug": "invoice-processing",
+          "source": "qoder",
+          "name": "Invoice Processing",
+          "nameZh": "发票处理",
+          "descriptionZh": "提取、验证和分类发票数据。",
+          "autoEnable": true
+        },
+        {
+          "slug": "invoice-reconciliation",
+          "source": "qoder",
+          "name": "Invoice Reconciliation",
+          "nameZh": "发票对账",
+          "descriptionZh": "发票匹配、差异识别和异常处理。",
+          "autoEnable": true
+        },
+        {
+          "slug": "finance-report",
+          "source": "qoder",
+          "name": "Finance Report",
+          "nameZh": "财务报告",
+          "descriptionZh": "生成财务分析和报告材料。",
+          "autoEnable": true
+        },
+        {
+          "slug": "finance-audit-support",
+          "source": "qoder",
+          "name": "Finance Audit Support",
+          "nameZh": "财务审计支持",
+          "descriptionZh": "辅助财务审计材料整理和核查。",
+          "autoEnable": true
+        }
+      ]
+    },
+    {
+      "id": "legal-compliance",
+      "name": "Legal & Compliance",
+      "nameZh": "法务合规",
+      "description": "Contract analysis, legal documents, compliance checks, legal briefs, and risk memos.",
+      "descriptionZh": "适合合同分析、法律文书、合规检查、法律简报和风险备忘。",
+      "workflows": ["合同审查", "合同摘要", "法律文书", "合规检查", "风险提示"],
+      "skills": [
+        {
+          "slug": "contract-analyzer",
+          "source": "qoder",
+          "name": "Contract Analyzer",
+          "nameZh": "合同分析器",
+          "descriptionZh": "合同分析、起草、审查和风险评估。",
+          "autoEnable": true
+        },
+        {
+          "slug": "contract-summarization",
+          "source": "qoder",
+          "name": "Contract Summarization",
+          "nameZh": "合同摘要",
+          "descriptionZh": "提取合同要点和风险条款。",
+          "autoEnable": true
+        },
+        {
+          "slug": "legal",
+          "source": "qoder",
+          "name": "Legal",
+          "nameZh": "法律事务",
+          "descriptionZh": "合同审查、合规检查和风险评估。",
+          "autoEnable": true
+        },
+        {
+          "slug": "legal-writer",
+          "source": "qoder",
+          "name": "Legal Writer",
+          "nameZh": "法律撰稿人",
+          "descriptionZh": "起草合同、备忘录和法律文件。",
+          "autoEnable": true
+        },
+        {
+          "slug": "legal-docs-pro",
+          "source": "qoder",
+          "name": "Legal Docs Pro",
+          "nameZh": "法律文档专业版",
+          "descriptionZh": "生成和审阅常见法律文档。",
+          "autoEnable": true
+        },
+        {
+          "slug": "legal-brief",
+          "source": "qoder",
+          "name": "Legal Brief",
+          "nameZh": "法律简报",
+          "descriptionZh": "生成法律简报和事项摘要。",
+          "autoEnable": true
+        },
+        {
+          "slug": "legal-response",
+          "source": "qoder",
+          "name": "Legal Response",
+          "nameZh": "法律响应",
+          "descriptionZh": "辅助拟定法律响应材料。",
+          "autoEnable": true
+        },
+        {
+          "slug": "decision-memo-writer",
+          "source": "qoder",
+          "name": "Decision Memo Writer",
+          "nameZh": "决策备忘录编写",
+          "descriptionZh": "生成结构化决策备忘和风险说明。",
+          "autoEnable": true
+        }
+      ]
+    },
+    {
+      "id": "project-management",
+      "name": "Project / Engineering Management",
+      "nameZh": "项目管理 / 工程管理",
+      "description": "Project planning, task decomposition, meeting action items, diagrams, and acceptance reports.",
+      "descriptionZh": "适合项目计划、任务拆解、会议行动项、流程图和验收汇报。",
+      "workflows": ["项目计划", "任务拆解", "行动项追踪", "流程图", "验收汇报"],
+      "skills": [
+        {
+          "slug": "project-planning",
+          "source": "qoder",
+          "name": "Project Planning",
+          "nameZh": "项目规划",
+          "descriptionZh": "规划项目任务、里程碑和风险。",
+          "autoEnable": true
+        },
+        {
+          "slug": "project-planner",
+          "source": "qoder",
+          "name": "Project Planner",
+          "nameZh": "项目规划",
+          "descriptionZh": "生成项目计划和执行清单。",
+          "autoEnable": true
+        },
+        {
+          "slug": "plan-project",
+          "source": "qoder",
+          "name": "Plan Project",
+          "nameZh": "计划项目",
+          "descriptionZh": "生成任务和风险评估。",
+          "autoEnable": true
+        },
+        {
+          "slug": "create-plan",
+          "source": "qoder",
+          "name": "Create Plan",
+          "nameZh": "创建计划",
+          "descriptionZh": "把需求转换为可执行任务。",
+          "autoEnable": true
+        },
+        {
+          "slug": "project-management-summary",
+          "source": "qoder",
+          "name": "Project Management Summary",
+          "nameZh": "项目管理摘要",
+          "descriptionZh": "生成项目进展和风险摘要。",
+          "autoEnable": true
+        },
+        {
+          "slug": "meeting-notes-and-actions",
+          "source": "qoder",
+          "name": "Meeting Notes and Actions",
+          "nameZh": "会议记录和行动",
+          "descriptionZh": "整理会议记录和行动项。",
+          "autoEnable": true
+        },
+        {
+          "slug": "drafter-diagram",
+          "source": "qoder",
+          "name": "Drafter Diagram",
+          "nameZh": "技术图表生成",
+          "descriptionZh": "生成流程图、系统图和工程示意图。",
+          "autoEnable": true
+        },
+        {
+          "slug": "report-to-ppt",
+          "source": "qoder",
+          "name": "Report to PPT",
+          "nameZh": "报告到 PPT",
+          "descriptionZh": "把报告材料转换为演示文稿。",
+          "autoEnable": true
+        }
+      ]
+    }
+  ]
+}

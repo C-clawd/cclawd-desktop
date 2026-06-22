@@ -8,6 +8,10 @@
             "title": "Environment Check",
             "description": "Verifying system requirements"
         },
+        "role": {
+            "title": "Choose Your Role",
+            "description": "Install recommended skills for your daily work"
+        },
         "provider": {
             "title": "AI Provider",
             "description": "Configure your AI service"
@@ -89,6 +93,14 @@
         "invalid": "Invalid API key",
         "storedLocally": "Your API key is stored locally on your machine."
     },
+    "role": {
+        "loading": "Loading role recommendations...",
+        "loadFailed": "Failed to load role recommendations",
+        "baseTitle": "Core office skills for everyone",
+        "baseDescription": "{{count}} core office skills will be enabled by default, including Word, Excel, PPT, PDF, and skill discovery.",
+        "skillCount": "{{count}} recommended role skills",
+        "defaultName": "General Office"
+    },
     "realPerson": {
         "title": "Real-Person Verification",
         "subtitle": "Enter your real name and ID card number. After face verification succeeds, Cclawd will save MFA_AUTH_API_KEY to your OpenClaw .env automatically.",
@@ -158,6 +170,7 @@
             "failed": "Failed"
         },
         "error": "Setup Error:",
+        "partialFailed": "{{count}} role skills failed to install. You can retry later from the Skills page.",
         "restart": "Try restarting the app",
         "wait": "This may take a few moments...",
         "skip": "Skip this step"
@@ -166,7 +179,10 @@
         "title": "Setup Complete!",
         "subtitle": "Cclawd is configured and ready to use. You can now start chatting with your AI assistant.",
         "provider": "AI Provider",
+        "role": "Role",
         "components": "Components",
+        "roleSkillSummary": "Enabled {{enabled}} skills, installed {{installed}}, skipped {{skipped}} already installed items",
+        "partialFailed": "{{count}} role skills failed to install. You can retry later from the Skills page.",
         "gateway": "Gateway",
         "running": "Running",
         "footer": "You can customize skills and connect channels in Settings"

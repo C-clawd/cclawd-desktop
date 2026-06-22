@@ -67,6 +67,9 @@ export interface AppSettings {
   selectedBundles: string[];
   enabledSkills: string[];
   disabledSkills: string[];
+  userRoleTags: string[];
+  installedRolePresetVersion: number;
+  installedRolePresetAt: number;
 }
 
 /**
@@ -129,6 +132,9 @@ function createDefaultSettings(): AppSettings {
     selectedBundles: ['productivity', 'developer'],
     enabledSkills: [],
     disabledSkills: [],
+    userRoleTags: [],
+    installedRolePresetVersion: 0,
+    installedRolePresetAt: 0,
   };
 }
 

@@ -2,6 +2,8 @@ import type { IncomingMessage, ServerResponse } from 'http';
 import type { ClawHubInstallParams, ClawHubSearchParams, ClawHubUninstallParams } from '../../gateway/clawhub';
 import type { QoderSkillInstallParams, QoderSkillSearchParams, QoderSkillUninstallParams } from '../../gateway/qoder-skills';
 import { getAllSkillConfigs, getBuiltinSkillDefinitions, getMainAgentPromptInjectedSkills, updateSkillConfig } from '../../utils/skill-config';
+import { getRolePresetManifest, installRolePresetSkills } from '../../utils/skill-role-presets';
+import { setSetting } from '../../utils/store';
 import type { HostApiContext } from '../context';
 import { parseJsonBody, sendJson } from '../route-utils';
 
@@ -75,6 +77,16 @@ function parseClawHubUninstallParams(body: Record<string, unknown>): ClawHubUnin
   return { slug };
 }
 
+function parseRolePresetInstallParams(body: Record<string, unknown>): { roleIds: string[]; includeBaseSkills?: boolean } {
+  const roleIds = Array.isArray(body.roleIds)
+    ? body.roleIds.filter((roleId): roleId is string => typeof roleId === 'string' && roleId.trim().length > 0)
+    : [];
+  return {
+    roleIds,
+    includeBaseSkills: optionalBoolean(body.includeBaseSkills),
+  };
+}
+
 export async function handleSkillRoutes(
   req: IncomingMessage,
   res: ServerResponse,
@@ -115,6 +127,29 @@ export async function handleSkillRoutes(
   if (url.pathname === '/api/skills/prompt-injected' && req.method === 'GET') {
     try {
       sendJson(res, 200, { success: true, results: await getMainAgentPromptInjectedSkills() });
+    } catch (error) {
+      sendJson(res, 500, { success: false, error: String(error) });
+    }
+    return true;
+  }
+
+  if (url.pathname === '/api/skills/role-presets' && req.method === 'GET') {
+    try {
+      sendJson(res, 200, { success: true, ...(await getRolePresetManifest()) });
+    } catch (error) {
+      sendJson(res, 500, { success: false, error: String(error) });
+    }
+    return true;
+  }
+
+  if (url.pathname === '/api/skills/install-role-preset' && req.method === 'POST') {
+    try {
+      const body = await parseJsonBody<Record<string, unknown>>(req);
+      const result = await installRolePresetSkills(ctx.qoderSkillService, parseRolePresetInstallParams(body));
+      await setSetting('userRoleTags', result.roleIds);
+      await setSetting('installedRolePresetVersion', result.version);
+      await setSetting('installedRolePresetAt', Date.now());
+      sendJson(res, 200, result);
     } catch (error) {
       sendJson(res, 500, { success: false, error: String(error) });
     }
