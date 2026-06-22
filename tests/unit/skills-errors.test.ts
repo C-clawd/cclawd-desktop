@@ -31,6 +31,15 @@ describe('skills store error mapping', () => {
     expect(useSkillsStore.getState().error).toBe('fetchRateLimitError');
   });
 
+  it('maps fetchSkills gateway errors without reporting a rate limit', async () => {
+    rpcMock.mockRejectedValueOnce(new Error('Gateway socket is not connected'));
+
+    const { useSkillsStore } = await import('@/stores/skills');
+    await useSkillsStore.getState().fetchSkills();
+
+    expect(useSkillsStore.getState().error).toBe('fetchGatewayError');
+  });
+
   it('maps searchSkills timeout error by AppError code', async () => {
     hostApiFetchMock.mockRejectedValueOnce(new Error('request timeout'));
 

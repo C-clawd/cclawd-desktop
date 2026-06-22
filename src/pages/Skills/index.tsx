@@ -435,7 +435,7 @@ export function Skills() {
       toast.success(t('toast.installed'));
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : String(err);
-      if (['installTimeoutError', 'installRateLimitError'].includes(errorMessage)) {
+      if (errorMessage.startsWith('install')) {
         toast.error(t(`toast.${errorMessage}`, { path: skillsDirPath }), { duration: 10000 });
       } else {
         toast.error(`${t('toast.failedInstall')}: ${errorMessage}`);
@@ -507,10 +507,10 @@ export function Skills() {
           </div>
         )}
 
-        {error && (
+        {error && isGatewayRunning && (
           <div className="mb-4 p-3 rounded-md border border-destructive/50 bg-destructive/10 text-destructive text-sm flex items-center gap-2">
             <AlertCircle className="h-4 w-4" />
-            <span>{error}</span>
+            <span>{t(`toast.${error}`)}</span>
           </div>
         )}
 
@@ -588,7 +588,7 @@ export function Skills() {
             <div>
               <h2 className="mb-3 text-[13px] font-semibold text-foreground">{t('marketplace.official')}</h2>
               {searchError && (
-                <div className="mb-4 p-3 rounded-md border border-destructive/50 bg-destructive/10 text-destructive text-sm">{t('marketplace.searchError')}</div>
+                <div className="mb-4 p-3 rounded-md border border-destructive/50 bg-destructive/10 text-destructive text-sm">{t(`toast.${searchError}`, { path: skillsDirPath })}</div>
               )}
               {searching ? (
                 <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">

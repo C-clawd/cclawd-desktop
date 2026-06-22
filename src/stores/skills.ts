@@ -63,7 +63,25 @@ function mapErrorCodeToSkillErrorKey(
         ? 'installRateLimitError'
         : 'fetchRateLimitError';
   }
-  return 'rateLimitError';
+  if (code === 'GATEWAY') {
+    return operation === 'search'
+      ? 'searchGatewayError'
+      : operation === 'install'
+        ? 'installGatewayError'
+        : 'fetchGatewayError';
+  }
+  if (code === 'NETWORK') {
+    return operation === 'search'
+      ? 'searchNetworkError'
+      : operation === 'install'
+        ? 'installNetworkError'
+        : 'fetchNetworkError';
+  }
+  return operation === 'search'
+    ? 'searchUnknownError'
+    : operation === 'install'
+      ? 'installUnknownError'
+      : 'fetchUnknownError';
 }
 
 interface SkillsState {
@@ -219,7 +237,7 @@ export const useSkillsStore = create<SkillsState>((set, get) => ({
         });
       }
 
-      set({ skills: combinedSkills, builtinSkills, loading: false });
+      set({ skills: combinedSkills, builtinSkills, loading: false, error: null });
     } catch (error) {
       console.error('Failed to fetch skills:', error);
       const appError = normalizeAppError(error, { module: 'skills', operation: 'fetch' });
