@@ -543,7 +543,7 @@ export function Chat() {
             <div
               ref={contentRef}
               className={cn(
-                "space-y-4 transition-all duration-300",
+                "space-y-4",
                 isEmpty ? "mx-auto w-full max-w-3xl" : "max-w-4xl",
               )}
             >

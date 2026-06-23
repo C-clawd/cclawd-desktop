@@ -129,6 +129,39 @@ describe('chat runtime event handlers', () => {
     expect(h.read().loadHistory).toHaveBeenCalledTimes(1);
   });
 
+  it('attaches files mentioned in the final assistant message before history reload finishes', async () => {
+    const pptxPath = String.raw`C:\Users\asta1\.openclaw\workspace\标普500科普.pptx`;
+    const finalMessage = {
+      role: 'assistant',
+      content: `已为你生成PPT文件：${pptxPath}`,
+    };
+    getMessageText.mockReturnValue(finalMessage.content);
+    extractRawFilePaths.mockReturnValue([{
+      filePath: pptxPath,
+      mimeType: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    }]);
+
+    const { handleRuntimeEventState } = await import('@/stores/chat/runtime-event-handlers');
+    const h = makeHarness({ sending: true, activeRunId: 'run-4' });
+
+    handleRuntimeEventState(
+      h.set as never,
+      h.get as never,
+      { message: finalMessage },
+      'final',
+      'run-4',
+    );
+
+    const next = h.read();
+    expect(next.messages.at(-1)?._attachedFiles).toEqual([
+      expect.objectContaining({
+        filePath: pptxPath,
+        mimeType: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      }),
+    ]);
+    expect(next.sending).toBe(false);
+  });
+
   it('handles error event and finalizes immediately when not sending', async () => {
     const { handleRuntimeEventState } = await import('@/stores/chat/runtime-event-handlers');
     const h = makeHarness({ sending: false, activeRunId: 'r1', lastUserMessageAt: 123 });

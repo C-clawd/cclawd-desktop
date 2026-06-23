@@ -139,6 +139,19 @@ describe('Chat execution graph lifecycle', () => {
     expect(screen.queryByText('Checked X. Here is the summary.')).not.toBeInTheDocument();
   });
 
+  it('does not animate the scroll content layout while a reply is streaming', async () => {
+    const { Chat } = await import('@/pages/Chat/index');
+
+    render(<Chat />);
+
+    const scrollContainer = screen.getByTestId('chat-scroll-container');
+    const contentContainer = scrollContainer.firstElementChild;
+
+    expect(contentContainer).toHaveClass('space-y-4');
+    expect(contentContainer).not.toHaveClass('transition-all');
+    expect(contentContainer).not.toHaveClass('duration-300');
+  });
+
   it('renders the execution graph immediately for an active run before any stream content arrives', async () => {
     const { useChatStore } = await import('@/stores/chat');
     useChatStore.setState({

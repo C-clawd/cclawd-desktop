@@ -138,14 +138,35 @@ export function handleRuntimeEventState(
               const nextTools = updates.length > 0 ? upsertToolStatuses(s.streamingTools, updates) : s.streamingTools;
               const streamingTools = hasOutput ? [] : nextTools;
 
-              // Attach any images collected from preceding tool results
+              // Attach any files collected from preceding tool results, plus
+              // file paths mentioned directly in the final assistant text.
+              // This lets generated files become clickable immediately instead
+              // of waiting for the next quiet history reload.
               const pendingImgs = s.pendingToolImages;
-              const msgWithImages: RawMessage = pendingImgs.length > 0
+              const ownText = getMessageText(finalMsg.content);
+              const ownMediaRefs = ownText ? extractMediaRefs(ownText) : [];
+              const ownMediaPaths = new Set(ownMediaRefs.map(r => r.filePath));
+              const ownFiles = ownText
+                ? [
+                  ...ownMediaRefs.map(ref => makeAttachedFile(ref)),
+                  ...extractRawFilePaths(ownText)
+                    .filter(ref => !ownMediaPaths.has(ref.filePath))
+                    .map(ref => makeAttachedFile(ref)),
+                ]
+                : [];
+              const attachedFiles = [...pendingImgs];
+              const attachedPaths = new Set(attachedFiles.map(file => file.filePath).filter(Boolean));
+              for (const file of ownFiles) {
+                if (file.filePath && attachedPaths.has(file.filePath)) continue;
+                if (file.filePath) attachedPaths.add(file.filePath);
+                attachedFiles.push(file);
+              }
+              const msgWithImages: RawMessage = attachedFiles.length > 0
                 ? {
                   ...finalMsg,
                   role: (finalMsg.role || 'assistant') as RawMessage['role'],
                   id: msgId,
-                  _attachedFiles: [...(finalMsg._attachedFiles || []), ...pendingImgs],
+                  _attachedFiles: [...(finalMsg._attachedFiles || []), ...attachedFiles],
                 }
                 : { ...finalMsg, role: (finalMsg.role || 'assistant') as RawMessage['role'], id: msgId };
               const clearPendingImages = { pendingToolImages: [] as AttachedFileMeta[] };
