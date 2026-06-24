@@ -35,6 +35,9 @@ export function providerConfigToAccount(
     fallbackModels: config.fallbackModels,
     fallbackAccountIds: config.fallbackProviderIds,
     enabled: config.enabled,
+    metadata: config.type === 'cclawd-default'
+      ? { origin: 'system', readonly: true }
+      : undefined,
     isDefault: options?.isDefault ?? false,
     createdAt: config.createdAt,
     updatedAt: config.updatedAt,

@@ -44,6 +44,8 @@ import { deviceOAuthManager } from '../utils/device-oauth';
 import { browserOAuthManager } from '../utils/browser-oauth';
 import { whatsAppLoginManager } from '../utils/whatsapp-login';
 import { syncAllProviderAuthToRuntime } from '../services/providers/provider-runtime-sync';
+import { ensureUsableDefaultProvider } from '../services/providers/managed-default-provider';
+import { ensureLocalDefaultProviderEnvFromOpenClaw } from '../services/providers/local-default-provider-env-bootstrap';
 import { ensureCclawdGuardPluginEnabled } from '../utils/openclaw-auth';
 import { ensureSetupRealPersonAuthConfig } from '../utils/real-person-auth';
 
@@ -363,6 +365,16 @@ async function initialize(): Promise<void> {
     }
   } catch (error) {
     logger.warn('Failed to ensure real-person auth config:', error);
+  }
+
+  try {
+    await ensureLocalDefaultProviderEnvFromOpenClaw();
+    await ensureUsableDefaultProvider({
+      gatewayManager,
+      reason: 'app-startup',
+    });
+  } catch (error) {
+    logger.warn('Failed to ensure managed default provider:', error);
   }
 
   // Bridge gateway and host-side events before any auto-start logic runs, so

@@ -81,6 +81,20 @@ describe('host-api', () => {
     await expect(hostApiFetch('/api/test')).rejects.toThrow('Invalid Authentication');
   });
 
+  it('throws message from unified HTTP error envelope', async () => {
+    invokeIpcMock.mockResolvedValueOnce({
+      ok: true,
+      data: {
+        status: 500,
+        ok: false,
+        json: { success: false, error: 'Provider list failed' },
+      },
+    });
+
+    const { hostApiFetch } = await import('@/lib/host-api');
+    await expect(hostApiFetch('/api/providers')).rejects.toThrow('Provider list failed');
+  });
+
   it('falls back to browser fetch only when IPC channel is unavailable', async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,

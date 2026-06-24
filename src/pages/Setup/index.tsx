@@ -1348,6 +1348,8 @@ function ProviderContent({
   const [validating, setValidating] = useState(false);
   const [keyValid, setKeyValid] = useState<boolean | null>(null);
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
+  const [usableProviderLabel, setUsableProviderLabel] = useState<string | null>(null);
+  const [loadingUsableProvider, setLoadingUsableProvider] = useState(true);
   const [baseUrl, setBaseUrl] = useState('');
   const [modelId, setModelId] = useState('');
   const [apiProtocol, setApiProtocol] = useState<ProviderAccount['apiProtocol']>('openai-completions');
@@ -1372,6 +1374,42 @@ function ProviderContent({
   const [manualCodeInput, setManualCodeInput] = useState('');
   const [oauthError, setOauthError] = useState<string | null>(null);
   const pendingOAuthRef = useRef<{ accountId: string; label: string } | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      setLoadingUsableProvider(true);
+      try {
+        const snapshot = await fetchProviderSnapshot();
+        const statusMap = new Map(snapshot.statuses.map((status) => [status.id, status]));
+        const defaultAccount = snapshot.defaultAccountId
+          ? snapshot.accounts.find((account) => account.id === snapshot.defaultAccountId)
+          : undefined;
+        const usableAccount = defaultAccount && hasConfiguredCredentials(defaultAccount, statusMap.get(defaultAccount.id))
+          ? defaultAccount
+          : snapshot.accounts.find((account) => hasConfiguredCredentials(account, statusMap.get(account.id)));
+
+        if (!cancelled && usableAccount) {
+          setUsableProviderLabel(usableAccount.label);
+          onConfiguredChange(true);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          console.error('Failed to load usable provider:', error);
+          onConfiguredChange(false);
+        }
+      } finally {
+        if (!cancelled) {
+          setLoadingUsableProvider(false);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [onConfiguredChange]);
 
   // Manage OAuth events
   useEffect(() => {
@@ -1528,7 +1566,12 @@ function ProviderContent({
           )).apiKey;
           onApiKeyChange(storedKey || '');
         } else if (!cancelled) {
-          onConfiguredChange(false);
+          const defaultAccount = snapshot.defaultAccountId
+            ? snapshot.accounts.find((account) => account.id === snapshot.defaultAccountId)
+            : undefined;
+          if (!defaultAccount) {
+            onConfiguredChange(false);
+          }
           onApiKeyChange('');
         }
       } catch (error) {
@@ -1791,6 +1834,26 @@ function ProviderContent({
 
   return (
     <div className="space-y-6">
+      <div className="rounded-lg border border-blue-100 bg-blue-50/70 p-4 text-sm text-blue-950 dark:border-blue-900/50 dark:bg-blue-950/25 dark:text-blue-100">
+        <div className="flex items-start gap-3">
+          {loadingUsableProvider ? (
+            <Loader2 className="mt-0.5 h-4 w-4 shrink-0 animate-spin" />
+          ) : (
+            <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+          )}
+          <div className="space-y-1">
+            <p className="font-medium">
+              {loadingUsableProvider
+                ? t('provider.usableChecking')
+                : t('provider.usableReady', { provider: usableProviderLabel || 'Cclawd Default' })}
+            </p>
+            <p className="text-blue-900/75 dark:text-blue-100/75">
+              {t('provider.usableDesc')}
+            </p>
+          </div>
+        </div>
+      </div>
+
       {/* Provider selector — dropdown */}
       <div className="space-y-2">
         <div className="flex items-center justify-between gap-3">

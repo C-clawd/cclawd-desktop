@@ -134,6 +134,8 @@ function getAuthModeLabel(
   t: (key: string) => string
 ): string {
   switch (authMode) {
+    case 'managed':
+      return t('aiProviders.authModes.managed');
     case 'api_key':
       return t('aiProviders.authModes.apiKey');
     case 'oauth_device':
@@ -209,8 +211,8 @@ export function ProvidersSettings() {
         updatedAt: new Date().toISOString(),
       }, effectiveApiKey);
 
-      // Auto-set as default if no default is currently configured
-      if (!defaultAccountId) {
+      // User-owned providers should take over the managed default once added.
+      if (!defaultAccountId || defaultAccountId === 'cclawd-default') {
         await setDefaultAccount(id);
       }
 
@@ -386,6 +388,7 @@ function ProviderCard({
     : providerDocsUrl;
   const canEditModelConfig = Boolean(typeInfo?.showBaseUrl || showModelIdField);
   const showUserAgentField = shouldShowUserAgentField(account);
+  const isReadonlyManaged = account.authMode === 'managed' || account.metadata?.readonly === true;
 
   useEffect(() => {
     if (isEditing) {
@@ -409,7 +412,10 @@ function ProviderCard({
     }
   }, [isEditing, account.baseUrl, account.headers, account.fallbackModels, account.fallbackAccountIds, account.model, account.apiProtocol, account.vendorId, typeInfo?.codePlanPresetBaseUrl, typeInfo?.codePlanPresetModelId]);
 
-  const fallbackOptions = allProviders.filter((candidate) => candidate.account.id !== account.id);
+  const fallbackOptions = allProviders.filter((candidate) => (
+    candidate.account.id !== account.id
+    && candidate.account.authMode !== 'managed'
+  ));
 
   const toggleFallbackProvider = (providerId: string) => {
     setFallbackProviderIds((current) => (
@@ -579,24 +585,28 @@ function ProviderCard({
                 <Check className="h-4 w-4" />
               </Button>
             )}
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 rounded-full text-muted-foreground hover:text-foreground hover:bg-white dark:hover:bg-card shadow-sm"
-              onClick={onEdit}
-              title={t('aiProviders.card.editKey')}
-            >
-              <Edit className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 rounded-full text-muted-foreground hover:text-destructive hover:bg-white dark:hover:bg-card shadow-sm"
-              onClick={onDelete}
-              title={t('aiProviders.card.delete')}
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
+            {!isReadonlyManaged && (
+              <>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 rounded-full text-muted-foreground hover:text-foreground hover:bg-white dark:hover:bg-card shadow-sm"
+                  onClick={onEdit}
+                  title={t('aiProviders.card.editKey')}
+                >
+                  <Edit className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 rounded-full text-muted-foreground hover:text-destructive hover:bg-white dark:hover:bg-card shadow-sm"
+                  onClick={onDelete}
+                  title={t('aiProviders.card.delete')}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </>
+            )}
           </div>
         )}
       </div>
@@ -1130,6 +1140,8 @@ function AddProviderDialog({
   };
 
   const availableTypes = PROVIDER_TYPE_INFO.filter((type) => {
+    if (type.id === 'cclawd-default') return false;
+
     // MiniMax portal variants are mutually exclusive — hide BOTH variants
     // when either one already exists (account may have vendorId of either variant).
     const hasMinimax = existingVendorIds.has('minimax-portal') || existingVendorIds.has('minimax-portal-cn');

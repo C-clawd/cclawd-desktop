@@ -13,8 +13,8 @@
             "description": "根据你的日常工作安装推荐技能"
         },
         "provider": {
-            "title": "AI 提供商",
-            "description": "配置你的 AI 服务"
+            "title": "AI 模型",
+            "description": "确认可用模型，或添加自己的提供商"
         },
         "realPerson": {
             "title": "实人认证",
@@ -91,6 +91,9 @@
         "validateSave": "验证并保存",
         "valid": "提供商配置成功",
         "invalid": "无效的 API 密钥",
+        "usableChecking": "正在检查可用模型...",
+        "usableReady": "{{provider}} 已准备就绪",
+        "usableDesc": "你可以直接使用托管默认模型继续，也可以配置自己的提供商用于独立账单和自定义路由。",
         "storedLocally": "你的 API 密钥存储在本地机器上。"
     },
     "role": {

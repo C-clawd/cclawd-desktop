@@ -17,8 +17,10 @@ const mocks = vi.hoisted(() => ({
   saveProviderKeyToOpenClaw: vi.fn(),
   setOpenClawDefaultModel: vi.fn(),
   setOpenClawDefaultModelWithOverride: vi.fn(),
+  setOpenClawDefaultModelReference: vi.fn(),
   syncProviderConfigToOpenClaw: vi.fn(),
   updateAgentModelProvider: vi.fn(),
+  resolveLocalDefaultProviderConfig: vi.fn(),
 }));
 
 vi.mock('@electron/services/providers/provider-store', () => ({
@@ -48,6 +50,7 @@ vi.mock('@electron/utils/openclaw-auth', () => ({
   saveProviderKeyToOpenClaw: mocks.saveProviderKeyToOpenClaw,
   setOpenClawDefaultModel: mocks.setOpenClawDefaultModel,
   setOpenClawDefaultModelWithOverride: mocks.setOpenClawDefaultModelWithOverride,
+  setOpenClawDefaultModelReference: mocks.setOpenClawDefaultModelReference,
   syncProviderConfigToOpenClaw: mocks.syncProviderConfigToOpenClaw,
   updateAgentModelProvider: mocks.updateAgentModelProvider,
 }));
@@ -59,6 +62,10 @@ vi.mock('@electron/utils/logger', () => ({
     warn: vi.fn(),
     error: vi.fn(),
   },
+}));
+
+vi.mock('@electron/services/providers/local-default-provider-config', () => ({
+  resolveLocalDefaultProviderConfig: mocks.resolveLocalDefaultProviderConfig,
 }));
 
 import {
@@ -106,9 +113,11 @@ describe('provider-runtime-sync refresh strategy', () => {
     mocks.syncProviderConfigToOpenClaw.mockResolvedValue(undefined);
     mocks.setOpenClawDefaultModel.mockResolvedValue(undefined);
     mocks.setOpenClawDefaultModelWithOverride.mockResolvedValue(undefined);
+    mocks.setOpenClawDefaultModelReference.mockResolvedValue(true);
     mocks.saveProviderKeyToOpenClaw.mockResolvedValue(undefined);
     mocks.removeProviderFromOpenClaw.mockResolvedValue(undefined);
     mocks.updateAgentModelProvider.mockResolvedValue(undefined);
+    mocks.resolveLocalDefaultProviderConfig.mockResolvedValue(null);
   });
 
   it('uses debouncedReload after saving provider config', async () => {
@@ -141,5 +150,59 @@ describe('provider-runtime-sync refresh strategy', () => {
 
     expect(gateway.debouncedReload).not.toHaveBeenCalled();
     expect(gateway.debouncedRestart).not.toHaveBeenCalled();
+  });
+
+  it('writes the local default provider config when switching to Cclawd Default', async () => {
+    mocks.getProvider.mockResolvedValue(createProvider({
+      id: 'cclawd-default',
+      name: 'Cclawd Default',
+      type: 'cclawd-default' as ProviderConfig['type'],
+      model: 'cclawd-auto',
+    }));
+    mocks.resolveLocalDefaultProviderConfig.mockResolvedValue({
+      provider: 'moonshot',
+      model: 'kimi-k2.5',
+      baseUrl: 'https://api.moonshot.cn/v1',
+      api: 'openai-completions',
+      apiKey: 'sk-default',
+      apiKeyEnv: 'CCLAWD_DEFAULT_AI_API_KEY',
+    });
+    const gateway = createGateway('running');
+
+    await syncDefaultProviderToRuntime('cclawd-default', gateway as GatewayManager);
+
+    expect(mocks.saveProviderKeyToOpenClaw).toHaveBeenCalledWith('cclawd-default', 'sk-default');
+    expect(mocks.setOpenClawDefaultModelWithOverride).toHaveBeenCalledWith(
+      'cclawd-default',
+      'cclawd-default/kimi-k2.5',
+      {
+        baseUrl: 'https://api.moonshot.cn/v1',
+        api: 'openai-completions',
+        apiKeyEnv: 'CCLAWD_DEFAULT_AI_API_KEY',
+        headers: undefined,
+      },
+    );
+    expect(mocks.setOpenClawDefaultModelReference).not.toHaveBeenCalled();
+    expect(mocks.setOpenClawDefaultModel).not.toHaveBeenCalled();
+    expect(mocks.syncProviderConfigToOpenClaw).not.toHaveBeenCalled();
+    expect(gateway.debouncedReload).toHaveBeenCalledTimes(1);
+    expect(gateway.debouncedRestart).not.toHaveBeenCalled();
+  });
+
+  it('falls back to the managed model reference when Cclawd Default has no local config', async () => {
+    mocks.getProvider.mockResolvedValue(createProvider({
+      id: 'cclawd-default',
+      name: 'Cclawd Default',
+      type: 'cclawd-default' as ProviderConfig['type'],
+      model: 'cclawd-auto',
+    }));
+    const gateway = createGateway('running');
+
+    await syncDefaultProviderToRuntime('cclawd-default', gateway as GatewayManager);
+
+    expect(mocks.setOpenClawDefaultModelReference).toHaveBeenCalledWith('cclawd-default/cclawd-auto');
+    expect(mocks.setOpenClawDefaultModelWithOverride).not.toHaveBeenCalled();
+    expect(mocks.saveProviderKeyToOpenClaw).not.toHaveBeenCalled();
+    expect(gateway.debouncedReload).toHaveBeenCalledTimes(1);
   });
 });

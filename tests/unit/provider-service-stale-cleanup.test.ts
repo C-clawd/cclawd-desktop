@@ -9,6 +9,10 @@ const mocks = vi.hoisted(() => ({
   getOpenClawProvidersConfig: vi.fn(),
   getOpenClawProviderKeyForType: vi.fn(),
   getAliasSourceTypes: vi.fn(),
+  createManagedDefaultProviderAccount: vi.fn(),
+  ensureUsableDefaultProvider: vi.fn(),
+  isManagedDefaultModelRef: vi.fn(),
+  resolveLocalDefaultProviderConfig: vi.fn(),
   loggerWarn: vi.fn(),
   loggerInfo: vi.fn(),
 }));
@@ -31,6 +35,17 @@ vi.mock('@electron/services/providers/provider-store', () => ({
 vi.mock('@electron/utils/openclaw-auth', () => ({
   getActiveOpenClawProviders: mocks.getActiveOpenClawProviders,
   getOpenClawProvidersConfig: mocks.getOpenClawProvidersConfig,
+}));
+
+vi.mock('@electron/services/providers/managed-default-provider', () => ({
+  MANAGED_DEFAULT_PROVIDER_ID: 'cclawd-default',
+  createManagedDefaultProviderAccount: mocks.createManagedDefaultProviderAccount,
+  ensureUsableDefaultProvider: mocks.ensureUsableDefaultProvider,
+  isManagedDefaultModelRef: mocks.isManagedDefaultModelRef,
+}));
+
+vi.mock('@electron/services/providers/local-default-provider-config', () => ({
+  resolveLocalDefaultProviderConfig: mocks.resolveLocalDefaultProviderConfig,
 }));
 
 vi.mock('@electron/utils/provider-keys', () => ({
@@ -99,6 +114,22 @@ describe('ProviderService.listAccounts (openclaw.json as sole source of truth)',
     mocks.getAliasSourceTypes.mockReturnValue([]);
     mocks.getOpenClawProvidersConfig.mockResolvedValue({ providers: {}, defaultModel: undefined });
     mocks.listProviderAccounts.mockResolvedValue([]);
+    mocks.ensureUsableDefaultProvider.mockResolvedValue({
+      status: 'managed-provider-ready',
+      accountId: 'cclawd-default',
+      modelRef: 'cclawd-default/cclawd-auto',
+    });
+    mocks.createManagedDefaultProviderAccount.mockReturnValue(makeAccount({
+      id: 'cclawd-default',
+      vendorId: 'cclawd-default' as ProviderAccount['vendorId'],
+      label: 'Cclawd Default',
+      authMode: 'managed' as ProviderAccount['authMode'],
+      model: 'cclawd-auto',
+      isDefault: true,
+      metadata: { origin: 'system', readonly: true },
+    }));
+    mocks.isManagedDefaultModelRef.mockImplementation((modelRef?: string) => modelRef?.startsWith('cclawd-default/') ?? false);
+    mocks.resolveLocalDefaultProviderConfig.mockResolvedValue(null);
     service = new ProviderService();
   });
 
@@ -287,5 +318,30 @@ describe('ProviderService.listAccounts (openclaw.json as sole source of truth)',
     const ids = result.map((a: ProviderAccount) => a.id);
     expect(ids).toContain('openrouter-uuid');
     expect(ids).toContain('minimax-portal-cn-uuid');
+  });
+
+  it('lists the managed default account when the default model references it', async () => {
+    mocks.listProviderAccounts.mockResolvedValue([]);
+    mocks.getActiveOpenClawProviders.mockResolvedValue(new Set(['cclawd-default']));
+    mocks.getOpenClawProvidersConfig.mockResolvedValue({
+      providers: {},
+      defaultModel: 'cclawd-default/cclawd-auto',
+    });
+
+    const result = await service.listAccounts();
+
+    expect(mocks.saveProviderAccount).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'cclawd-default',
+        authMode: 'managed',
+        metadata: { origin: 'system', readonly: true },
+      }),
+    );
+    expect(result).toHaveLength(1);
+    expect(result[0]).toEqual(expect.objectContaining({
+      id: 'cclawd-default',
+      authMode: 'managed',
+      model: 'cclawd-auto',
+    }));
   });
 });

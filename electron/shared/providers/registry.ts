@@ -7,6 +7,19 @@ import type {
 
 export const PROVIDER_DEFINITIONS: ProviderDefinition[] = [
   {
+    id: 'cclawd-default',
+    name: 'Cclawd Default',
+    icon: 'C',
+    placeholder: 'Managed by Cclawd',
+    model: 'Managed',
+    requiresApiKey: false,
+    defaultModelId: 'cclawd-auto',
+    category: 'managed',
+    supportedAuthModes: ['managed'],
+    defaultAuthMode: 'managed',
+    supportsMultipleAccounts: false,
+  },
+  {
     id: 'anthropic',
     name: 'Anthropic',
     icon: '🤖',

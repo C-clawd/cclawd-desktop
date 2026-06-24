@@ -19,6 +19,10 @@ export interface ProviderListItem {
   status?: ProviderWithKeyInfo;
 }
 
+function asArray<T>(value: T[] | unknown): T[] {
+  return Array.isArray(value) ? value : [];
+}
+
 export async function fetchProviderSnapshot(): Promise<ProviderSnapshot> {
   const [accounts, statuses, vendors, defaultInfo] = await Promise.all([
     hostApiFetch<ProviderAccount[]>('/api/provider-accounts'),
@@ -28,9 +32,9 @@ export async function fetchProviderSnapshot(): Promise<ProviderSnapshot> {
   ]);
 
   return {
-    accounts,
-    statuses,
-    vendors,
+    accounts: asArray<ProviderAccount>(accounts),
+    statuses: asArray<ProviderWithKeyInfo>(statuses),
+    vendors: asArray<ProviderVendorInfo>(vendors),
     defaultAccountId: defaultInfo.accountId,
   };
 }
@@ -39,7 +43,15 @@ export function hasConfiguredCredentials(
   account: ProviderAccount,
   status?: ProviderWithKeyInfo,
 ): boolean {
-  if (account.authMode === 'oauth_device' || account.authMode === 'oauth_browser' || account.authMode === 'local') {
+  if (account.authMode === 'managed') {
+    return account.enabled || (status?.hasKey ?? false);
+  }
+
+  if (
+    account.authMode === 'oauth_device'
+    || account.authMode === 'oauth_browser'
+    || account.authMode === 'local'
+  ) {
     return true;
   }
   return status?.hasKey ?? false;
@@ -98,9 +110,9 @@ export function buildProviderListItems(
   vendors: ProviderVendorInfo[],
   defaultAccountId: string | null,
 ): ProviderListItem[] {
-  const safeAccounts = accounts ?? [];
-  const safeStatuses = statuses ?? [];
-  const safeVendors = vendors ?? [];
+  const safeAccounts = asArray<ProviderAccount>(accounts);
+  const safeStatuses = asArray<ProviderWithKeyInfo>(statuses);
+  const safeVendors = asArray<ProviderVendorInfo>(vendors);
   const vendorMap = new Map(safeVendors.map((vendor) => [vendor.id, vendor]));
   const statusMap = new Map(safeStatuses.map((status) => [status.id, status]));
 

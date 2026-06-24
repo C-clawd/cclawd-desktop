@@ -7,6 +7,7 @@
  */
 
 export const PROVIDER_TYPES = [
+  'cclawd-default',
   'anthropic',
   'openai',
   'google',
@@ -23,6 +24,7 @@ export const PROVIDER_TYPES = [
 export type ProviderType = (typeof PROVIDER_TYPES)[number];
 
 export const BUILTIN_PROVIDER_TYPES = [
+  'cclawd-default',
   'anthropic',
   'openai',
   'google',
@@ -82,12 +84,14 @@ export interface ProviderTypeInfo {
 }
 
 export type ProviderAuthMode =
+  | 'managed'
   | 'api_key'
   | 'oauth_device'
   | 'oauth_browser'
   | 'local';
 
 export type ProviderVendorCategory =
+  | 'managed'
   | 'official'
   | 'compatible'
   | 'local'
@@ -115,6 +119,8 @@ export interface ProviderAccount {
   enabled: boolean;
   isDefault: boolean;
   metadata?: {
+    origin?: 'system' | 'user';
+    readonly?: boolean;
     region?: string;
     email?: string;
     resourceUrl?: string;
@@ -128,6 +134,15 @@ import { providerIcons } from '@/assets/providers';
 
 /** All supported provider types with UI metadata */
 export const PROVIDER_TYPE_INFO: ProviderTypeInfo[] = [
+  {
+    id: 'cclawd-default',
+    name: 'Cclawd Default',
+    icon: 'C',
+    placeholder: 'Managed by Cclawd',
+    model: 'Managed',
+    requiresApiKey: false,
+    defaultModelId: 'cclawd-auto',
+  },
   {
     id: 'anthropic',
     name: 'Anthropic',
@@ -193,7 +208,7 @@ export function shouldInvertInDark(_type: ProviderType | string): boolean {
 }
 
 /** Provider list shown in the Setup wizard */
-export const SETUP_PROVIDERS = PROVIDER_TYPE_INFO;
+export const SETUP_PROVIDERS = PROVIDER_TYPE_INFO.filter((provider) => provider.id !== 'cclawd-default');
 
 /** Get type info by provider type id */
 export function getProviderTypeInfo(type: ProviderType): ProviderTypeInfo | undefined {

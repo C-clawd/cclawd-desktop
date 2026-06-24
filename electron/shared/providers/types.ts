@@ -1,4 +1,5 @@
 export const PROVIDER_TYPES = [
+  'cclawd-default',
   'anthropic',
   'openai',
   'google',
@@ -14,6 +15,7 @@ export const PROVIDER_TYPES = [
 ] as const;
 
 export const BUILTIN_PROVIDER_TYPES = [
+  'cclawd-default',
   'anthropic',
   'openai',
   'google',
@@ -38,12 +40,14 @@ export type ProviderProtocol =
   | 'anthropic-messages';
 
 export type ProviderAuthMode =
+  | 'managed'
   | 'api_key'
   | 'oauth_device'
   | 'oauth_browser'
   | 'local';
 
 export type ProviderVendorCategory =
+  | 'managed'
   | 'official'
   | 'compatible'
   | 'local'
@@ -126,6 +130,8 @@ export interface ProviderAccount {
   enabled: boolean;
   isDefault: boolean;
   metadata?: {
+    origin?: 'system' | 'user';
+    readonly?: boolean;
     region?: string;
     email?: string;
     resourceUrl?: string;

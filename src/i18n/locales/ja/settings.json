@@ -23,6 +23,7 @@
       "singletonVendor": "単一アカウントのプロバイダー"
     },
     "authModes": {
+      "managed": "管理対象",
       "apiKey": "API キー",
       "oauthDevice": "OAuth デバイス",
       "oauthBrowser": "OAuth ブラウザ",

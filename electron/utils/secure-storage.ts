@@ -24,6 +24,7 @@ import {
   setProviderSecret,
 } from '../services/secrets/secret-store';
 import { getOpenClawProviderKeyForType } from './provider-keys';
+import { MANAGED_DEFAULT_PROVIDER_ID } from '../services/providers/managed-default-provider';
 
 /**
  * Provider configuration
@@ -192,7 +193,7 @@ function selectReplacementDefaultProvider(
   deletedProviderId: string,
 ): ProviderConfig | undefined {
   return Object.values(providers)
-    .filter((provider) => provider.id !== deletedProviderId)
+    .filter((provider) => provider.id !== deletedProviderId && provider.id !== MANAGED_DEFAULT_PROVIDER_ID)
     .sort((left, right) => {
       if (left.enabled !== right.enabled) {
         return left.enabled ? -1 : 1;

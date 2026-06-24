@@ -23,6 +23,7 @@
       "singletonVendor": "Single-account vendor"
     },
     "authModes": {
+      "managed": "Managed",
       "apiKey": "API Key",
       "oauthDevice": "OAuth Device",
       "oauthBrowser": "OAuth Browser",

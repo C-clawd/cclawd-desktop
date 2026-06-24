@@ -13,8 +13,8 @@
             "description": "Install recommended skills for your daily work"
         },
         "provider": {
-            "title": "AI Provider",
-            "description": "Configure your AI service"
+            "title": "AI Model",
+            "description": "Confirm a usable model or add your own provider"
         },
         "realPerson": {
             "title": "Real-Person Verification",
@@ -91,6 +91,9 @@
         "validateSave": "Validate & Save",
         "valid": "Provider configured successfully",
         "invalid": "Invalid API key",
+        "usableChecking": "Checking model availability...",
+        "usableReady": "{{provider}} is ready",
+        "usableDesc": "You can continue with the managed default model, or configure your own provider for private billing and custom routing.",
         "storedLocally": "Your API key is stored locally on your machine."
     },
     "role": {

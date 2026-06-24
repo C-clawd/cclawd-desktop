@@ -23,6 +23,7 @@
       "singletonVendor": "单例提供商"
     },
     "authModes": {
+      "managed": "托管",
       "apiKey": "API 密钥",
       "oauthDevice": "OAuth 设备登录",
       "oauthBrowser": "OAuth 浏览器登录",

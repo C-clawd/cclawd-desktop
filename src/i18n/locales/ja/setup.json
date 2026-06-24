@@ -13,8 +13,8 @@
             "description": "日常業務に合わせた推奨スキルをインストールします"
         },
         "provider": {
-            "title": "AI プロバイダー",
-            "description": "AI サービスを設定します"
+            "title": "AI モデル",
+            "description": "利用可能なモデルを確認するか、自分のプロバイダーを追加します"
         },
         "realPerson": {
             "title": "本人確認",
@@ -91,6 +91,9 @@
         "validateSave": "検証して保存",
         "valid": "プロバイダーの設定に成功しました",
         "invalid": "無効な API キー",
+        "usableChecking": "利用可能なモデルを確認しています...",
+        "usableReady": "{{provider}} を利用できます",
+        "usableDesc": "管理された既定モデルで続行できます。独自の請求やルーティングが必要な場合は、自分のプロバイダーも設定できます。",
         "storedLocally": "API キーはローカルマシンに保存されます。"
     },
     "role": {

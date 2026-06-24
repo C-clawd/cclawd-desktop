@@ -41,7 +41,7 @@
 
 无论是自动化工作流、连接通讯软件，还是调度智能定时任务，ClawX 都能提供高效易用的图形界面，帮助你充分发挥 AI 智能体的能力。
 
-ClawX 预置了最佳实践的模型供应商配置，原生支持 Windows 平台以及多语言设置。当然，你也可以通过 **设置 → 高级 → 开发者模式** 来进行精细的高级配置。
+ClawX 内置托管默认模型供应商，首次运行即可使用，并原生支持 Windows 平台以及多语言设置。你也可以后续添加自己的 AI 供应商，或通过 **设置 → 高级 → 开发者模式** 进行精细的高级配置。
 
 ---
 
@@ -121,7 +121,8 @@ Skills 页面可展示来自多个 OpenClaw 来源的技能（托管目录、wor
 - `TAVILY_API_KEY`：用于 `tavily-search`（上游运行时也可能支持 OAuth）
 
 ### 🔐 安全的供应商集成
-连接多个 AI 供应商（OpenAI、Anthropic 等），凭证安全存储在系统原生密钥链中。OpenAI 同时支持 API Key 与浏览器 OAuth（Codex 订阅）登录。
+可以直接使用 ClawX 托管默认供应商，也可以连接自己的 AI 供应商（OpenAI、Anthropic 等），自有凭证会安全存储在系统原生密钥链中。OpenAI 同时支持 API Key 与浏览器 OAuth（Codex 订阅）登录。
+当前 MVP 版本会在启动时从现有 OpenClaw provider/auth profile 自动回填默认供应商配置到 `~/.openclaw/.env`（Windows 示例：`C:\Users\asta1\.openclaw\.env`）；如果已经存在 `CCLAWD_DEFAULT_AI_*` 配置，则不会覆盖，必要时仍可手动编辑。
 如果你通过 **自定义（Custom）Provider** 对接 OpenAI-compatible 网关，可以在 **设置 → AI Providers → 编辑 Provider** 中配置自定义 `User-Agent`，以提高兼容性。
 
 ### 🌙 自适应主题
@@ -167,7 +168,7 @@ pnpm dev
 2. **实人认证** – 输入姓名和身份证号，扫码完成认证，并自动将 `MFA_AUTH_API_KEY` 写入 OpenClaw `.env`
 3. **环境检查** – 验证本地运行时和 Gateway 组件
 4. **岗位推荐技能** – 选择通用办公、综合行政、党建宣传、财务审计、法务合规或项目管理等岗位标签，ClawX 会启用基础办公技能并安装对应岗位推荐技能
-5. **AI 供应商** – 通过 API 密钥或 OAuth（支持浏览器/设备登录的供应商）添加账号
+5. **模型可用性** – 使用托管默认供应商，或按需通过 API 密钥/OAuth 添加自己的供应商账号
 6. **验证** – 在进入主界面前测试你的配置
 
 如果系统语言在支持列表中，向导会默认选中该语言；否则回退到英文。

@@ -538,6 +538,49 @@ export async function setOpenClawDefaultModel(
   });
 }
 
+/**
+ * Set the default model reference without writing models.providers.
+ *
+ * Managed providers resolve through runtime-owned adapters. Their upstream
+ * base URL, protocol, and credentials must not be persisted in openclaw.json.
+ */
+export async function setOpenClawDefaultModelReference(
+  model: string,
+  fallbackModels: string[] = []
+): Promise<boolean> {
+  return withConfigLock(async () => {
+    const config = await readOpenClawJson();
+    const agents = (config.agents || {}) as Record<string, unknown>;
+    const defaults = (agents.defaults || {}) as Record<string, unknown>;
+    const currentModel = defaults.model as Record<string, unknown> | string | undefined;
+
+    if (
+      currentModel
+      && typeof currentModel === 'object'
+      && !Array.isArray(currentModel)
+      && currentModel.primary === model
+      && JSON.stringify(currentModel.fallbacks ?? []) === JSON.stringify(fallbackModels)
+    ) {
+      return false;
+    }
+
+    defaults.model = {
+      primary: model,
+      fallbacks: fallbackModels,
+    };
+    agents.defaults = defaults;
+    config.agents = agents;
+
+    const gateway = (config.gateway || {}) as Record<string, unknown>;
+    if (!gateway.mode) gateway.mode = 'local';
+    config.gateway = gateway;
+
+    await writeOpenClawJson(config);
+    console.log(`Set OpenClaw default model reference to "${model}"`);
+    return true;
+  });
+}
+
 interface RuntimeProviderConfigOverride {
   baseUrl?: string;
   api?: string;
@@ -821,6 +864,39 @@ export async function getActiveOpenClawProviders(): Promise<Set<string>> {
   }
 
   return activeProviders;
+}
+
+/**
+ * Get provider IDs that are explicitly configured in openclaw.json, excluding
+ * the default model reference. A bare agents.defaults.model.primary can come
+ * from the template and does not prove usable credentials exist.
+ */
+export async function getExplicitOpenClawProviders(): Promise<Set<string>> {
+  const providers = new Set<string>();
+
+  try {
+    const config = await readOpenClawJson();
+
+    const modelsProviders = (config.models as Record<string, unknown> | undefined)?.providers;
+    if (modelsProviders && typeof modelsProviders === 'object') {
+      for (const key of Object.keys(modelsProviders as Record<string, unknown>)) {
+        providers.add(key);
+      }
+    }
+
+    const plugins = (config.plugins as Record<string, unknown> | undefined)?.entries;
+    if (plugins && typeof plugins === 'object') {
+      for (const [pluginId, meta] of Object.entries(plugins as Record<string, unknown>)) {
+        if (pluginId.endsWith('-auth') && (meta as Record<string, unknown>).enabled) {
+          providers.add(pluginId.replace(/-auth$/, ''));
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('Failed to read openclaw.json for explicit providers:', err);
+  }
+
+  return providers;
 }
 
 /**

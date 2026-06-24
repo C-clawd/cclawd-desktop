@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   PROVIDER_TYPES,
   PROVIDER_TYPE_INFO,
+  SETUP_PROVIDERS,
   getProviderDocsUrl,
   resolveProviderApiKeyForSave,
   resolveProviderModelForSave,
@@ -10,6 +11,7 @@ import {
 import {
   BUILTIN_PROVIDER_TYPES,
   getProviderConfig,
+  getProviderDefaultModel,
   getProviderEnvVar,
   getProviderEnvVars,
 } from '@electron/utils/provider-registry';
@@ -43,6 +45,27 @@ describe('provider metadata', () => {
       api: 'openai-completions',
       apiKeyEnv: 'ARK_API_KEY',
     });
+  });
+
+  it('exposes Cclawd Default as a managed provider without local credentials', () => {
+    expect(PROVIDER_TYPES).toContain('cclawd-default');
+    expect(BUILTIN_PROVIDER_TYPES).toContain('cclawd-default');
+
+    expect(PROVIDER_TYPE_INFO).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: 'cclawd-default',
+          name: 'Cclawd Default',
+          requiresApiKey: false,
+          defaultModelId: 'cclawd-auto',
+        }),
+      ])
+    );
+    expect(SETUP_PROVIDERS.map((provider) => provider.id)).not.toContain('cclawd-default');
+    expect(getProviderDefaultModel('cclawd-default')).toBe('cclawd-auto');
+    expect(getProviderEnvVar('cclawd-default')).toBeUndefined();
+    expect(getProviderEnvVars('cclawd-default')).toEqual([]);
+    expect(getProviderConfig('cclawd-default')).toBeUndefined();
   });
 
   it('uses a single canonical env key for moonshot provider', () => {

@@ -32,6 +32,16 @@ import { getActiveOpenClawProviders, getOpenClawProvidersConfig } from '../../ut
 import { getAliasSourceTypes, getOpenClawProviderKeyForType } from '../../utils/provider-keys';
 import type { ProviderWithKeyInfo } from '../../shared/providers/types';
 import { logger } from '../../utils/logger';
+import {
+  MANAGED_DEFAULT_PROVIDER_ID,
+  createManagedDefaultProviderAccount,
+  ensureUsableDefaultProvider,
+  isManagedDefaultModelRef,
+} from './managed-default-provider';
+import {
+  type LocalDefaultProviderConfig,
+  resolveLocalDefaultProviderConfig,
+} from './local-default-provider-config';
 
 function maskApiKey(apiKey: string | null): string | null {
   if (!apiKey) return null;
@@ -60,6 +70,7 @@ export class ProviderService {
 
   async listAccounts(): Promise<ProviderAccount[]> {
     await ensureProviderStoreMigrated();
+    await ensureUsableDefaultProvider({ reason: 'list-accounts' });
 
     // ── openclaw.json is the ONLY source of truth ──
     // The provider list is derived entirely from openclaw.json.
@@ -71,6 +82,7 @@ export class ProviderService {
     if (activeProviders.size === 0) {
       return [];
     }
+    const localDefaultProviderConfig = await resolveLocalDefaultProviderConfig();
 
     // Read store accounts as a lookup cache (NOT as the source of what to display).
     const allStoreAccounts = await listProviderAccounts();
@@ -114,6 +126,17 @@ export class ProviderService {
           }
         }
       } else {
+        if (key === MANAGED_DEFAULT_PROVIDER_ID) {
+          const managedAccount = createManagedDefaultProviderAccount(
+            undefined,
+            localDefaultProviderConfig,
+          );
+          await saveProviderAccount(managedAccount);
+          result.push(managedAccount);
+          logger.info('[provider-sync] Seeded managed default provider account');
+          continue;
+        }
+
         // No store account for this key — create a seed from openclaw.json.
         const entry = openClawProviders[key];
         if (entry) {
@@ -122,6 +145,7 @@ export class ProviderService {
             new Set(),
             new Set(),
             defaultModel,
+            localDefaultProviderConfig,
           );
           for (const account of seeded) {
             await saveProviderAccount(account);
@@ -146,6 +170,7 @@ export class ProviderService {
     existingIds: Set<string>,
     existingVendorIds: Set<string>,
     defaultModel: string | undefined,
+    managedDefaultConfig: LocalDefaultProviderConfig | null = null,
   ): ProviderAccount[] {
     const defaultModelProvider = defaultModel?.includes('/')
       ? defaultModel.split('/')[0]
@@ -200,6 +225,15 @@ export class ProviderService {
       };
 
       built.push(account);
+    }
+
+    if (
+      defaultModel
+      && isManagedDefaultModelRef(defaultModel)
+      && !existingIds.has(MANAGED_DEFAULT_PROVIDER_ID)
+      && !built.some((account) => account.id === MANAGED_DEFAULT_PROVIDER_ID)
+    ) {
+      built.push(createManagedDefaultProviderAccount(undefined, managedDefaultConfig));
     }
 
     return built;

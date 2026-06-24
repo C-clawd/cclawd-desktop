@@ -10,10 +10,16 @@ import {
   saveProviderKeyToOpenClaw,
   setOpenClawDefaultModel,
   setOpenClawDefaultModelWithOverride,
+  setOpenClawDefaultModelReference,
   syncProviderConfigToOpenClaw,
   updateAgentModelProvider,
 } from '../../utils/openclaw-auth';
 import { logger } from '../../utils/logger';
+import {
+  MANAGED_DEFAULT_MODEL_REF,
+  MANAGED_DEFAULT_PROVIDER_ID,
+} from './managed-default-provider';
+import { resolveLocalDefaultProviderConfig } from './local-default-provider-config';
 
 const GOOGLE_OAUTH_RUNTIME_PROVIDER = 'google-gemini-cli';
 const GOOGLE_OAUTH_DEFAULT_MODEL_REF = `${GOOGLE_OAUTH_RUNTIME_PROVIDER}/gemini-3-pro-preview`;
@@ -196,6 +202,10 @@ export async function syncAllProviderAuthToRuntime(): Promise<void> {
   const accounts = await listProviderAccounts();
 
   for (const account of accounts) {
+    if (account.authMode === 'managed' || account.vendorId === MANAGED_DEFAULT_PROVIDER_ID) {
+      continue;
+    }
+
     const runtimeProviderKey = await resolveRuntimeProviderKey({
       id: account.id,
       name: account.label,
@@ -272,6 +282,10 @@ async function syncProviderSecretToRuntime(
 }
 
 async function resolveRuntimeSyncContext(config: ProviderConfig): Promise<RuntimeProviderSyncContext | null> {
+  if (config.type === MANAGED_DEFAULT_PROVIDER_ID) {
+    return null;
+  }
+
   const runtimeProviderKey = await resolveRuntimeProviderKey(config);
   const meta = getProviderConfig(config.type);
   const api = config.apiProtocol || (config.type === 'custom' ? 'openai-completions' : meta?.api);
@@ -433,6 +447,40 @@ export async function syncDefaultProviderToRuntime(
 ): Promise<void> {
   const provider = await getProvider(providerId);
   if (!provider) {
+    return;
+  }
+
+  if (provider.type === MANAGED_DEFAULT_PROVIDER_ID || provider.id === MANAGED_DEFAULT_PROVIDER_ID) {
+    const localConfig = await resolveLocalDefaultProviderConfig();
+    if (!localConfig) {
+      await setOpenClawDefaultModelReference(MANAGED_DEFAULT_MODEL_REF);
+      scheduleGatewayRefresh(
+        gatewayManager,
+        `Scheduling Gateway reload after provider switch to "${MANAGED_DEFAULT_PROVIDER_ID}"`,
+        { onlyIfRunning: true },
+      );
+      return;
+    }
+
+    const modelRef = localConfig.model.startsWith(`${MANAGED_DEFAULT_PROVIDER_ID}/`)
+      ? localConfig.model
+      : `${MANAGED_DEFAULT_PROVIDER_ID}/${localConfig.model}`;
+    await saveProviderKeyToOpenClaw(MANAGED_DEFAULT_PROVIDER_ID, localConfig.apiKey);
+    await setOpenClawDefaultModelWithOverride(
+      MANAGED_DEFAULT_PROVIDER_ID,
+      modelRef,
+      {
+        baseUrl: localConfig.baseUrl,
+        api: localConfig.api,
+        apiKeyEnv: localConfig.apiKeyEnv,
+        headers: localConfig.headers,
+      },
+    );
+    scheduleGatewayRefresh(
+      gatewayManager,
+      `Scheduling Gateway reload after provider switch to "${MANAGED_DEFAULT_PROVIDER_ID}"`,
+      { onlyIfRunning: true },
+    );
     return;
   }
 

@@ -76,6 +76,14 @@ function parseUnifiedProxyResponse<T>(
   }
 
   const data: HostApiProxyData = response.data ?? {};
+  if (data.ok === false || (data.status !== undefined && data.status >= 400)) {
+    const message = data.text
+      || (typeof data.json === 'object' && data.json != null && 'error' in (data.json as Record<string, unknown>)
+        ? String((data.json as Record<string, unknown>).error)
+        : `HTTP ${data.status ?? 'unknown'}`);
+    throw new Error(message);
+  }
+
   trackUiEvent('hostapi.fetch', {
     path,
     method,

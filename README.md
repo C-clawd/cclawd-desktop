@@ -41,7 +41,7 @@
 
 Whether you're automating workflows, managing AI-powered channels, or scheduling intelligent tasks, Cclawd provides the interface you need to harness AI agents effectively.
 
-Cclawd comes pre-configured with best-practice model providers and natively supports Windows as well as multi-language settings. Of course, you can also fine-tune advanced configurations via **Settings → Advanced → Developer Mode**.
+Cclawd includes a managed default model provider for first-run use and natively supports Windows as well as multi-language settings. You can add your own AI providers later, or fine-tune advanced configurations via **Settings → Advanced → Developer Mode**.
 
 ---
 ## Screenshot
@@ -121,7 +121,8 @@ Environment variables for bundled search skills:
 - `find-skills` and `self-improving-agent` do not require API keys
 
 ### 🔐 Secure Provider Integration
-Connect to multiple AI providers (OpenAI, Anthropic, and more) with credentials stored securely in your system's native keychain. OpenAI supports both API key and browser OAuth (Codex subscription) sign-in.
+Start with Cclawd's managed default provider, or connect your own AI providers (OpenAI, Anthropic, and more) with credentials stored securely in your system's native keychain. OpenAI supports both API key and browser OAuth (Codex subscription) sign-in.
+For the current MVP, Cclawd backfills the default provider from the current OpenClaw provider/auth profile into `~/.openclaw/.env` on startup when `CCLAWD_DEFAULT_AI_*` keys are missing; you can still edit those keys manually when needed.
 For **Custom** providers used with OpenAI-compatible gateways, you can set a custom `User-Agent` in **Settings → AI Providers → Edit Provider** for compatibility-sensitive endpoints.
 
 ### 🪪 Periodic Real-Person Verification
@@ -170,7 +171,7 @@ When you launch Cclawd for the first time, the **Setup Wizard** will guide you t
 2. **Real-Person Verification** - Enter your name and ID card number, scan the generated QR code, and let Cclawd save `MFA_AUTH_API_KEY` to OpenClaw `.env` automatically. On first-time setup success, Cclawd also ensures the `cclawd-guard` plugin is enabled in `~/.openclaw/openclaw.json`.
 3. **Environment Check** - Verify the local runtime and Gateway components
 4. **Role-Based Skills** - Choose a work role such as general office, administration, party publicity, finance audit, legal compliance, or project management; Cclawd enables core office skills and installs recommended marketplace skills for that role
-5. **AI Provider** - Add providers with API keys or OAuth (for providers that support browser/device login)
+5. **Model Availability** - Use the managed default provider, or optionally add your own provider with API keys or OAuth
 6. **Verification** - Test your configuration before entering the main interface
 
 The wizard preselects your system language when it is supported, and falls back to English otherwise.

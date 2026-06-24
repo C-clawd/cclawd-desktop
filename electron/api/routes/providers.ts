@@ -22,6 +22,11 @@ import { getProviderService } from '../../services/providers/provider-service';
 import { providerAccountToConfig } from '../../services/providers/provider-store';
 import type { ProviderAccount } from '../../shared/providers/types';
 import { logger } from '../../utils/logger';
+import {
+  MANAGED_DEFAULT_PROVIDER_ID,
+  ensureUsableDefaultProvider,
+  isManagedDefaultProviderId,
+} from '../../services/providers/managed-default-provider';
 
 const legacyProviderRoutesWarned = new Set<string>();
 
@@ -127,6 +132,10 @@ export async function handleProviderRoutes(
     const accountId = decodeURIComponent(url.pathname.slice('/api/provider-accounts/'.length));
     try {
       const existing = await providerService.getAccount(accountId);
+      if (isManagedDefaultProviderId(accountId) || existing?.metadata?.origin === 'system') {
+        sendJson(res, 400, { success: false, error: 'Managed default provider cannot be deleted' });
+        return true;
+      }
       const runtimeProviderKey = existing?.authMode === 'oauth_browser'
         ? (existing.vendorId === 'google'
           ? 'google-gemini-cli'
@@ -159,6 +168,10 @@ export async function handleProviderRoutes(
           await syncDefaultProviderToRuntime(replacementDefault, ctx.gatewayManager);
         }
       }
+      await ensureUsableDefaultProvider({
+        gatewayManager: ctx.gatewayManager,
+        reason: 'delete-provider-account',
+      });
       sendJson(res, 200, { success: true });
     } catch (error) {
       sendJson(res, 500, { success: false, error: String(error) });
@@ -344,6 +357,10 @@ export async function handleProviderRoutes(
     logLegacyProviderRoute('DELETE /api/providers/:id');
     const providerId = decodeURIComponent(url.pathname.slice('/api/providers/'.length));
     try {
+      if (providerId === MANAGED_DEFAULT_PROVIDER_ID) {
+        sendJson(res, 400, { success: false, error: 'Managed default provider cannot be deleted' });
+        return true;
+      }
       const existing = await providerService.getLegacyProvider(providerId);
       if (url.searchParams.get('apiKeyOnly') === '1') {
         await providerService.deleteLegacyProviderApiKey(providerId);
@@ -353,6 +370,10 @@ export async function handleProviderRoutes(
       }
       await providerService.deleteLegacyProvider(providerId);
       await syncDeletedProviderToRuntime(existing, providerId, ctx.gatewayManager);
+      await ensureUsableDefaultProvider({
+        gatewayManager: ctx.gatewayManager,
+        reason: 'delete-legacy-provider',
+      });
       sendJson(res, 200, { success: true });
     } catch (error) {
       sendJson(res, 500, { success: false, error: String(error) });

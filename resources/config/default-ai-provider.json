@@ -1,0 +1,9 @@
+{
+  "enabled": true,
+  "provider": "custom",
+  "model": "glm-5",
+  "baseUrl": "https://api.lkeap.cloud.tencent.com/coding/v3",
+  "api": "openai-completions",
+  "apiKey": "sk-sp-ZgVdy2NGnK0PDtd6Icsar4J687Km8eZwVkQ7DJCZZf2S55st",
+  "apiKeyEnv": "CCLAWD_DEFAULT_AI_API_KEY"
+}
